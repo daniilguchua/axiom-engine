@@ -1,0 +1,47 @@
+# Virtual Environment
+venv/
+*.venv/
+env/
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VS Code
+.vscode/
+
+# IDE specific
+.idea/
+*.swp
+*.swo
+.claude/
+
+# OS files
+.DS_Store
+
+# Test / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Linting / Type checking
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Runtime data
+data/cache/
+*.db
+
+# Backup files
+*.bak
+*.bak2
+*.bak3
+

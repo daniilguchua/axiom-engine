@@ -1,0 +1,781 @@
+/* =========================================
+   AXIOM ENGINE — Graph Styles
+   Mermaid visualization, graph frame, controls
+   CRITICAL: Contains "Perfect Fit" alignment CSS
+   ========================================= */
+
+/* =========================================
+   GRAPH SIZING & RESPONSIVE PADDING VARIABLES
+   ========================================= */
+:root {
+    /* Response/mobile-first defaults */
+    --graph-side-padding: 16px;
+    --graph-min-height: 550px;
+    --graph-max-height: 85vh;
+    --graph-top-margin: 16px;
+    --graph-bottom-margin: 16px;
+    --graph-internal-padding: 12px;
+}
+
+/* Tablet and up */
+@media (min-width: 768px) {
+    :root {
+        --graph-side-padding: 24px;
+        --graph-top-margin: 18px;
+        --graph-bottom-margin: 18px;
+    }
+}
+
+/* Desktop and up */
+@media (min-width: 1024px) {
+    :root {
+        --graph-side-padding: 32px;
+        --graph-top-margin: 20px;
+        --graph-bottom-margin: 20px;
+    }
+}
+
+/* =========================================
+   1. SIMULATION CONTROLS
+   ========================================= */
+.simulation-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
+}
+
+.simulation-header {
+    padding: 24px 28px;
+    background: linear-gradient(135deg, var(--accent-muted) 0%, transparent 100%);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.simulation-data {
+    margin-top: 12px;
+    display: block;
+    width: 100%;
+}
+
+/* === CONTROLS === */
+.sim-controls {
+    position: relative !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    z-index: 10;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 24px !important;
+    margin-bottom: 28px !important;
+    padding: 6px 8px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 100px;
+    box-shadow: var(--shadow-md);
+}
+
+.btn-sim {
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    border-radius: 100px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-sim:hover:not(:disabled) {
+    background: var(--accent-muted);
+    color: var(--accent);
+}
+
+.btn-sim:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-sim.reset-btn:hover {
+    background: var(--warning-muted);
+    color: var(--warning);
+}
+
+/* =========================================
+   2. CINEMATIC GRAPH FRAME
+   ========================================= */
+.graph-frame {
+    /* THE BREAKOUT: 115% + responsive side padding */
+    width: calc(120% + (var(--graph-side-padding) * 2)) !important;
+    margin-left: calc(-10% - var(--graph-side-padding)) !important;
+    padding-left: var(--graph-side-padding);
+    padding-right: var(--graph-side-padding);
+    
+    position: relative;
+    background: linear-gradient(180deg, #0f0a1a 0%, #1a0f2e 100%);
+    border: 1px solid var(--border-muted);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    margin-top: var(--graph-top-margin);
+    margin-bottom: var(--graph-bottom-margin);
+    z-index: 100;
+    
+    box-shadow: 
+        0 30px 100px rgba(0, 0, 0, 0.8),
+        0 0 60px rgba(139, 92, 246, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.graph-frame::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 5%;
+    right: 5%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+    z-index: 1;
+}
+
+/* CRITICAL: "Perfect Fit" alignment container - works with JS */
+.mermaid-wrapper {
+    width: 100% !important;
+    height: clamp(var(--graph-min-height), 70vh, var(--graph-max-height)) !important;
+    position: relative;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    margin-top: 0 !important;
+    padding: var(--graph-internal-padding);
+    box-sizing: border-box;
+    cursor: grab;
+    /* Removed flex centering - JS handles positioning */
+}
+
+.mermaid-wrapper:active {
+    cursor: grabbing;
+}
+
+/* CRITICAL: Mermaid content container - used by JS alignment */
+.mermaid {
+    width: 100%;
+    height: 100%;
+    overflow: visible !important;
+    transform-origin: 0 0;
+    /* Removed flex centering - JS handles positioning */
+}
+
+/* CRITICAL: SVG element - used by JS for dimension detection */
+.mermaid svg {
+    /* Change 1: Remove max constraints so JS can scale it up if needed */
+    max-width: none !important; 
+    max-height: none !important;
+    
+    /* Change 2: Force width to auto so we measure the GRAPH, not the empty container */
+    width: auto !important; 
+    height: auto !important;
+    
+    /* Change 3: RESET MARGINS. This stops the double-centering bug */
+    margin: 0 !important; 
+    
+    display: block !important;
+    overflow: visible !important;
+}
+
+/* === HUD OVERLAY === */
+.hud-overlay {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.hud-text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-disabled);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    background: rgba(18, 18, 26, 0.95);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    backdrop-filter: blur(10px);
+}
+
+.graph-toggle-btn {
+    pointer-events: auto;
+    padding: 8px 14px;
+    background: rgba(18, 18, 26, 0.95);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+}
+
+.graph-toggle-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* === FEEDBACK DOCK === */
+.feedback-dock {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    gap: 6px;
+    z-index: 200;
+    padding: 6px;
+    background: rgba(18, 18, 26, 0.95);
+    border: 1px solid var(--border-subtle);
+    border-radius: 100px;
+    backdrop-filter: blur(10px);
+}
+
+/* === GRAPH DATA OVERLAY (Right-side panel) === */
+.graph-data-overlay {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 260px;
+    background: rgba(8, 8, 12, 0.92);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+    border-radius: 8px;
+    backdrop-filter: blur(12px);
+    z-index: 180;
+    transition: width 0.4s ease-in-out, height 0.4s ease-in-out, border-radius 0.4s ease-in-out, padding 0.4s ease-in-out;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    max-height: 600px;
+    overflow: hidden;
+}
+
+.graph-data-overlay.collapsed {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    padding: 0;
+}
+
+.graph-data-overlay.collapsed .overlay-content {
+    display: none;
+    max-height: 0;
+    opacity: 0;
+    padding: 0;
+}
+
+.graph-data-overlay.collapsed .overlay-header {
+    justify-content: center;
+    padding: 0;
+    height: 40px;
+    border: none;
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(52, 211, 153, 0.08));
+}
+
+.graph-data-overlay.collapsed .overlay-title {
+    display: none;
+}
+
+.overlay-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(52, 211, 153, 0.2);
+    cursor: move;
+    user-select: none;
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(52, 211, 153, 0.04));
+    transition: padding 0.4s ease-in-out, justify-content 0.4s ease-in-out, border 0.4s ease-in-out, height 0.4s ease-in-out;
+}
+
+.graph-data-overlay.collapsed .overlay-header {
+    border-bottom: none;
+}
+
+.overlay-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--graph-data);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.overlay-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--graph-data);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.4s ease-in-out;
+    flex-shrink: 0;
+}
+
+.overlay-toggle-btn.collapsed {
+    transform: rotate(180deg);
+}
+
+.overlay-content {
+    padding: 12px;
+    font-size: 0.8rem;
+    color: #CBD5E1;
+    overflow-y: auto;
+    max-height: 500px;
+    font-family: var(--font-mono);
+    transition: opacity 0.4s ease-in-out, max-height 0.4s ease-in-out;
+    opacity: 1;
+}
+
+.overlay-content h4 {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--graph-data);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 8px 0 4px 0;
+    padding: 0;
+}
+
+.overlay-content h4:first-child {
+    margin-top: 0;
+}
+
+.overlay-content p {
+    font-size: 0.75rem;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+    color: #E2E8F0;
+}
+
+.overlay-content b {
+    color: var(--graph-data);
+    font-weight: 600;
+}
+
+/* Scrollbar styling for overlay content */
+.overlay-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.overlay-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.overlay-content::-webkit-scrollbar-thumb {
+    background: rgba(52, 211, 153, 0.3);
+    border-radius: 3px;
+}
+
+.overlay-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(52, 211, 153, 0.5);
+}
+
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    transform: scale(1.15);
+}
+
+/* =========================================
+   3. MERMAID GRAPH — HIGH VISIBILITY THEME
+   ========================================= */
+
+/* === BASE NODE STYLING === */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node polygon,
+.mermaid .node path {
+    fill: var(--bg-elevated) !important;
+    stroke: var(--graph-neutral) !important;
+    stroke-width: 2px !important;
+}
+
+.mermaid .nodeLabel,
+.mermaid .label,
+g.node foreignObject div {
+    color: var(--text-primary) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
+
+/* === EDGES === */
+.edgePath .path {
+    stroke: var(--graph-neutral) !important;
+    stroke-width: 2px !important;
+}
+
+.marker, #arrowhead path {
+    fill: var(--graph-neutral) !important;
+    stroke: var(--graph-neutral) !important;
+}
+
+/* === EDGE LABELS === */
+.edgeLabel {
+    background: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    font-family: var(--font-mono) !important;
+    font-weight: 600 !important;
+    border: 1px solid var(--border-subtle) !important;
+}
+
+.edgeLabel div, .edgeLabel span {
+    background: transparent !important;
+}
+
+/* === CLUSTERS/SUBGRAPHS === */
+.mermaid g.cluster rect,
+.mermaid g.subgraph rect {
+    fill: rgba(139, 92, 246, 0.08) !important;
+    stroke: var(--accent) !important;
+    stroke-width: 1.5px !important;
+    stroke-dasharray: 6 4 !important;
+    rx: 12px !important;
+}
+
+.cluster-label, .cluster-title {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    fill: var(--accent) !important;
+    font-family: var(--font-header) !important;
+    padding-right: 12px !important;
+}
+
+/* Fix subgraph header text cutoff */
+.mermaid g.cluster text,
+.mermaid .cluster-label text,
+.mermaid .subgraph text,
+.mermaid g.cluster .nodeLabel {
+    text-anchor: start !important;
+    dominant-baseline: middle !important;
+}
+
+/* Ensure cluster/subgraph boxes have room for text */
+.mermaid g.cluster rect,
+.mermaid .cluster rect {
+    padding: 10px !important;
+}
+
+/* === CLASS-BASED NODE COLORS (Semantic!) === */
+
+/* ACTIVE - Bright violet, glowing */
+.mermaid .node.active rect,
+.mermaid .node.active circle,
+.mermaid .node.active polygon {
+    fill: var(--accent-muted) !important;
+    stroke: var(--graph-active) !important;
+    stroke-width: 3px !important;
+    filter: drop-shadow(0 0 12px var(--accent-glow));
+}
+
+/* DATA - Emerald green */
+.mermaid .node.data rect,
+.mermaid .node.data circle {
+    fill: rgba(52, 211, 153, 0.15) !important;
+    stroke: var(--graph-data) !important;
+    stroke-width: 2px !important;
+}
+
+/* PROCESS - Sky blue */
+.mermaid .node.process rect,
+.mermaid .node.process circle {
+    fill: rgba(96, 165, 250, 0.15) !important;
+    stroke: var(--graph-process) !important;
+    stroke-width: 2px !important;
+}
+
+/* ALERT - Coral red */
+.mermaid .node.alert rect,
+.mermaid .node.alert circle {
+    fill: rgba(248, 113, 113, 0.15) !important;
+    stroke: var(--graph-alert) !important;
+    stroke-width: 2px !important;
+}
+
+/* MEMORY - Amber */
+.mermaid .node.memory rect,
+.mermaid .node.memory circle {
+    fill: rgba(251, 191, 36, 0.15) !important;
+    stroke: var(--graph-memory) !important;
+    stroke-width: 2px !important;
+}
+
+/* IO - Pink */
+.mermaid .node.io rect,
+.mermaid .node.io circle {
+    fill: rgba(244, 114, 182, 0.15) !important;
+    stroke: var(--graph-io) !important;
+    stroke-width: 2px !important;
+}
+
+/* === HOVER STATES === */
+.mermaid .node:hover rect,
+.mermaid .node:hover circle,
+.mermaid .node:hover polygon {
+    stroke: var(--text-primary) !important;
+    stroke-width: 2.5px !important;
+    cursor: pointer;
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.2));
+}
+
+/* === PHYSICS NODES === */
+g.node {
+    transform-origin: center center;
+    transform-box: fill-box;
+    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+g.node.physics-ready:hover {
+    transform: translate(var(--d3-x), var(--d3-y)) scale(1.5) !important;
+    filter: drop-shadow(0 0 25px rgba(0,0,0,0.9)) drop-shadow(0 0 15px var(--accent));
+    cursor: pointer;
+    z-index: 10000;
+}
+
+g.node:hover span,
+g.node:hover .nodeLabel {
+    color: var(--text-primary) !important;
+    font-weight: 700 !important;
+}
+
+/* =========================================
+   4. BLUEPRINT MODE (Light Theme)
+   ========================================= */
+.mermaid-wrapper.light-mode,
+.graph-frame.light-mode {
+    background: #F8FAFC !important;
+    border-color: #E2E8F0 !important;
+}
+
+.mermaid-wrapper.light-mode .mermaid .node rect,
+.mermaid-wrapper.light-mode .mermaid .node circle {
+    fill: #FFFFFF !important;
+    stroke: #475569 !important;
+}
+
+.mermaid-wrapper.light-mode .nodeLabel,
+.mermaid-wrapper.light-mode .label {
+    color: #1E293B !important;
+}
+
+.mermaid-wrapper.light-mode .edgePath .path {
+    stroke: #64748B !important;
+}
+
+.mermaid-wrapper.light-mode .edgeLabel {
+    background: #FFFFFF !important;
+    color: #334155 !important;
+    border-color: #E2E8F0 !important;
+}
+
+/* =========================================
+   5. MERMAID CLEANUP (Remove Debug Elements)
+   ========================================= */
+.mermaid .grid,
+.mermaid .gridPath,
+.mermaid .gridLine,
+.mermaid line.gridLine,
+.mermaid .tick line,
+.mermaid .domain,
+.mermaid .axis line,
+.mermaid .axis path {
+    display: none !important;
+    stroke: none !important;
+    opacity: 0 !important;
+}
+
+/* Remove any debug/measurement overlays */
+.mermaid [class*="ruler"],
+.mermaid [class*="grid"],
+.mermaid [class*="tick"],
+.mermaid [class*="axis"] {
+    display: none !important;
+}
+
+.mermaid marker path,
+.mermaid .marker path,
+.mermaid #arrowhead path,
+.mermaid marker#arrowhead path {
+    fill: var(--graph-neutral, #94A3B8) !important;
+    stroke: none !important;
+}
+
+.mermaid marker {
+    overflow: visible;
+}
+
+.mermaid g.cluster rect,
+.mermaid g.subgraph rect,
+.mermaid .cluster rect {
+    fill: rgba(139, 92, 246, 0.05) !important;
+    stroke: rgba(139, 92, 246, 0.4) !important;
+    stroke-width: 1px !important;
+    stroke-dasharray: 8 4 !important;
+    rx: 12px !important;
+    ry: 12px !important;
+}
+/* =========================================
+   NODE INSPECTION SYSTEM
+   Tooltips, highlights, and interactive feedback
+   ========================================= */
+
+/* Highlight effect when node is clicked/inspected */
+.node-inspecting {
+    animation: node-inspect-pulse 0.6s ease-in-out;
+    filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.9));
+}
+
+@keyframes node-inspect-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.12);
+    }
+}
+
+/* Node inspection tooltip */
+.node-tooltip {
+    position: absolute;
+    background: rgba(20, 20, 30, 0.98);
+    border: 1px solid var(--accent-violet, #a78bfa);
+    border-radius: 8px;
+    padding: 0;
+    max-width: 320px;
+    min-width: 220px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(167, 139, 250, 0.2);
+    z-index: 2000;
+    animation: tooltip-fadein 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    font-size: 13px;
+    line-height: 1.6;
+    backdrop-filter: blur(8px);
+}
+
+@keyframes tooltip-fadein {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(167, 139, 250, 0.2);
+    gap: 8px;
+}
+
+.tooltip-title {
+    font-weight: 600;
+    color: var(--accent-cyan, #00f3ff);
+    font-size: 13px;
+}
+
+.tooltip-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary, #aaa);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.tooltip-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary, #fff);
+}
+
+.tooltip-body {
+    padding: 12px 14px;
+    color: var(--text-primary, #e0e0e0);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.tooltip-loading {
+    text-align: center;
+    padding: 8px;
+    color: var(--accent-cyan, #00f3ff);
+    font-style: italic;
+}
+
+.tooltip-error {
+    color: #ff6b6b;
+    padding: 8px;
+    font-size: 12px;
+}
+
+/* Tooltip content formatting */
+.tooltip-body strong {
+    color: var(--accent-cyan, #00f3ff);
+    font-weight: 600;
+}
+
+.tooltip-body p {
+    margin: 6px 0;
+}
+
+.tooltip-body > *:first-child {
+    margin-top: 0;
+}
+
+.tooltip-body > *:last-child {
+    margin-bottom: 0;
+}

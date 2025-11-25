@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AXIOM Engine — Algorithm Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/AfterimageShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/AfterimagePass.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e8;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #app {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 48px;
+            z-index: 100;
+        }
+
+        .nav-brand {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            color: #fff;
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            padding: 7px 14px;
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: 5px;
+            color: #999;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(139, 92, 246, 0.12);
+            border-color: rgba(139, 92, 246, 0.25);
+        }
+
+        .control-btn.active {
+            background: #8B5CF6;
+            border-color: #8B5CF6;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+        }
+
+        .main {
+            flex: 1;
+            margin-top: 56px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .view {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .split-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding: 60px 48px;
+            gap: 80px;
+        }
+
+        .split-content {
+            flex: 1;
+            max-width: 480px;
+        }
+
+        .split-visual {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .split-title {
+            font-size: 48px;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: -0.025em;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        .split-accent {
+            color: #60A5FA;
+        }
+
+        .split-tagline {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .split-desc {
+            font-size: 16px;
+            color: #a0a0a8;
+            line-height: 1.8;
+            margin-bottom: 32px;
+        }
+
+        .split-ctas {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 13px 26px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8B5CF6, #60A5FA);
+            color: #fff;
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 12px 36px rgba(139, 92, 246, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1.5px solid rgba(139, 92, 246, 0.35);
+            color: #ccc;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: #8B5CF6;
+            color: #fff;
+        }
+
+        /* ========== 3D VISUALS ========== */
+        .visual-box {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            border-radius: 20px;
+            overflow: hidden;
+            background: radial-gradient(120% 120% at 20% 20%, rgba(96, 165, 250, 0.08), rgba(10, 10, 15, 0.25) 45%, rgba(10, 10, 15, 0.92) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.14);
+            box-shadow: 0 30px 80px rgba(6, 6, 12, 0.7), inset 0 0 40px rgba(139, 92, 246, 0.05);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        @media (max-width: 1024px) {
+            .split-container {
+                flex-direction: column;
+                padding: 50px 40px;
+                gap: 40px;
+            }
+
+            .split-content {
+                max-width: 100%;
+            }
+
+            .visual-box {
+                width: 300px;
+                height: 300px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                padding: 0 24px;
+            }
+
+            .split-container {
+                padding: 40px 20px;
+            }
+
+            .split-title {
+                font-size: 36px;
+            }
+
+            .visual-box {
+                width: 250px;
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <nav>
+            <div class="nav-brand">AXIOM ENGINE</div>
+        </nav>
+
+        <div class="main">
+            <div class="view" id="view-demo">
+                <div class="split-container">
+                    <div class="split-content">
+                        <div class="split-tagline">Algorithm Visualization Engine</div>
+                        <h1 class="split-title">
+                            See Algorithms <span class="split-accent">Execute</span>
+                        </h1>
+                        <p class="split-desc">
+                            Watch sorting, searching, and graph algorithms come alive. Understand performance characteristics, complexity analysis, and execution flow through interactive step-by-step visualization.
+                        </p>
+                        <div class="split-ctas">
+                            <button class="btn btn-primary">Explore Algorithms</button>
+                            <button class="btn btn-secondary">Upload Materials</button>
+                        </div>
+                    </div>
+                    <div class="split-visual">
+                        <div class="visual-box" id="visual-nebula">
+                            <canvas id="nebula-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getCanvasSize(canvas) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                width: Math.max(1, rect.width),
+                height: Math.max(1, rect.height)
+            };
+        }
+
+        function observeResize(target, onResize) {
+            if (typeof ResizeObserver !== 'undefined') {
+                const ro = new ResizeObserver(() => onResize());
+                ro.observe(target);
+                return ro;
+            }
+            window.addEventListener('resize', onResize);
+            return null;
+        }
+        window.nebulaActive = true;
+        
+        // ===== NEBULA (Apple-grade, balanced cinematic) =====
+        function getQualityTier() {
+            const width = window.innerWidth;
+            const isMobile = width <= 768;
+            const isMid = width <= 1200;
+
+            if (isMobile) {
+                return {
+                    particleCount: 3200,
+                    ambientCount: 140,
+                    pixelRatio: 1.5,
+                    bloomStrength: 0.55,
+                    bloomRadius: 0.35,
+                    bloomThreshold: 0.25,
+                    afterimageDamp: 0,
+                    enableLines: false,
+                    drift: 0.22,
+                    mouseStrength: 0.02
+                };
+            }
+
+            if (isMid) {
+                return {
+                    particleCount: 6000,
+                    ambientCount: 200,
+                    pixelRatio: 1.75,
+                    bloomStrength: 0.8,
+                    bloomRadius: 0.45,
+                    bloomThreshold: 0.18,
+                    afterimageDamp: 0.93,
+                    enableLines: true,
+                    drift: 0.28,
+                    mouseStrength: 0.03
+                };
+            }
+
+            return {
+                particleCount: 8200,
+                ambientCount: 260,
+                pixelRatio: 2,
+                bloomStrength: 0.95,
+                bloomRadius: 0.55,
+                bloomThreshold: 0.14,
+                afterimageDamp: 0.94,
+                enableLines: true,
+                drift: 0.32,
+                mouseStrength: 0.035
+            };
+        }
+
+        function initNebula() {
+            window.nebulaInitialized = true;
+            window.nebulaActive = true;
+
+            const canvas = document.getElementById('nebula-canvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
+            const renderer = new THREE.WebGLRenderer({
+                canvas: canvas,
+                alpha: true,
+                antialias: true,
+                powerPreference: "high-performance"
+            });
+
+            const quality = getQualityTier();
+            renderer.setClearColor(0x000000, 0);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio));
+            camera.position.set(0, 2, 10);
+            camera.lookAt(0, 0, 0);
+            scene.fog = new THREE.FogExp2(0x0a0a0f, 0.045);
+
+            // Mouse tracking for subtle response
+            let mouseX = 0;
+            let mouseY = 0;
+            let mouseActive = false;
+            const mouseVector = new THREE.Vector3();
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                mouseX = ((e.clientX - rect.left) / canvas.clientWidth) * 2 - 1;
+                mouseY = -((e.clientY - rect.top) / canvas.clientHeight) * 2 + 1;
+                mouseActive = true;
+
+                mouseVector.set(mouseX, mouseY, 0.5);
+                mouseVector.unproject(camera);
+                mouseVector.sub(camera.position).normalize();
+                const distance = -camera.position.z / mouseVector.z;
+                mouseVector.multiplyScalar(distance).add(camera.position);
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                mouseActive = false;
+            });
+
+            // Postprocessing pipeline
+            const composer = new THREE.EffectComposer(renderer);
+            const renderPass = new THREE.RenderPass(scene, camera);
+            composer.addPass(renderPass);
+
+            const afterimagePass = new THREE.AfterimagePass();
+            if (quality.afterimageDamp > 0) {
+                afterimagePass.uniforms.damp.value = quality.afterimageDamp;
+                composer.addPass(afterimagePass);
+            }
+
+            const bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(1, 1),
+                quality.bloomStrength,
+                quality.bloomRadius,
+                quality.bloomThreshold
+            );
+            composer.addPass(bloomPass);
+
+            const vignetteShader = {
+                uniforms: {
+                    tDiffuse: { value: null },
+                    uOffset: { value: 1.05 },
+                    uDarkness: { value: 1.15 }
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D tDiffuse;
+                    uniform float uOffset;
+                    uniform float uDarkness;
+                    varying vec2 vUv;
+                    void main() {
+                        vec4 color = texture2D(tDiffuse, vUv);
+                        vec2 coord = (vUv - 0.5) * uOffset;
+                        float vignette = smoothstep(0.8, 0.2, dot(coord, coord));
+                        color.rgb *= mix(1.0, vignette, uDarkness - 1.0);
+                        gl_FragColor = color;
+                    }
+                `
+            };
+
+            const vignettePass = new THREE.ShaderPass(vignetteShader);
+            composer.addPass(vignettePass);
+
+            function createSoftGlowTexture() {
+                const size = 64;
+                const c = document.createElement('canvas');
+                c.width = size;
+                c.height = size;
+                const ctx = c.getContext('2d');
+
+                const gradient = ctx.createRadialGradient(
+                    size / 2,
+                    size / 2,
+                    0,
+                    size / 2,
+                    size / 2,
+                    size / 2
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.18)');
+                gradient.addColorStop(0.3, 'rgba(190, 160, 255, 0.1)');
+                gradient.addColorStop(0.6, 'rgba(90, 120, 255, 0.05)');
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+
+                return new THREE.CanvasTexture(c);
+            }
+
+            // Geometry and attributes
+            const particleCount = quality.particleCount;
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+            const phases = new Float32Array(particleCount);
+            const alphas = new Float32Array(particleCount);
+            const seeds = new Float32Array(particleCount);
+
+            for (let i = 0; i < particleCount; i++) {
+                const layer = Math.floor(i / (particleCount / 3));
+                const baseRadius = 3 + layer * 1.4;
+                const radius = baseRadius + (Math.random() - 0.5) * 2.0;
+                const spiralAngle = Math.sqrt(i) * 0.618 * Math.PI;
+                const theta = spiralAngle + (Math.random() - 0.5) * 0.35;
+                const phi = Math.acos(2 * Math.random() - 1);
+
+                positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+                positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                positions[i * 3 + 2] = radius * Math.cos(phi) * 0.6;
+
+                sizes[i] = 2 + Math.pow(Math.random(), 4) * 6;
+                phases[i] = Math.random() * Math.PI * 2;
+                alphas[i] = 0.55 + Math.random() * 0.35;
+                seeds[i] = Math.random();
+            }
+
+            const reusableColor = new THREE.Color();
+            for (let i = 0; i < particleCount; i++) {
+                const t = i / particleCount;
+                let hue;
+                if (t < 0.25) {
+                    hue = 0.8 + t * 0.2;
+                } else if (t < 0.5) {
+                    hue = 0.9 + (t - 0.25) * 0.2;
+                } else if (t < 0.75) {
+                    hue = 0.1 + (t - 0.5) * 0.25;
+                } else {
+                    hue = 0.75 + (t - 0.75) * 0.1;
+                }
+                reusableColor.setHSL(hue % 1, 0.75, 0.55);
+                colors[i * 3] = reusableColor.r;
+                colors[i * 3 + 1] = reusableColor.g;
+                colors[i * 3 + 2] = reusableColor.b;
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+            geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+            geometry.setAttribute('aAlpha', new THREE.BufferAttribute(alphas, 1));
+            geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+
+            const primaryMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: { value: 0 },
+                    uPixelRatio: { value: Math.min(window.devicePixelRatio, quality.pixelRatio) },
+                    uDrift: { value: quality.drift },
+                    uGlow: { value: 1.0 },
+                    uMouse: { value: new THREE.Vector3() },
+                    uMouseStrength: { value: 0.0 }
+                },
+                vertexShader: `
+                    attribute float aSize;
+                    attribute float aPhase;
+                    attribute float aAlpha;
+                    attribute float aSeed;
+                    attribute vec3 color;
+
+                    varying vec3 vColor;
+                    varying float vAlpha;
+                    varying float vSeed;
+
+                    uniform float uTime;
+                    uniform float uPixelRatio;
+                    uniform float uDrift;
+                    uniform vec3 uMouse;
+                    uniform float uMouseStrength;
+
+                    void main() {
+                        vColor = color;
+                        vAlpha = aAlpha;
+                        vSeed = aSeed;
+
+                        vec3 pos = position;
+
+                        float drift = uDrift;
+                        float n1 = sin(uTime * 0.08 + aSeed * 6.283 + pos.y * 0.3);
+                        float n2 = cos(uTime * 0.06 + aSeed * 4.1 + pos.x * 0.25);
+                        float n3 = sin(uTime * 0.05 + aSeed * 5.7 + pos.z * 0.2);
+                        vec3 offset = vec3(n1, n2, n3) * drift;
+
+                        float wave = sin(uTime * 0.2 + length(pos.xy) * 0.7) * drift * 0.35;
+                        pos.z += wave;
+
+                        float mouseDist = length(pos - uMouse);
+                        float mouseInfluence = smoothstep(3.2, 0.0, mouseDist) * uMouseStrength;
+                        vec3 mouseDir = normalize(pos - uMouse + 0.0001);
+                        pos += offset + mouseDir * mouseInfluence;
+
+                        float pulse = 1.0 + sin(uTime * 1.2 + aPhase) * 0.12;
+
+                        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                        gl_PointSize = aSize * pulse * uPixelRatio * (260.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vColor;
+                    varying float vAlpha;
+                    varying float vSeed;
+                    uniform float uTime;
+                    uniform float uGlow;
+
+                    void main() {
+                        vec2 center = gl_PointCoord - 0.5;
+                        float dist = length(center);
+                        if (dist > 0.5) discard;
+
+                        float core = smoothstep(0.12, 0.0, dist);
+                        float mid = smoothstep(0.38, 0.1, dist) * 0.55;
+                        float outer = smoothstep(0.5, 0.22, dist) * 0.25;
+                        float intensity = core + mid + outer;
+
+                        float sparkle = smoothstep(0.985, 1.0, sin(uTime * 0.6 + vSeed * 12.9898) * 0.5 + 0.5);
+                        intensity += sparkle * 0.35;
+
+                        vec3 accent = vec3(0.65, 0.85, 1.0);
+                        float tint = 0.2 + 0.2 * sin(uTime * 0.1 + vSeed * 6.0);
+                        vec3 finalColor = mix(vColor, accent, tint);
+                        finalColor = mix(finalColor, vec3(1.0), sparkle * 0.3);
+
+                        gl_FragColor = vec4(finalColor, intensity * vAlpha * uGlow);
+                    }
+                `,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+
+            const resize = () => {
+                const size = getCanvasSize(canvas);
+                renderer.setSize(size.width, size.height, false);
+                camera.aspect = size.width / size.height;
+                camera.updateProjectionMatrix();
+                composer.setSize(size.width, size.height);
+                primaryMaterial.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, quality.pixelRatio);
+            };
+
+            const nebulaGroup = new THREE.Group();
+            const particles = new THREE.Points(geometry, primaryMaterial);
+            nebulaGroup.add(particles);
+            scene.add(nebulaGroup);
+
+            const bloomMaterial = new THREE.PointsMaterial({
+                size: 12,
+                map: createSoftGlowTexture(),
+                transparent: true,
+                opacity: 0.045,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const bloomParticles = new THREE.Points(geometry, bloomMaterial);
+            nebulaGroup.add(bloomParticles);
+
+            const ambientCount = quality.ambientCount;
+            const ambientPositions = new Float32Array(ambientCount * 3);
+            for (let i = 0; i < ambientCount; i++) {
+                ambientPositions[i * 3] = (Math.random() - 0.5) * 40;
+                ambientPositions[i * 3 + 1] = (Math.random() - 0.5) * 40;
+                ambientPositions[i * 3 + 2] = (Math.random() - 0.5) * 20 - 12;
+            }
+
+            const ambientGeometry = new THREE.BufferGeometry();
+            ambientGeometry.setAttribute('position', new THREE.BufferAttribute(ambientPositions, 3));
+            const ambientMaterial = new THREE.PointsMaterial({
+                size: 1.2,
+                color: 0x525266,
+                transparent: true,
+                opacity: 0.45,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const ambientGroup = new THREE.Group();
+            ambientGroup.add(new THREE.Points(ambientGeometry, ambientMaterial));
+            scene.add(ambientGroup);
+
+            let connectionLines = null;
+            if (quality.enableLines) {
+                const linePositions = [];
+                const lineColors = [];
+                const maxConnections = Math.min(50, Math.floor(particleCount * 0.006));
+                const maxDist = 1.2;
+
+                for (let i = 0; i < maxConnections; i++) {
+                    const idx = Math.floor(Math.random() * particleCount);
+                    const x1 = positions[idx * 3];
+                    const y1 = positions[idx * 3 + 1];
+                    const z1 = positions[idx * 3 + 2];
+
+                    let nearestDist = Infinity;
+                    let nearestIdx = -1;
+
+                    for (let j = 0; j < 70; j++) {
+                        const jdx = Math.floor(Math.random() * particleCount);
+                        if (jdx === idx) continue;
+
+                        const dx = positions[jdx * 3] - x1;
+                        const dy = positions[jdx * 3 + 1] - y1;
+                        const dz = positions[jdx * 3 + 2] - z1;
+                        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                        if (dist < nearestDist && dist < maxDist) {
+                            nearestDist = dist;
+                            nearestIdx = jdx;
+                        }
+                    }
+
+                    if (nearestIdx >= 0) {
+                        linePositions.push(x1, y1, z1);
+                        linePositions.push(
+                            positions[nearestIdx * 3],
+                            positions[nearestIdx * 3 + 1],
+                            positions[nearestIdx * 3 + 2]
+                        );
+
+                        const intensity = 1 - (nearestDist / maxDist);
+                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.12);
+                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.12);
+                    }
+                }
+
+                if (linePositions.length > 0) {
+                    const lineGeometry = new THREE.BufferGeometry();
+                    lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+                    lineGeometry.setAttribute('color', new THREE.Float32BufferAttribute(lineColors, 4));
+
+                    const lineMaterial = new THREE.LineBasicMaterial({
+                        vertexColors: true,
+                        transparent: true,
+                        blending: THREE.AdditiveBlending,
+                        linewidth: 1
+                    });
+
+                    connectionLines = new THREE.LineSegments(lineGeometry, lineMaterial);
+                    scene.add(connectionLines);
+                }
+            }
+
+            const lights = [];
+            const lightColors = [0x8B5CF6, 0xF472B6, 0x60A5FA];
+            for (let i = 0; i < lightColors.length; i++) {
+                const light = new THREE.PointLight(lightColors[i], 1.1, 18);
+                lights.push(light);
+                scene.add(light);
+            }
+
+            // Intro animation
+            const introState = {
+                glow: 0.7,
+                drift: quality.drift * 0.6,
+                bloom: quality.bloomStrength * 0.6
+            };
+            primaryMaterial.uniforms.uGlow.value = introState.glow;
+            primaryMaterial.uniforms.uDrift.value = introState.drift;
+            bloomPass.strength = introState.bloom;
+
+            if (window.gsap) {
+                gsap.to(introState, {
+                    glow: 1.0,
+                    drift: quality.drift,
+                    bloom: quality.bloomStrength,
+                    duration: 3.5,
+                    ease: "power2.out",
+                    onUpdate: () => {
+                        primaryMaterial.uniforms.uGlow.value = introState.glow;
+                        primaryMaterial.uniforms.uDrift.value = introState.drift;
+                        bloomPass.strength = introState.bloom;
+                    }
+                });
+            }
+
+            observeResize(canvas, resize);
+            resize();
+
+            // Animation loop
+            let time = 0;
+            function animate() {
+                requestAnimationFrame(animate);
+
+                if (!window.nebulaActive) {
+                    return;
+                }
+
+                time += 0.016;
+                primaryMaterial.uniforms.uTime.value = time;
+                primaryMaterial.uniforms.uMouse.value.copy(mouseVector);
+                primaryMaterial.uniforms.uMouseStrength.value = mouseActive ? quality.mouseStrength : 0.0;
+
+                nebulaGroup.rotation.y += 0.00006;
+                nebulaGroup.rotation.x = Math.sin(time * 0.06) * 0.02;
+                ambientGroup.rotation.y += 0.0001;
+
+                lights.forEach((light, idx) => {
+                    const angle = time * (0.22 + idx * 0.08) + idx * 1.7;
+                    const radius = 3.5 + Math.sin(time * 0.35 + idx) * 1.4;
+                    const elevation = Math.sin(time * 0.3 + idx * 1.2) * 1.6;
+
+                    light.position.x = Math.cos(angle) * radius;
+                    light.position.y = Math.sin(angle) * radius;
+                    light.position.z = elevation;
+                });
+
+                composer.render();
+            }
+
+            animate();
+        }
+        
+        // Initialize nebula
+        initNebula();
+    </script>
+</body>
+
+</html>

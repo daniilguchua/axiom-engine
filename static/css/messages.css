@@ -1,0 +1,259 @@
+/* =========================================
+   AXIOM ENGINE — Message Styles
+   Chat messages and simulation step display
+   ========================================= */
+
+/* =========================================
+   1. MESSAGE CONTAINERS
+   ========================================= */
+.msg {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    padding: 0 24px;
+    animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* User Message */
+.msg.user {
+    justify-content: flex-end;
+}
+
+.msg.user .content {
+    max-width: 70%;
+    padding: 14px 20px;
+    background: var(--accent-muted);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: var(--radius-lg);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* Model Message */
+.msg.model {
+    justify-content: center;
+    width: 100%;
+}
+
+.msg.model .content {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: visible !important;
+    padding: 0;
+}
+
+.msg-header {
+    padding: 12px 24px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.msg-header::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--accent);
+}
+
+.msg-header span {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.msg-body {
+    padding: 28px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+.msg-body .stream-text.typing::after {
+    content: '▋';
+    color: var(--accent);
+    animation: blink 0.8s infinite;
+}
+
+@keyframes blink { 
+    50% { opacity: 0.3; } 
+}
+
+/* =========================================
+   2. DOCUMENT BADGE
+   ========================================= */
+
+.doc-badge-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 8px;
+}
+
+.doc-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 20px;
+    padding: 4px 12px 4px 8px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: #93c5fd;
+    white-space: nowrap;
+    animation: fadeIn 0.3s ease;
+    backdrop-filter: blur(8px);
+}
+
+.doc-badge-icon {
+    font-size: 13px;
+}
+
+.doc-badge-name {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.02em;
+}
+
+.doc-badge-close {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    min-width: 24px;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    line-height: 1;
+    transition: color 0.2s, background 0.2s;
+}
+
+.doc-badge-close:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+}
+
+/* =========================================
+   3. DOCUMENT-GROUNDED RESPONSE STYLING
+   ========================================= */
+
+/* Source citations at bottom of responses */
+.msg-body hr {
+    border: none;
+    border-top: 1px solid rgba(139, 92, 246, 0.15);
+    margin: 16px 0 8px 0;
+}
+
+/* Improve blockquote styling for document citations */
+.msg-body blockquote {
+    border-left: 3px solid rgba(59, 130, 246, 0.5);
+    background: rgba(59, 130, 246, 0.05);
+    margin: 12px 0;
+    padding: 10px 16px;
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+    color: var(--text-secondary);
+}
+
+.msg-body blockquote p {
+    margin: 0;
+}
+
+/* Headers in responses */
+.msg-body h3 {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    margin: 18px 0 8px 0;
+    letter-spacing: 0.03em;
+}
+
+/* Code blocks in responses */
+.msg-body pre {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 14px;
+    overflow-x: auto;
+    font-size: 12px;
+    margin: 12px 0;
+}
+
+.msg-body code {
+    background: rgba(139, 92, 246, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: #c4b5fd;
+}
+
+.msg-body pre code {
+    background: none;
+    padding: 0;
+    color: var(--text-secondary);
+}
+
+/* Tables in responses */
+.msg-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+}
+
+.msg-body th,
+.msg-body td {
+    border: 1px solid var(--border-subtle);
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.msg-body th {
+    background: var(--bg-elevated);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Lists in responses */
+.msg-body ul,
+.msg-body ol {
+    padding-left: 24px;
+    margin: 8px 0;
+}
+
+.msg-body li {
+    margin: 4px 0;
+    line-height: 1.6;
+}
+
+/* Strong/bold in responses */
+.msg-body strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
