@@ -200,9 +200,9 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
    ========================================= */
 
 /* Standard Container */
-.mermaid-wrapper {
+.mermaid-wrapper + table{
     position: relative; display: flex; flex-direction: column;
-    width: 100%; height: 600px; margin: 20px 0;
+    width: 100%; height: 300px; margin: 20px 0;
     background: radial-gradient(circle, rgba(20,20,30,0.4) 0%, rgba(0,0,0,0.6) 100%), 
                 repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(0, 243, 255, 0.03) 20px), 
                 repeating-linear-gradient(90deg, transparent, transparent 19px, rgba(0, 243, 255, 0.03) 20px);
@@ -269,15 +269,16 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
 .msg-body table, .hud-content table {
     width: 100%; border-collapse: collapse; margin: 20px 0;
     background: rgba(0, 0, 0, 0.3); border-radius: 8px; overflow: hidden;
-    border: 1px solid rgba(0, 243, 255, 0.2); box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgb(0, 239, 251); box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgb(255, 255, 255);
 }
 .msg-body th, .hud-content th {
     background: rgba(0, 243, 255, 0.1); color: #00f3ff;
     font-family: 'Space Grotesk', sans-serif; font-weight: 700; text-transform: uppercase;
-    padding: 12px 15px; text-align: left; border-bottom: 2px solid #00f3ff; letter-spacing: 1px;
+    padding: 12px 15px; text-align: left; border-bottom: 2px solid #00f3ff; letter-spacing: 1.5px;
 }
 .msg-body td, .hud-content td {
-    padding: 12px 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 12px 15px; border-bottom: 1px solid rgb(255, 255, 255);
     color: #e0e0e0; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;
 }
 .msg-body tr:hover, .hud-content tr:hover { background: rgba(0, 243, 255, 0.05); }
@@ -321,8 +322,21 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
 .mermaid .noteText { fill: #fff !important; font-family: 'JetBrains Mono', monospace !important; }
 
 /* Edge Labels */
-.edgeLabel { background: transparent !important; color: #00f3ff !important; font-weight: bold !important; z-index: 10; }
-.edgePath .path { stroke: #ffffff !important; stroke-width: 2px !important; opacity: 1 !important; }
+.edgeLabel {
+    background-color: var(--bg-color) !important; /* Matches your app background */
+    color: var(--accent-cyan) !important; /* Neon text */
+    padding: 4px !important;
+    border-radius: 4px !important;
+    opacity: 1 !important;
+}.edgePath .path { stroke: #ffffff !important; stroke-width: 2px !important; opacity: 1 !important; }
+/* 2. The Text Inside */
+.edgeLabel div, .edgeLabel span {
+    background: transparent !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.9rem !important; 
+    font-weight: 700 !important;
+    text-shadow: 0 0 5px rgba(0, 243, 255, 0.5); /* Glowing text */
+}
 .marker, #arrowhead path { fill: #ffffff !important; stroke: #ffffff !important; }
 
 /* Inspector Modal (Optional) */
@@ -358,4 +372,99 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
     opacity: 0.5;
     cursor: wait;
     animation: blink 1s infinite;
+}
+
+.simulation-header {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: #e0e0e0;
+    /* Remove the solid 4px border everywhere, just keep left accent */
+    background: linear-gradient(90deg, rgba(188, 19, 254, 0.1), transparent);
+    border: 1px solid rgba(188, 19, 254, 0.2);
+    border-left: 6px solid #bc13fe; 
+    padding: 25px; /* More breathing room */
+    margin-bottom: 25px;
+    border-radius: 4px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+}
+
+.simulation-header strong {
+    color: #00f3ff;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.4rem; /* Bigger Step Number */
+    display: block;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* =========================================
+   SIMULATION CONTROLS (The Floating Deck)
+   ========================================= */
+
+.sim-controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    
+    /* MAGIC TRICK: Pull it up into the graph area */
+    margin-top: -60px; 
+    padding-bottom: 20px;
+    
+    position: relative;
+    z-index: 100; /* Sit on top of the canvas */
+    
+    /* Crucial: Allows you to click graph nodes BEHIND the empty space */
+    pointer-events: none; 
+}
+
+.btn-sim {
+    /* Enable clicking ONLY on the buttons */
+    pointer-events: auto; 
+    
+    /* Glass Morphism Look */
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    
+    color: var(--accent-cyan);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    
+    padding: 8px 20px;
+    border-radius: 20px; /* Pill shape */
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Neon Glow */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.btn-sim:hover:not(:disabled) {
+    background: rgba(0, 243, 255, 0.15);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+    transform: translateY(-2px) scale(1.05);
+    text-shadow: 0 0 8px var(--accent-cyan);
+}
+
+.btn-sim:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    border-color: transparent;
+    background: rgba(0,0,0,0.3);
+}
+
+/* Reset Button Specific Style (Purple) */
+.btn-sim.reset-btn {
+    border-color: rgba(188, 19, 254, 0.3);
+    color: #bc13fe;
+}
+.btn-sim.reset-btn:hover {
+    background: rgba(188, 19, 254, 0.15);
+    border-color: #bc13fe;
+    box-shadow: 0 0 15px rgba(188, 19, 254, 0.4);
+    text-shadow: 0 0 8px #bc13fe;
 }

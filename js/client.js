@@ -8,6 +8,8 @@ window.lastBotMessageDiv = null; // TRACKS THE "SCREEN" TO UPDATE
 window.isSimulationUpdate = false; // TRACKS IF WE SHOULD APPEND OR OVERWRITE
 window.repairAttempts = 0; // PREVENTS INFINITE LOOPS
 window.isRepairing = false;
+window.simulationPlaylist = [];
+window.currentStepIndex = 0;
 
 const API_URL = 'http://127.0.0.1:5000';
 
@@ -77,7 +79,6 @@ window.mermaidNodeClick = function(nodeId, wrapperElement) {
     // --- HELPER: RESTORED "DIM & UPDATE" LOGIC ---
     const triggerSimulationUpdate = (msg) => {
         window.isProcessing = true;
-        window.isSimulationUpdate = true; // <--- CRITICAL: Tells sendMessage to OVERWRITE, not append
 
         // 1. Locate the Chat Bubble to update
         // If we are in Cinema Mode (teleported to body), we can't find .closest('.msg.model').
@@ -119,10 +120,47 @@ window.mermaidNodeClick = function(nodeId, wrapperElement) {
         return;
     }
 
-    // 2. LOGIC B: NAVIGATION (Next, Reset, Back) -> UPDATES IN PLACE
-    if (cleanId.includes('CMD_') || cleanId.includes('BTN_')) {
-        triggerSimulationUpdate(`EXECUTE_SIMULATION_STEP: User clicked control node "${cleanId}". Generate the NEXT logical state.`);
+    // LOGIC B: PLAYLIST NAVIGATION
+    // LOGIC B: PLAYLIST NAVIGATION
+    if (cleanId === 'CMD_NEXT') {
+        const nextIndex = window.currentStepIndex + 1;
+
+        // SCENARIO 1: The step exists in memory (Instant)
+        if (nextIndex < window.simulationPlaylist.length) {
+            renderPlaylistStep(nextIndex);
+            return; 
+        }
+
+        // SCENARIO 2: We reached the end. FETCH MORE.
+        // Lock UI and show feedback
+        triggerSimulationUpdate(`(Calculating Steps ${nextIndex}-${nextIndex+2}...)`);
+        
+        // Grab the LAST KNOWN STATE (The Table & Description) so the AI knows where to pick up
+        const lastStepData = window.simulationPlaylist[window.currentStepIndex];
+        
+        // Construct the Context Prompt
+        const continuePrompt = `
+        COMMAND: CONTINUE_SIMULATION
+        
+        CURRENT_STATE_CONTEXT:
+        - Last Step Index: ${lastStepData.step}
+        - Last Data Snapshot: ${lastStepData.data_table}
+        - Last Logic: ${lastStepData.instruction}
+
+        TASK:
+        Generate the NEXT 3 steps (Steps ${nextIndex}, ${nextIndex+1}, ${nextIndex+2}).
+        Return strictly in the JSON Playlist format.
+        `;
+        
+        sendMessage(continuePrompt); 
         return;
+    }
+
+    if (cleanId === 'CMD_PREV') {
+        if (window.simulationPlaylist.length > 0) {
+            renderPlaylistStep(window.currentStepIndex - 1);
+            return;
+        }
     }
 
     // 3. LOGIC C: INSPECTION (Standard Data Nodes) -> NEW MESSAGE / HUD
@@ -192,6 +230,58 @@ async function sendMessage() {
             fullText += decoder.decode(value, { stream: true });
         }
 
+        // 1. DETECT JSON PLAYLIST
+        if (fullText.includes('"type": "simulation_playlist"')) {
+            try {
+                let cleanJson = fullText;
+
+                // STRATEGY A: Code Block
+                const codeBlockMatch = fullText.match(/```json([\s\S]*?)```/);
+                if (codeBlockMatch) {
+                    cleanJson = codeBlockMatch[1];
+                } 
+                // STRATEGY B: Raw JSON
+                else {
+                    const firstBrace = fullText.indexOf('{');
+                    const lastBrace = fullText.lastIndexOf('}');
+                    if (firstBrace !== -1 && lastBrace !== -1) {
+                        cleanJson = fullText.substring(firstBrace, lastBrace + 1);
+                    }
+                }
+
+                const data = JSON.parse(cleanJson.trim());
+                
+                if (data.steps && data.steps.length > 0) {
+                    
+                    // --- 1. RENDER SUMMARY (IF EXISTS) ---
+                    if (data.summary) {
+                        appendMessage('model', data.summary);
+                        
+                        // CRITICAL FIX: 
+                        // We reset this tracker to NULL. 
+                        // This forces renderPlaylistStep() to create a NEW bubble for the graph 
+                        // instead of overwriting the Summary bubble we just created.
+                        window.lastBotMessageDiv = null; 
+                    }
+                    // -------------------------------------
+
+                    const firstNewStep = data.steps[0].step;
+                    
+                    if (firstNewStep === 0) {
+                        console.log("📼 NEW PLAYLIST STARTED");
+                        window.simulationPlaylist = data.steps;
+                        renderPlaylistStep(0);
+                    } else {
+                        console.log(`📼 APPENDING STEPS ${firstNewStep} to ${data.steps[data.steps.length-1].step}`);
+                        window.simulationPlaylist = window.simulationPlaylist.concat(data.steps);
+                        renderPlaylistStep(firstNewStep);
+                    }
+                    return; 
+                }
+            } catch (e) { 
+                console.error("JSON PARSE ERROR (Falling back to text):", e); 
+            }
+        }
         // 2. RENDER MARKDOWN
         targetElement.innerHTML = marked.parse(fullText);
 
@@ -236,35 +326,52 @@ async function fixMermaid(container) {
         if (isMermaid) {
             const preElement = codeBlock.parentElement;
 
-            // 2. ADVANCED CLEANING (Fixes the "Parse error on line 9")
+            // 2. ADVANCED CLEANING (THE PRECISION SPLITTER)
             let cleanGraph = rawGraph
                 .replace(/^mermaid\s*/i, '')
                 .replace(/```mermaid/g, '').replace(/```/g, '')
+
+                // --- FIX 1: THE "QUOTE-SEMICOLON" SMASH (YOUR EXACT ERROR) ---
+                // Matches: '...View"]; direction'  ->  '...View"];\n direction'
+                // Matches: '...View"];subgraph'    ->  '...View"];\n subgraph'
+                .replace(/([\]"])\s*;\s*(direction|subgraph|end)/gi, '$1;\n$2')
+
+                // --- FIX 2: THE "DIRECTION" SMASH ---
+                // Matches: 'direction TD;Start' -> 'direction TD\nStart'
+                .replace(/(direction\s+[A-Z]{2})\s*;\s*([A-Za-z0-9])/gi, '$1\n$2')
                 
-                // FIX A: Force Newlines after Subgraph Definitions (The Crash Fix)
-                // Turns: subgraph X [Title]; direction TD
-                // Into:  subgraph X ["Title"] \n direction TD
+                // --- FIX 3: THE "LETTER" SMASH ---
+                // Matches: 'Graph;direction' -> 'Graph\ndirection'
+                .replace(/([a-z0-9])\s*;\s*(direction|subgraph|end)/gi, '$1\n$2')
+
+                // --- FIX 4: GENERAL SEMICOLON CLEANUP ---
+                // Aggressively break semicolons if they aren't inside quotes
+                .replace(/;(?=(?:[^"]*"[^"]*")*[^"]*$)/g, '\n')
+
+                // --- FIX 5: STANDARD CLEANUP ---
                 .replace(/subgraph\s+([a-zA-Z0-9_]+)\s*\[\s*"?\s*(.*?)\s*"?\s*\]/gi, (match, id, title) => {
                     let safeTitle = title.replace(/[\[\]"]/g, '').trim(); 
                     return `subgraph ${id} ["${safeTitle}"]\n`;
                 })
+                .replace(/\s*end\s*$/gm, '\nend\n') 
 
-                // FIX B: Handle Arrays inside Labels to avoid [ ] conflict
-                // Turns: Node["Array[i]"] -> Node["Array(i)"]
+                // Handle Arrays inside Labels
                 .replace(/(\w+)\["(.*?)"\]/g, (match, id, content) => {
                     let safeContent = content.replace(/\[/g, '(').replace(/\]/g, ')');
                     return `${id}["${safeContent}"]`;
                 })
-
-                // Standard Cleanup
-                .replace(/(\["|\[\s*)\s*[-*]\s+/g, '$1• ') // Bullets
+                
+                // Bullet points & Quotes
+                .replace(/(\["|\[\s*)\s*[-*]\s+/g, '$1• ') 
                 .replace(/(\\n|\n|<br\s*\/?>)\s*[-*]\s+/g, '$1• ') 
                 .replace(/\\"/g, "'").replace(/""/g, "'")
                 .replace(/=\s*\["(.*?)"\]/g, "= '$1'") 
-                .replace(/];/g, ']\n') // Force newline after any node closing
+                .replace(/];/g, ']\n') 
+                .replace(/["']\s*(?:-|\*)\s+(.*?)["']/g, '"• $1"') 
+                .replace(/(\\n|\n)(?:-|\*)\s+/g, '<br/>• ') 
                 .trim();
             
-            // Auto-Header if missing
+            // Auto-Header
             if (!cleanGraph.includes('graph ') && !cleanGraph.includes('sequence') && !cleanGraph.includes('stateDiagram')) {
                 cleanGraph = 'graph TD\n' + cleanGraph;
             }
@@ -280,6 +387,7 @@ async function fixMermaid(container) {
             graphDiv.id = 'mermaid-' + Date.now();
             graphDiv.textContent = cleanGraph;
 
+            // ... Controls ...
             const controlsDiv = document.createElement('div');
             controlsDiv.className = 'mermaid-controls';
             controlsDiv.innerHTML = `
@@ -293,9 +401,15 @@ async function fixMermaid(container) {
             const hudDiv = document.createElement('div');
             hudDiv.className = 'explanation-hud';
             hudDiv.id = `hud-${graphDiv.id}`;
+            
+            
             hudDiv.innerHTML = `
                 <div class="hud-title">SYSTEM ANALYSIS</div>
-                <div class="hud-content"><p style="opacity:0.7; font-style:italic;">Select a node to inspect details...</p></div>
+                <div class="hud-content">
+                    <div id="node-details-${graphDiv.id}" style="margin-top:15px; border-top:1px solid rgba(0,243,255,0.2); padding-top:10px;">
+                        <p style="opacity:0.7; font-style:italic;">Select a node to inspect details...</p>
+                    </div>
+                </div>
             `;
 
             graphWrapper.appendChild(graphDiv);
@@ -306,21 +420,20 @@ async function fixMermaid(container) {
             // 4. SCROLL HANDLING
             graphWrapper.addEventListener('wheel', (e) => {
                 const isOverHud = e.target.closest('.explanation-hud');
-                if (graphWrapper.matches(':hover') && !isOverHud) {
-                    e.preventDefault(); 
-                }
+                if (graphWrapper.matches(':hover') && !isOverHud) { e.preventDefault(); }
             }, { passive: false });
 
             // 5. RENDER
             try {
+                await new Promise(r => setTimeout(r, 50));
                 await mermaid.init(undefined, graphDiv);
                 window.repairAttempts = 0; 
 
+                // SVG ZOOM LOGIC
                 setTimeout(() => {
                     const svg = graphDiv.querySelector('svg');
                     if(svg) {
                         svg.style.width = '100%'; svg.style.height = '100%';
-                        
                         let panZoom = null;
                         if (typeof svgPanZoom !== 'undefined') {
                             panZoom = svgPanZoom(svg, {
@@ -333,7 +446,7 @@ async function fixMermaid(container) {
                             getBtn(`btn-zoom-out-${graphDiv.id}`).onclick = (e) => { e.stopPropagation(); panZoom.zoomOut(); };
                             getBtn(`btn-reset-${graphDiv.id}`).onclick = (e) => { e.stopPropagation(); panZoom.resetZoom(); panZoom.center(); };
                             
-                            // --- TELEPORTATION LOGIC ---
+                            // EXPAND LOGIC
                             const placeholder = document.createElement('div');
                             placeholder.id = 'placeholder-' + wrapperId;
                             placeholder.style.height = '600px'; 
@@ -344,7 +457,6 @@ async function fixMermaid(container) {
                                 const isFull = graphWrapper.classList.contains('fullscreen');
 
                                 if (!isFull) {
-                                    // ENTER FULL SCREEN
                                     graphWrapper.parentNode.insertBefore(placeholder, graphWrapper);
                                     placeholder.style.display = 'block';
                                     document.body.appendChild(graphWrapper);
@@ -352,7 +464,6 @@ async function fixMermaid(container) {
                                     window.isCinemaMode = true; 
                                     e.target.innerText = '✖';
                                 } else {
-                                    // EXIT FULL SCREEN
                                     placeholder.parentNode.insertBefore(graphWrapper, placeholder);
                                     placeholder.style.display = 'none';
                                     placeholder.remove();
@@ -360,12 +471,11 @@ async function fixMermaid(container) {
                                     window.isCinemaMode = false; 
                                     e.target.innerText = '⛶';
                                 }
-
                                 setTimeout(() => { panZoom.resize(); panZoom.fit(); panZoom.center(); }, 50);
                             };
                         }
                         
-                        // CLICK HANDLERS
+                        // CLICK LOGIC
                         let isDragging = false; let startX = 0; let startY = 0;
                         svg.addEventListener('mousedown', (e) => { isDragging = false; startX = e.clientX; startY = e.clientY; });
                         svg.addEventListener('mousemove', (e) => { if (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5) isDragging = true; });
@@ -672,3 +782,101 @@ document.getElementById('lobby-enhance-btn').addEventListener('click', async () 
     } catch (e) { lobbyInput.value = originalText; }
     finally { lobbyInput.disabled = false; lobbyInput.focus(); }
 });
+
+async function renderPlaylistStep(index) {
+    if (index < 0 || index >= window.simulationPlaylist.length) return;
+    
+    window.currentStepIndex = index;
+    const stepData = window.simulationPlaylist[index];
+    
+    // Button Logic
+    const prevDisabled = index === 0 ? 'disabled' : '';
+    const nextText = (index === window.simulationPlaylist.length - 1) ? "GENERATE NEXT >>" : "NEXT >";
+    
+    const htmlContent = `
+        <div class="simulation-header">
+            ${stepData.instruction}
+        </div>
+        
+        <pre><code class="language-mermaid">${stepData.mermaid}</code></pre>
+
+        <div class="sim-controls">
+            <button onclick="handleSimNav('PREV')" ${prevDisabled} class="btn-sim">
+                &lt; PREV
+            </button>
+            
+            <button onclick="handleSimNav('RESET')" class="btn-sim reset-btn">
+                ⟲ RESET
+            </button>
+            
+            <button onclick="handleSimNav('NEXT')" class="btn-sim">
+                ${nextText}
+            </button>
+        </div>
+        
+        <div class="simulation-data">
+            ${stepData.data_table}
+        </div>
+    `;
+
+    if (!window.lastBotMessageDiv) {
+        appendMessage('model', 'Initializing Simulation...');
+        window.lastBotMessageDiv = document.querySelector('.msg.model:last-child');
+    }
+    
+    const contentDiv = window.lastBotMessageDiv.querySelector('.msg-body');
+    contentDiv.innerHTML = htmlContent;
+    
+    await fixMermaid(contentDiv);
+    
+    console.log(`⏩ PLAYING STEP ${index}`);
+}
+
+// ==========================================
+// SIMULATION CONTROLLER (STATIC BUTTONS)
+// ==========================================
+window.handleSimNav = function(action) {
+    if (window.isProcessing) return; // Prevent double clicks while fetching
+
+    if (action === 'PREV') {
+        if (window.currentStepIndex > 0) {
+            renderPlaylistStep(window.currentStepIndex - 1);
+        }
+    }
+    else if (action === 'RESET') {
+        renderPlaylistStep(0);
+    }
+    else if (action === 'NEXT') {
+        const nextIndex = window.currentStepIndex + 1;
+
+        // SCENARIO 1: Step exists in memory
+        if (nextIndex < window.simulationPlaylist.length) {
+            renderPlaylistStep(nextIndex);
+        } 
+        // SCENARIO 2: Fetch more steps
+        else {
+            // Re-use your existing logic for fetching
+            const lastStepData = window.simulationPlaylist[window.currentStepIndex];
+            
+            // Show loading state on the button itself if you want, 
+            // or just use the global chat loader:
+            appendMessage('user', `(System: Auto-fetch Steps ${nextIndex}+)`); 
+
+            const continuePrompt = `
+            COMMAND: CONTINUE_SIMULATION
+            CURRENT_STATE_CONTEXT:
+            - Last Step Index: ${lastStepData.step}
+            - Last Data Snapshot: ${lastStepData.data_table}
+            - Last Logic: ${lastStepData.instruction}
+
+            TASK:
+            Generate the NEXT 3 steps.
+            Return strictly in the JSON Playlist format.
+            `;
+            
+            // Call your main message handler (make sure userInput is empty first)
+            document.getElementById('user-input').value = continuePrompt;
+            document.getElementById('btn-send').click(); 
+        }
+    }
+};
