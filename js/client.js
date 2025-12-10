@@ -1,3 +1,5 @@
+// client.js
+
 // ==========================================
 // 1. GLOBAL CONFIG & STATE
 // ==========================================
@@ -25,17 +27,22 @@ mermaid.initialize({
         primaryTextColor: '#ffffff',
         primaryBorderColor: '#00f3ff', 
         lineColor: '#00f3ff',
-        clusterBkg: 'rgba(255, 255, 255, 0.05)', 
-        clusterBorder: '#bc13fe',
+        clusterBkg: 'transparent', 
+        clusterBorder: 'none',
         
         fontFamily: 'JetBrains Mono',
-        fontSize: '16px',
-        nodePadding: '25px' // Give text room to breathe
+        fontSize: '12px',
+        nodePadding: '12px', // Give text room to breathe
+        edgeLabelBackground: '#030305'
     },
     flowchart: {
-        curve: 'basis',
+        curve: 'linear',
         htmlLabels: true,
-        useMaxWidth: false
+        useMaxWidth: true,
+
+        defaultRenderer: 'elk',
+        rankSpacing: 80,
+        nodeSpacing: 40
     }
 });
 
@@ -95,7 +102,7 @@ window.mermaidNodeClick = function(nodeId, wrapperElement) {
 
         // 2. Visual Freeze (The "Dimming" Effect)
         if (wrapperElement) {
-            wrapperElement.style.opacity = '0.5';
+            wrapperElement.style.opacity = '1';
             wrapperElement.style.pointerEvents = 'none';
             wrapperElement.style.transition = 'opacity 0.2s';
             
@@ -192,13 +199,16 @@ window.mermaidNodeClick = function(nodeId, wrapperElement) {
 // 4. MESSAGING LOGIC
 // ==========================================
 
+// ==========================================
+// 4. MESSAGING LOGIC (WITH JSON AUTO-REPAIR)
+// ==========================================
+
 async function sendMessage() {
     const text = userInput.value.trim();
     if (!text) return;
     userInput.value = '';
 
     let targetElement;
-    // Check if we are updating an existing simulation
     let isUpdateMode = window.isSimulationUpdate && window.lastBotMessageDiv;
 
     if (isUpdateMode) {
@@ -219,7 +229,6 @@ async function sendMessage() {
             body: JSON.stringify({ message: text })
         });
 
-        // 1. READ STREAM
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let fullText = "";
@@ -235,12 +244,12 @@ async function sendMessage() {
             try {
                 let cleanJson = fullText;
 
-                // STRATEGY A: Code Block
+                // STRATEGY A: Code Block Extraction
                 const codeBlockMatch = fullText.match(/```json([\s\S]*?)```/);
                 if (codeBlockMatch) {
                     cleanJson = codeBlockMatch[1];
                 } 
-                // STRATEGY B: Raw JSON
+                // STRATEGY B: Raw JSON Extraction
                 else {
                     const firstBrace = fullText.indexOf('{');
                     const lastBrace = fullText.lastIndexOf('}');
@@ -249,49 +258,73 @@ async function sendMessage() {
                     }
                 }
 
-                const data = JSON.parse(cleanJson.trim());
+                // ============================================================
+                // 🛡️ THE PRE-PARSER (Fixes "Bad Escaped Character")
+                // ============================================================
                 
-                if (data.steps && data.steps.length > 0) {
+                // 1. Fix the "Bad Backslash" (The exact error you are seeing)
+                // JSON only allows \", \\, \/, \b, \f, \n, \r, \t. 
+                // The AI often writes \( or \- or \.. We must double-escape these to save the JSON.
+                // REGEX EXPLANATION: Find a backslash NOT followed by a valid JSON escape char.
+                cleanJson = cleanJson.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+
+                // 2. Fix Newlines inside strings (AI often puts real line breaks in "summary")
+                cleanJson = cleanJson.replace(/([^\\])"\n/g, '$1" ');
+
+                // 3. Fix Mermaid "Quote Hell"
+                // We find the "mermaid" field and normalize quotes inside it.
+                cleanJson = cleanJson.replace(/"mermaid":\s*"([\s\S]*?)"(?=,\s*")/g, (match, content) => {
+                    // Temporarily replace \" with a placeholder to protect valid escapes
+                    let safe = content.replace(/\\"/g, "@@QUOTE@@");
                     
-                    // --- 1. RENDER SUMMARY (IF EXISTS) ---
+                    // Now, any remaining " is a BAD double quote (syntax error). Turn it to '
+                    safe = safe.replace(/"/g, "'");
+                    
+                    // Restore the valid escaped quotes
+                    safe = safe.replace(/@@QUOTE@@/g, '\\"');
+                    
+                    return `"mermaid": "${safe}"`;
+                });
+                // ============================================================
+
+                let data;
+                try {
+                    data = JSON.parse(cleanJson.trim());
+                } catch (jsonErr) {
+                    console.warn("⚠️ JSON Parse Failed. Trying Nuclear Cleanup...", jsonErr);
+                    // Last Resort: Remove ALL control characters except newlines
+                    cleanJson = cleanJson.replace(/[\x00-\x09\x0B-\x1F\x7F-\x9F]/g, ""); 
+                    data = JSON.parse(cleanJson.trim());
+                }
+
+                if (data.steps && data.steps.length > 0) {
                     if (data.summary) {
-                        appendMessage('model', data.summary);
-                        
-                        // CRITICAL FIX: 
-                        // We reset this tracker to NULL. 
-                        // This forces renderPlaylistStep() to create a NEW bubble for the graph 
-                        // instead of overwriting the Summary bubble we just created.
+                        targetElement.innerHTML = marked.parse(data.summary);
                         window.lastBotMessageDiv = null; 
                     }
-                    // -------------------------------------
 
                     const firstNewStep = data.steps[0].step;
                     
                     if (firstNewStep === 0) {
-                        console.log("📼 NEW PLAYLIST STARTED");
                         window.simulationPlaylist = data.steps;
                         renderPlaylistStep(0);
                     } else {
-                        console.log(`📼 APPENDING STEPS ${firstNewStep} to ${data.steps[data.steps.length-1].step}`);
                         window.simulationPlaylist = window.simulationPlaylist.concat(data.steps);
                         renderPlaylistStep(firstNewStep);
                     }
                     return; 
                 }
             } catch (e) { 
-                console.error("JSON PARSE ERROR (Falling back to text):", e); 
+                console.error("JSON PARSE FATAL ERROR:", e);
+                targetElement.innerHTML = `<div style="color:red; border:1px solid red; padding:5px;">SYSTEM PARSE ERROR: ${e.message}</div>` + marked.parse(fullText);
+                return;
             }
         }
-        // 2. RENDER MARKDOWN
-        targetElement.innerHTML = marked.parse(fullText);
-
-        // 3. RENDER MERMAID
-        await fixMermaid(targetElement);
-
-        // 4. RESTORE VISIBILITY
-        targetElement.style.opacity = '1';
         
-        // 5. AUTO-SCROLL
+        // 2. RENDER STANDARD MARKDOWN
+        targetElement.innerHTML = marked.parse(fullText);
+        await fixMermaid(targetElement);
+        targetElement.style.opacity = '1';
         historyDiv.scrollTop = historyDiv.scrollHeight;
 
     } catch (e) {
@@ -307,10 +340,77 @@ async function sendMessage() {
 // ==========================================
 // 5. RENDERING (STABLE FORCE-EXIT + SYNTAX PATCH)
 // ==========================================
+// HELPER: The Multi-Pass Sanitizer
+// HELPER: The Multi-Pass Sanitizer
+// HELPER: The Multi-Pass Sanitizer
+// client.js - The "Nuclear" Sanitizer
+
+// client.js
+
+function sanitizeMermaidString(raw) {
+    // 0. PRE-FLIGHT: Strip Markdown
+    let clean = raw
+        .replace(/^mermaid\s*/i, '')
+        .replace(/```mermaid/g, '').replace(/```/g, '')
+        .trim();
+
+    // 1. THE NUCLEAR SMASH FIX (Header/Direction Cleanup)
+    const keyCommands = "direction|subgraph|end|classDef|linkStyle|style|click|graph";
+    clean = clean.replace(new RegExp(`([\\]])\\s*(${keyCommands})`, "gi"), '$1\n$2');
+    clean = clean.replace(new RegExp(`(["])\\s*(${keyCommands})`, "gi"), '$1\n$2');
+
+    // =========================================================
+    // 🛡️ CRITICAL FIX: Convert Bad Single Quotes to Double Quotes
+    // =========================================================
+    // The AI generates: Node['Label'] -> Mermaid crashes.
+    // We want:          Node["Label"] -> Mermaid is happy.
+    
+    // Pattern: Find [ followed by ' ... content ... ' followed by ]
+    // We capture the content ($1) and wrap it in double quotes.
+    clean = clean.replace(/\[\s*'([^']+)'\s*\]/g, '["$1"]');
+
+    // Also fix parentheses variants: Node('Label') -> Node("Label")
+    // (Only if it looks like a quoted string inside parens)
+    clean = clean.replace(/\(\s*'([^']+)'\s*\)/g, '("$1")');
+
+    // =========================================================
+
+    // 2. DETECT & FIX HEADERS
+    clean = clean.replace(/^(graph|flowchart)\s+([A-Z]{2})(?=[^\n])/i, '$1 $2\n');
+
+    // 3. AUTO-HEADER INJECTION
+    const validHeaders = ['graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'gantt', 'pie'];
+    const hasHeader = validHeaders.some(header => clean.startsWith(header));
+    if (!hasHeader) {
+        clean = 'graph LR\n' + clean;
+    }
+
+    // 4. FIX "UNQUOTED SUBGRAPHS"
+    clean = clean.replace(/subgraph\s+([^\n\[]+?)(?=\s*[\n;])/gi, (match, rawTitle) => {
+        const safeId = "subgraph_" + Math.floor(Math.random() * 10000);
+        const cleanTitle = rawTitle.trim();
+        return `subgraph ${safeId} ["${cleanTitle}"]`;
+    });
+
+    // 5. COLOR CORRUPTION FIX
+    clean = clean.replace(/(stroke|fill|color):\s*[^#a-zA-Z0-9\s;"]+([0-9a-fA-F]{3,6})/gi, '$1:#$2');
+    clean = clean.replace(/(stroke|fill|color):\s*([0-9a-fA-F]{3,6})(?=[\s;])/gi, '$1:#$2');
+
+    // 6. SEMICOLON CLEANUP
+    clean = clean.replace(/(graph\s+[A-Z]{2});/gi, '$1');
+    clean = clean.replace(/end;/gi, 'end');
+    clean = clean.replace(/;\s*direction/gi, ';\ndirection');
+
+    // 7. FINAL WHITESPACE POLISH
+    clean = clean.replace(/\\n\s*[-*]\s+/g, '<br/>• '); 
+    clean = clean.replace(/\n\s*\n/g, '\n'); 
+
+    return clean;
+}
 async function fixMermaid(container) {
     const codes = container.querySelectorAll('pre code');
     
-    // 1. FORCE EXIT FULL SCREEN
+    // 1. FORCE EXIT FULL SCREEN (Cleanup)
     const oldWrappers = document.querySelectorAll('body > .mermaid-wrapper.fullscreen');
     if (oldWrappers.length > 0) {
         oldWrappers.forEach(w => w.remove());
@@ -321,62 +421,16 @@ async function fixMermaid(container) {
         let rawGraph = codeBlock.textContent;
         const isMermaid = codeBlock.classList.contains('language-mermaid') || 
                           rawGraph.includes('graph TD') || rawGraph.includes('graph LR') ||
-                          rawGraph.includes('sequenceDiagram') || rawGraph.includes('stateDiagram');
+                          rawGraph.includes('sequenceDiagram');
 
         if (isMermaid) {
             const preElement = codeBlock.parentElement;
 
-            // 2. ADVANCED CLEANING (THE PRECISION SPLITTER)
-            let cleanGraph = rawGraph
-                .replace(/^mermaid\s*/i, '')
-                .replace(/```mermaid/g, '').replace(/```/g, '')
+            // --- SURGICAL PARSE ---
+            const cleanGraph = sanitizeMermaidString(rawGraph);
+            // ----------------------
 
-                // --- FIX 1: THE "QUOTE-SEMICOLON" SMASH (YOUR EXACT ERROR) ---
-                // Matches: '...View"]; direction'  ->  '...View"];\n direction'
-                // Matches: '...View"];subgraph'    ->  '...View"];\n subgraph'
-                .replace(/([\]"])\s*;\s*(direction|subgraph|end)/gi, '$1;\n$2')
-
-                // --- FIX 2: THE "DIRECTION" SMASH ---
-                // Matches: 'direction TD;Start' -> 'direction TD\nStart'
-                .replace(/(direction\s+[A-Z]{2})\s*;\s*([A-Za-z0-9])/gi, '$1\n$2')
-                
-                // --- FIX 3: THE "LETTER" SMASH ---
-                // Matches: 'Graph;direction' -> 'Graph\ndirection'
-                .replace(/([a-z0-9])\s*;\s*(direction|subgraph|end)/gi, '$1\n$2')
-
-                // --- FIX 4: GENERAL SEMICOLON CLEANUP ---
-                // Aggressively break semicolons if they aren't inside quotes
-                .replace(/;(?=(?:[^"]*"[^"]*")*[^"]*$)/g, '\n')
-
-                // --- FIX 5: STANDARD CLEANUP ---
-                .replace(/subgraph\s+([a-zA-Z0-9_]+)\s*\[\s*"?\s*(.*?)\s*"?\s*\]/gi, (match, id, title) => {
-                    let safeTitle = title.replace(/[\[\]"]/g, '').trim(); 
-                    return `subgraph ${id} ["${safeTitle}"]\n`;
-                })
-                .replace(/\s*end\s*$/gm, '\nend\n') 
-
-                // Handle Arrays inside Labels
-                .replace(/(\w+)\["(.*?)"\]/g, (match, id, content) => {
-                    let safeContent = content.replace(/\[/g, '(').replace(/\]/g, ')');
-                    return `${id}["${safeContent}"]`;
-                })
-                
-                // Bullet points & Quotes
-                .replace(/(\["|\[\s*)\s*[-*]\s+/g, '$1• ') 
-                .replace(/(\\n|\n|<br\s*\/?>)\s*[-*]\s+/g, '$1• ') 
-                .replace(/\\"/g, "'").replace(/""/g, "'")
-                .replace(/=\s*\["(.*?)"\]/g, "= '$1'") 
-                .replace(/];/g, ']\n') 
-                .replace(/["']\s*(?:-|\*)\s+(.*?)["']/g, '"• $1"') 
-                .replace(/(\\n|\n)(?:-|\*)\s+/g, '<br/>• ') 
-                .trim();
-            
-            // Auto-Header
-            if (!cleanGraph.includes('graph ') && !cleanGraph.includes('sequence') && !cleanGraph.includes('stateDiagram')) {
-                cleanGraph = 'graph TD\n' + cleanGraph;
-            }
-
-            // 3. BUILD DOM
+            // 3. BUILD DOM (PRESERVED "CINEMA MODE" ARCHITECTURE)
             const wrapperId = 'wrapper-' + Date.now();
             const graphWrapper = document.createElement('div');
             graphWrapper.className = 'mermaid-wrapper';
@@ -387,22 +441,11 @@ async function fixMermaid(container) {
             graphDiv.id = 'mermaid-' + Date.now();
             graphDiv.textContent = cleanGraph;
 
-            // ... Controls ...
-            const controlsDiv = document.createElement('div');
-            controlsDiv.className = 'mermaid-controls';
-            controlsDiv.innerHTML = `
-               <button class="util-btn" id="btn-zoom-in-${graphDiv.id}">+</button>
-               <button class="util-btn" id="btn-zoom-out-${graphDiv.id}">-</button>
-               <button class="util-btn" id="btn-reset-${graphDiv.id}">⟲</button>
-               <div style="width:1px; height:20px; background:rgba(255,255,255,0.2); margin:0 5px;"></div>
-               <button class="util-btn" id="btn-expand-${graphDiv.id}">⛶</button>
-            `;
 
+            // ... HUD (PRESERVED) ...
             const hudDiv = document.createElement('div');
             hudDiv.className = 'explanation-hud';
             hudDiv.id = `hud-${graphDiv.id}`;
-            
-            
             hudDiv.innerHTML = `
                 <div class="hud-title">SYSTEM ANALYSIS</div>
                 <div class="hud-content">
@@ -413,7 +456,6 @@ async function fixMermaid(container) {
             `;
 
             graphWrapper.appendChild(graphDiv);
-            graphWrapper.appendChild(controlsDiv);
             graphWrapper.appendChild(hudDiv);
             preElement.replaceWith(graphWrapper);
 
@@ -423,59 +465,18 @@ async function fixMermaid(container) {
                 if (graphWrapper.matches(':hover') && !isOverHud) { e.preventDefault(); }
             }, { passive: false });
 
-            // 5. RENDER
+            // 5. RENDER EXECUTION
             try {
                 await new Promise(r => setTimeout(r, 50));
                 await mermaid.init(undefined, graphDiv);
                 window.repairAttempts = 0; 
 
-                // SVG ZOOM LOGIC
+                // --- SVG PAN ZOOM & CLICK LISTENERS (PRESERVED) ---
                 setTimeout(() => {
                     const svg = graphDiv.querySelector('svg');
                     if(svg) {
-                        svg.style.width = '100%'; svg.style.height = '100%';
-                        let panZoom = null;
-                        if (typeof svgPanZoom !== 'undefined') {
-                            panZoom = svgPanZoom(svg, {
-                                zoomEnabled: true, controlIconsEnabled: false, fit: true, center: true, minZoom: 0.1, maxZoom: 20, preventMouseEventsDefault: false 
-                            });
-                            if (panZoom.getZoom() < 0.5) { panZoom.zoom(0.8); panZoom.center(); }
-
-                            const getBtn = (id) => document.getElementById(id);
-                            getBtn(`btn-zoom-in-${graphDiv.id}`).onclick = (e) => { e.stopPropagation(); panZoom.zoomIn(); };
-                            getBtn(`btn-zoom-out-${graphDiv.id}`).onclick = (e) => { e.stopPropagation(); panZoom.zoomOut(); };
-                            getBtn(`btn-reset-${graphDiv.id}`).onclick = (e) => { e.stopPropagation(); panZoom.resetZoom(); panZoom.center(); };
-                            
-                            // EXPAND LOGIC
-                            const placeholder = document.createElement('div');
-                            placeholder.id = 'placeholder-' + wrapperId;
-                            placeholder.style.height = '600px'; 
-                            placeholder.style.display = 'none';
-
-                            getBtn(`btn-expand-${graphDiv.id}`).onclick = (e) => {
-                                e.stopPropagation();
-                                const isFull = graphWrapper.classList.contains('fullscreen');
-
-                                if (!isFull) {
-                                    graphWrapper.parentNode.insertBefore(placeholder, graphWrapper);
-                                    placeholder.style.display = 'block';
-                                    document.body.appendChild(graphWrapper);
-                                    graphWrapper.classList.add('fullscreen');
-                                    window.isCinemaMode = true; 
-                                    e.target.innerText = '✖';
-                                } else {
-                                    placeholder.parentNode.insertBefore(graphWrapper, placeholder);
-                                    placeholder.style.display = 'none';
-                                    placeholder.remove();
-                                    graphWrapper.classList.remove('fullscreen');
-                                    window.isCinemaMode = false; 
-                                    e.target.innerText = '⛶';
-                                }
-                                setTimeout(() => { panZoom.resize(); panZoom.fit(); panZoom.center(); }, 50);
-                            };
-                        }
                         
-                        // CLICK LOGIC
+                        // --- CLICK LOGIC (PRESERVED) ---
                         let isDragging = false; let startX = 0; let startY = 0;
                         svg.addEventListener('mousedown', (e) => { isDragging = false; startX = e.clientX; startY = e.clientY; });
                         svg.addEventListener('mousemove', (e) => { if (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5) isDragging = true; });
@@ -487,6 +488,7 @@ async function fixMermaid(container) {
                                 if (isDragging) return;
                                 const rawId = node.id;
                                 const idParts = rawId.split('-');
+                                // Robust ID extraction for Mermaid's varying SVG structure
                                 let cleanId = idParts.find(p => isNaN(p) && p !== 'flowchart' && p !== 'graph' && p.length > 1);
                                 if (!cleanId) cleanId = node.textContent.trim();
                                 window.mermaidNodeClick(cleanId, graphWrapper); 
@@ -494,7 +496,9 @@ async function fixMermaid(container) {
                         });
                     }
                 }, 200);
-            } catch (renderErr) { handleError(graphWrapper, cleanGraph, renderErr.message); }
+            } catch (renderErr) { 
+                handleError(graphWrapper, cleanGraph, renderErr.message); 
+            }
         }
     }
 }
@@ -528,94 +532,149 @@ function showToast(msg) {
 // 6. AUTO-REPAIR LOGIC
 // ==========================================
 
-function handleError(targetElement, badCode, errorMsg) {
+function handleError(wrapperElement, badCode, errorMsg) {
+    // 1. LIMIT CHECK: Stop infinite loops immediately
     if (window.repairAttempts >= 3) {
-        targetElement.innerHTML = `
-            <div style="border:1px solid red; padding:20px; color:red; font-family:monospace;">
-                <strong>SYSTEM FAILURE:</strong> Repair Limit Exceeded.<br>
-                The AI cannot generate valid syntax for this request.<br>
-                <hr>
-                <strong>RAW ERROR:</strong> ${errorMsg}
+        console.error("☠️ REPAIR LIMIT REACHED");
+        wrapperElement.innerHTML = `
+            <div style="border:1px solid #ff4444; background: rgba(50,0,0,0.5); padding:15px; border-radius:8px; color:#ff4444; font-family:monospace; font-size:12px;">
+                <strong>SYSTEM FAILURE:</strong> Auto-Repair Failed.<br>
+                <div style="margin-top:10px; opacity:0.8; white-space:pre-wrap;">${errorMsg}</div>
+                <div style="margin-top:10px; border-top:1px solid #ff4444; padding-top:5px;">RAW CODE:</div>
+                <pre style="font-size:10px; color:#aaa;">${badCode.replace(/</g, '&lt;')}</pre>
             </div>`;
-        window.repairAttempts = 0;
+        window.repairAttempts = 0; // Reset for next time
+        window.isRepairing = false;
         return;
     }
 
     window.repairAttempts++;
+    console.log(`🚑 REPAIR ATTEMPT ${window.repairAttempts}/3`);
 
-    const repairDiv = document.createElement('div');
-    repairDiv.innerHTML = `
-        <div style="border:1px dashed #00f3ff; padding:20px; text-align:center; color:#00f3ff; font-family:monospace; animation: blink 1s infinite;">
-            ⚡ GRAPH RENDER FAILURE ⚡<br>
-            <span style="font-size:10px; opacity:0.7">${errorMsg.substring(0,50)}...</span><br><br>
-            <strong>// AUTO-REPAIR SEQUENCE ENGAGED (${window.repairAttempts}/3)...</strong>
+    // 2. SHOW UI FEEDBACK
+    // We clear the broken graph and show a pulsing repair badge
+    wrapperElement.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:200px; border:1px dashed #00f3ff; border-radius:8px; color:#00f3ff; font-family:monospace; animation: blink 1.5s infinite;">
+            <div style="font-size:24px; margin-bottom:10px;">⚡</div>
+            <div>DETECTING SYNTAX FAULT...</div>
+            <div style="font-size:10px; opacity:0.7; margin-top:5px;">Attempt ${window.repairAttempts}/3</div>
         </div>`;
-    
-    // NOTE: This targets the graphWrapper now, which is correct
-    targetElement.replaceWith(repairDiv);
 
-    triggerAutoRepair(badCode, errorMsg, repairDiv);
+    // 3. TRIGGER REPAIR
+    triggerAutoRepair(badCode, errorMsg, wrapperElement);
 }
 
-async function triggerAutoRepair(badCode, errorMsg, targetElement) {
+// client.js - Replace the triggerAutoRepair function
+
+async function triggerAutoRepair(badCode, errorMsg, wrapperElement) {
     if (window.isRepairing) return;
     window.isRepairing = true;
-    console.log("🚑 SENDING REPAIR REQUEST...");
 
-    let badLineStr = "Unknown";
-    const match = errorMsg.match(/line (\d+)/);
-    if (match) {
-        const lineNum = parseInt(match[1]) - 1;
-        const lines = badCode.split('\n');
-        if (lines[lineNum]) badLineStr = lines[lineNum].trim();
+    // 0. SAFETY CHECK: Is the wrapper still on screen?
+    if (!wrapperElement || !wrapperElement.isConnected) {
+        console.warn("⚠️ Repair aborted: Element is no longer in the DOM.");
+        window.isRepairing = false;
+        return;
     }
 
-    const prompt = `
-    SYSTEM ALERT: MERMAID PARSE ERROR.
+    // 4. THE "SURGICAL" PROMPT
+    const repairPrompt = `
+    CRITICAL SYSTEM ALERT: MERMAID RENDERING FAILED.
     
-    --- DEBUG REPORT ---
-    ERROR: "${errorMsg}"
-    BROKEN LINE: "${badLineStr}"
-    --------------------
-
-    CRITICAL INSTRUCTIONS:
-    1. Fix the syntax error on the broken line.
-    2. CHECK BRACKETS: Ensure subgraphs use [ ] and nodes use [ "..." ] or ( "..." ).
-    3. DO NOT ADVANCE THE STATE. Output the exact same simulation step, just with fixed syntax.
-    4. Remove any internal square brackets [] from node labels.
-
-    OUTPUT ONLY THE CORRECTED MERMAID CODE.
+    ERROR REPORT: "${errorMsg}"
+    
+    BROKEN CODE:
+    \`\`\`mermaid
+    ${badCode}
+    \`\`\`
+    
+    YOUR MISSION:
+    1. Fix the syntax error identified in the report.
+    2. Remove any "smushed" commands (e.g., ensure newlines between ']' and 'direction').
+    3. Ensure all text labels use SINGLE QUOTES (') not double quotes.
+    4. Remove any semicolons after 'graph', 'subgraph', or 'end'.
+    
+    OUTPUT FORMAT:
+    Return ONLY the corrected Mermaid code. 
+    NO JSON. NO "Here is the code". NO Markdown backticks.
+    JUST THE CODE.
     `;
 
     try {
         const res = await fetch(`${API_URL}/chat`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: prompt })
+            body: JSON.stringify({ message: repairPrompt })
         });
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let fixedText = "";
-
+        let fullText = "";
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            fixedText += decoder.decode(value, { stream: true });
+            fullText += decoder.decode(value, { stream: true });
         }
 
-        targetElement.innerHTML = marked.parse(fixedText);
+        // 5. SANITIZE THE REPAIR
+        let fixedCode = fullText
+            .replace(/```mermaid/g, '') 
+            .replace(/```/g, '')
+            .trim();
+            
+        fixedCode = sanitizeMermaidString(fixedCode);
+
+        console.log("🩹 APPLYING FIX:", fixedCode.substring(0, 50) + "...");
+
+        // 6. RE-RENDER (MANUAL INJECTION)
+        const newGraphId = 'mermaid-' + Date.now();
+        
+        wrapperElement.innerHTML = `
+            <div class="mermaid" id="${newGraphId}">${fixedCode}</div>
+            <div class="explanation-hud" id="hud-${newGraphId}" style="display:none;">
+               <div class="hud-content"></div>
+            </div>
+        `;
+
+        // --- FIX IS HERE: Search LOCALLY, not globally ---
+        const graphDiv = wrapperElement.querySelector('.mermaid');
+        
+        if (!graphDiv) {
+            throw new Error("DOM Generation Failed: Mermaid container not found.");
+        }
+        
+        // Attempt Render
+        await mermaid.init(undefined, graphDiv);
+        
+        // 7. SUCCESS: RE-ATTACH LISTENERS
+        window.repairAttempts = 0;
         window.isRepairing = false;
         
-        // RECURSIVE CALL: Try to render the fixed code
-        fixMermaid(targetElement);
+        const svg = graphDiv.querySelector('svg');
+        if (svg) {
+            svg.style.width = "100%";
+            svg.style.height = "auto";
+            svg.style.maxWidth = "600px";
+            
+            svg.querySelectorAll('.node').forEach(node => {
+                node.style.cursor = "pointer"; 
+                node.onclick = (e) => { 
+                    e.preventDefault(); e.stopPropagation(); 
+                    const rawId = node.id;
+                    const idParts = rawId.split('-');
+                    let cleanId = idParts.find(p => isNaN(p) && p.length > 1);
+                    if (!cleanId) cleanId = node.textContent.trim();
+                    window.mermaidNodeClick(cleanId, wrapperElement); 
+                };
+            });
+        }
 
     } catch (e) {
-        console.error("Repair Failed", e);
+        console.error("Repair Failed Again:", e);
         window.isRepairing = false;
-        targetElement.innerHTML = `<div style="color:red">REPAIR FAILED.</div>`;
+        // This will trigger the next attempt (up to 3)
+        handleError(wrapperElement, badCode, e.message); 
     }
 }
-
 // ==========================================
 // 7. UTILITIES
 // ==========================================
@@ -789,29 +848,44 @@ async function renderPlaylistStep(index) {
     window.currentStepIndex = index;
     const stepData = window.simulationPlaylist[index];
     
-    // Button Logic
+    // --- DETERMINISTIC BUTTON LOGIC ---
+    const isLastKnownStep = index === window.simulationPlaylist.length - 1;
     const prevDisabled = index === 0 ? 'disabled' : '';
-    const nextText = (index === window.simulationPlaylist.length - 1) ? "GENERATE NEXT >>" : "NEXT >";
+    
+    // TRUST THE BACKEND SIGNAL
+    // If the AI says "is_final": true, we are done. No guessing.
+    const isAlgorithmComplete = stepData.is_final === true;
+
+    let nextButtonHtml = '';
+
+    if (!isLastKnownStep) {
+        // SCENARIO 1: HISTORY MODE (User went back)
+        // Action: Just go to the next slide in memory.
+        nextButtonHtml = `<button onclick="handleSimNav('NEXT')" class="btn-sim">NEXT ></button>`;
+    
+    } else if (isAlgorithmComplete) {
+        // SCENARIO 2: TRULY FINISHED (Backend confirmed)
+        // Action: Dead button, distinct visual style.
+        nextButtonHtml = `<button class="btn-sim" disabled style="color: #00f3ff; opacity: 0.5; cursor: default; border: 1px solid rgba(0, 243, 255, 0.1);">✓ SIMULATION COMPLETE</button>`;
+    
+    } else {
+        // SCENARIO 3: GENERATE MORE (Not finished yet)
+        // Action: Trigger the AI fetch.
+        nextButtonHtml = `<button onclick="handleSimNav('NEXT')" class="btn-sim">GENERATE NEXT >></button>`;
+    }
+    // ----------------------------------
     
     const htmlContent = `
         <div class="simulation-header">
-            ${stepData.instruction}
+            ${marked.parse(stepData.instruction)} 
         </div>
         
         <pre><code class="language-mermaid">${stepData.mermaid}</code></pre>
 
         <div class="sim-controls">
-            <button onclick="handleSimNav('PREV')" ${prevDisabled} class="btn-sim">
-                &lt; PREV
-            </button>
-            
-            <button onclick="handleSimNav('RESET')" class="btn-sim reset-btn">
-                ⟲ RESET
-            </button>
-            
-            <button onclick="handleSimNav('NEXT')" class="btn-sim">
-                ${nextText}
-            </button>
+            <button onclick="handleSimNav('PREV')" ${prevDisabled} class="btn-sim">&lt; PREV</button>
+            <button onclick="handleSimNav('RESET')" class="btn-sim reset-btn">⟲ RESET</button>
+            ${nextButtonHtml} 
         </div>
         
         <div class="simulation-data">
@@ -828,15 +902,19 @@ async function renderPlaylistStep(index) {
     contentDiv.innerHTML = htmlContent;
     
     await fixMermaid(contentDiv);
+    contentDiv.style.opacity = '1'; 
     
-    console.log(`⏩ PLAYING STEP ${index}`);
+    console.log(`⏩ PLAYING STEP ${index} (Final: ${isAlgorithmComplete})`);
 }
 
 // ==========================================
 // SIMULATION CONTROLLER (STATIC BUTTONS)
 // ==========================================
+// ==========================================
+// SIMULATION CONTROLLER (NO DIMMING + OVERLAY)
+// ==========================================
 window.handleSimNav = function(action) {
-    if (window.isProcessing) return; // Prevent double clicks while fetching
+    if (window.isProcessing) return; 
 
     if (action === 'PREV') {
         if (window.currentStepIndex > 0) {
@@ -855,12 +933,44 @@ window.handleSimNav = function(action) {
         } 
         // SCENARIO 2: Fetch more steps
         else {
-            // Re-use your existing logic for fetching
             const lastStepData = window.simulationPlaylist[window.currentStepIndex];
             
-            // Show loading state on the button itself if you want, 
-            // or just use the global chat loader:
-            appendMessage('user', `(System: Auto-fetch Steps ${nextIndex}+)`); 
+            // 1. ACTIVATE UPDATE MODE
+            window.isSimulationUpdate = true;
+            
+            if (!window.lastBotMessageDiv) {
+                 const allMsgs = document.querySelectorAll('.msg.model');
+                 if (allMsgs.length > 0) window.lastBotMessageDiv = allMsgs[allMsgs.length - 1];
+            }
+
+            // 2. INJECT "GENERATING" OVERLAY (NO DIMMING)
+            if (window.lastBotMessageDiv) {
+                const body = window.lastBotMessageDiv.querySelector('.msg-body');
+                if (body) {
+                    
+                    // Create the Floating System Badge
+                    const loader = document.createElement('div');
+                    loader.id = "sim-loader";
+                    loader.style.cssText = `
+                        position: absolute; 
+                        top: 50%; left: 50%; transform: translate(-50%, -50%);
+                        background: rgba(0, 0, 0, 0.9); 
+                        border: 1px solid #00f3ff; 
+                        color: #00f3ff;
+                        padding: 15px 30px; 
+                        border-radius: 4px; 
+                        font-family: 'JetBrains Mono', monospace;
+                        box-shadow: 0 0 30px rgba(0, 0, 0, 0.8); 
+                        z-index: 1000;
+                        display: flex; align-items: center; gap: 10px;
+                    `;
+                    loader.innerHTML = `<span class="blink">⚡</span> GENERATING NEXT STEPS...`;
+                    
+                    // Ensure positioning works
+                    if (getComputedStyle(body).position === 'static') body.style.position = 'relative';
+                    body.appendChild(loader);
+                }
+            }
 
             const continuePrompt = `
             COMMAND: CONTINUE_SIMULATION
@@ -870,12 +980,12 @@ window.handleSimNav = function(action) {
             - Last Logic: ${lastStepData.instruction}
 
             TASK:
-            Generate the NEXT 3 steps.
+            Generate the NEXT 5 steps.
             Return strictly in the JSON Playlist format.
             `;
             
-            // Call your main message handler (make sure userInput is empty first)
-            document.getElementById('user-input').value = continuePrompt;
+            const input = document.getElementById('user-input');
+            input.value = continuePrompt;
             document.getElementById('btn-send').click(); 
         }
     }

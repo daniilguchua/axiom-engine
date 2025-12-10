@@ -1,3 +1,5 @@
+/* styles.css */
+
 /* =========================================
    1. GLOBAL VARIABLES & RESET
    ========================================= */
@@ -56,8 +58,8 @@ header {
 }
 
 .brand {
-    font-family: var(--font-header); font-size: 1.2rem; letter-spacing: 2px;
-    color: #fff; text-transform: uppercase; text-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+    font-family: var(--font-header); font-size: 1.0rem; letter-spacing: 2px;
+    color: #fff; text-transform: uppercase; text-shadow: 0 0 15px rgba(0, 243, 255, 0.5); padding-bottom: 30px;
 }
 
 .header-right { 
@@ -122,15 +124,43 @@ header {
 }
 
 #chat-history {
-    flex-grow: 1; overflow-y: auto; padding: 0; padding-bottom: 150px;
-    display: flex; flex-direction: column; gap: 3rem; width: 100%; max-width: none; 
-    mask-image: linear-gradient(to bottom, transparent 0%, rgb(0, 0, 0) 50px);
+    flex-grow: 1; 
+    overflow-y: auto; 
+    padding: 0; 
+    
+    /* 1. SPACING FIX: Reduced gap so it goes closer to the bar */
+    padding-bottom: 10px; 
+    padding-top: 20px;
+    
+    display: flex; 
+    flex-direction: column; 
+    gap: 3rem; 
+    width: 100%; 
+    max-width: none; 
+    
     scroll-behavior: smooth;
+
+    /* 2. THE GRADIENT FADE (The Magic Fix) */
+    /* Fades in at top (0-2%) and Fades out at bottom (95-100%) */
+    mask-image: linear-gradient(
+        to bottom, 
+        transparent 0%, 
+        black 2%, 
+        black 98%, 
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom, 
+        transparent 0%, 
+        black 2%, 
+        black 98%, 
+        transparent 100%
+    );
 }
 #chat-history::-webkit-scrollbar { width: 6px; }
 #chat-history::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
 
-.msg { width: 100%; max-width: 1000px; margin: 0 auto; display: flex; padding: 0 2rem; }
+.msg { width: 100%; max-width: 950px; margin: 0 auto; display: flex; padding: 0 2rem; }
 .msg.user { justify-content: flex-end; animation: fadeUp 0.5s forwards; }
 .msg.user .content {
     background: rgba(0, 243, 255, 0.1); border: 1px solid rgba(0, 243, 255, 0.2);
@@ -158,15 +188,20 @@ header {
 .msg-header span { font-family: var(--font-code); font-size: 0.7rem; color: var(--accent-cyan); font-weight: 700; text-transform: uppercase; }
 .msg-header::before { content: ''; width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; box-shadow: 0 0 10px var(--accent-cyan); }
 
-.msg-body { padding: 2rem 2.5rem; font-family: 'Inter', sans-serif; font-size: 1.05rem; line-height: 1.7; color: #ffffff; }
+.msg-body { padding: 1.5rem; font-family: 'Inter', sans-serif; font-size: 1rem; line-height: 1.6; color: #ffffff; }
 .msg-body .stream-text.typing::after { content: '▋'; color: var(--accent-cyan); animation: blink 1s infinite; display: inline-block; }
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
 /* INPUTS */
 .input-wrapper {
-    max-width: 1000px; margin: 0 auto; width: 100%; padding: 2rem 0; 
+    max-width: 850px; margin: 0 auto; width: 100%; /* Top: 0 (Hugs the content above) */
+    padding-top: 5px; 
+    
+    /* Bottom: 40px (Push the buttons UP from the edge of screen) */
+    padding-bottom: 40px; 
     background: transparent; display: flex; flex-direction: column; gap: 12px;
+
 }
 .input-row { display: flex; gap: 12px; width: 100%; }
 
@@ -202,7 +237,10 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
 /* Standard Container */
 .mermaid-wrapper + table{
     position: relative; display: flex; flex-direction: column;
-    width: 100%; height: 300px; margin: 20px 0;
+    align-items: center;
+    justify-content: center;
+    width: fit-content !important;
+    margin: 20px 0;
     background: radial-gradient(circle, rgba(20,20,30,0.4) 0%, rgba(0,0,0,0.6) 100%), 
                 repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(0, 243, 255, 0.03) 20px), 
                 repeating-linear-gradient(90deg, transparent, transparent 19px, rgba(0, 243, 255, 0.03) 20px);
@@ -223,14 +261,17 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
 /* Graph Area */
 .mermaid { flex-grow: 1; width: 100%; height: 100%; position: relative; overflow: hidden; }
 .mermaid-wrapper.fullscreen .mermaid { height: 65% !important; border-bottom: 1px solid rgba(0, 243, 255, 0.2); }
-.mermaid svg { width: 100% !important; height: 100% !important; }
+.mermaid svg { 
+    width: 100% !important; 
+    height: auto !important; /* Preserves aspect ratio */
+    max-height: 590px; /* Cap huge graphs so they don't take forever to scroll */
+    display: block;
+    margin: 0 auto;
+}
 
 /* Controls */
 .mermaid-controls {
-    position: absolute; top: 15px; right: 15px; z-index: 100;
-    display: flex; gap: 5px; background: rgba(0, 0, 0, 0.8);
-    padding: 6px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(4px); pointer-events: auto;
+    display: none !important; 
 }
 
 /* =========================================
@@ -257,7 +298,7 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
 /* HUD Content (Scrollable) */
 .hud-content {
     flex-grow: 1; overflow-y: auto; padding: 20px 25px;
-    color: #e0e0e0; font-family: var(--font-ui); font-size: 0.95rem; line-height: 1.6;
+    color: #e0e0e0; font-family: var(--font-ui); font-size: 0.90rem; line-height: 1.6;
 }
 .hud-content::-webkit-scrollbar { width: 8px; }
 .hud-content::-webkit-scrollbar-track { background: #0a0a0a; }
@@ -285,17 +326,41 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
 
 /* --- HEADERS & TEXT --- */
 .msg-body h1, .msg-body h2, .msg-body h3,
-.hud-content h1, .hud-content h2, .hud-content h3 {
+.hud-content h1, .hud-content h2, .hud-content h3, .simulation-header h1, .simulation-header h2, .simulation-header h3 {
     color: #ffffff; font-family: 'Space Grotesk', sans-serif;
     margin: 25px 0 15px 0; font-weight: 700; letter-spacing: 0.5px;
     border-left: 4px solid #bc13fe; padding-left: 15px; line-height: 1.2;
 }
-.msg-body ul, .msg-body ol, .hud-content ul, .hud-content ol { margin: 10px 0 20px 20px; color: #ccc; }
-.msg-body li, .hud-content li { margin-bottom: 8px; line-height: 1.6; font-family: 'Inter', sans-serif; }
-.msg-body strong, .hud-content strong { color: #00f3ff; font-weight: 600; }
-.msg-body code, .hud-content code {
+.msg-body ul, .msg-body ol, .hud-content ul, .hud-content ol, .simulation-header ul, .simulation-header ol { margin: 10px 0 20px 20px; color: #ccc; }
+.msg-body li, .hud-content li, .simulation-header li { margin-bottom: 8px; line-height: 1.6; font-family: 'Inter', sans-serif; }
+.msg-body strong, .hud-content strong, .simulation-header strong { color: #00f3ff; font-weight: 600; }
+.msg-body code, .hud-content code, .simulation-header code {
     background: rgba(188, 19, 254, 0.15); border: 1px solid rgba(188, 19, 254, 0.3);
     color: #e0e0e0; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.9em;
+}
+
+.msg-body p,
+.hud-content p, 
+.simulation-header p {
+    margin-bottom: 15px;
+    line-height: 1.7;
+    color: #e0e0e0;
+}
+
+.msg-body blockquote,
+.hud-content blockquote,
+.simulation-header blockquote {
+    border-left: 3px solid #00f3ff;
+    background: rgba(0, 243, 255, 0.05);
+    margin: 15px 20px;
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-top: 15px;
+    padding-bottom: 5px;
+    color: #a5f3fc;
+    font-style: italic;
+    border-radius: 0 4px 4px 0;
+    font-size: 1rem;
 }
 
 /* =========================================
@@ -310,7 +375,6 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
 .mermaid .label, .mermaid .nodeLabel, g.node foreignObject div {
     color: #ffffff !important; font-family: 'JetBrains Mono', monospace !important;
     font-size: 14px !important; font-weight: 800 !important;
-    text-shadow: 0 0 4px #000; white-space: pre !important; max-width: none !important; width: max-content !important;
 }
 .mermaid .node foreignObject { overflow: visible !important; }
 
@@ -375,7 +439,7 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
 }
 
 .simulation-header {
-    font-size: 1.1rem;
+    font-size: 1rem;
     line-height: 1.6;
     color: #e0e0e0;
     /* Remove the solid 4px border everywhere, just keep left accent */
@@ -388,83 +452,221 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
 }
 
-.simulation-header strong {
-    color: #00f3ff;
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.4rem; /* Bigger Step Number */
-    display: block;
-    margin-bottom: 15px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-}
 
 /* =========================================
    SIMULATION CONTROLS (The Floating Deck)
    ========================================= */
 
 .sim-controls {
+    /* 1. LAYOUT & POSITIONING */
+    position: relative !important;
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 15px;
-    
-    /* MAGIC TRICK: Pull it up into the graph area */
-    margin-top: -60px; 
-    padding-bottom: 20px;
-    
-    position: relative;
-    z-index: 100; /* Sit on top of the canvas */
-    
-    /* Crucial: Allows you to click graph nodes BEHIND the empty space */
-    pointer-events: none; 
+    width: fit-content;
+    z-index: 10;
+
+    /* 2. THE FORCE-CENTER HACK */
+    /* This guarantees centering regardless of parent flex/block status */
+    left: 50%;
+    transform: translateX(-50%);
+
+    /* 3. VERTICAL SEPARATION */
+    /* Push graph up (20px) and Table down (30px) */
+    margin-top: 20px !important;
+    margin-bottom: 30px !important;
+
+    /* 4. VISUAL STYLE */
+    padding: 8px 25px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    border-radius: 50px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.4);
 }
 
+/* THE INNER BUTTONS (Small Pills) */
 .btn-sim {
-    /* Enable clicking ONLY on the buttons */
-    pointer-events: auto; 
-    
-    /* Glass Morphism Look */
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(0, 243, 255, 0.3);
-    
+    background: rgba(255, 255, 255, 0.05); /* Subtle fill */
+    border: 1px solid transparent; /* Invisible border by default */
     color: var(--accent-cyan);
+    
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 1px;
     
-    padding: 8px 20px;
-    border-radius: 20px; /* Pill shape */
+    padding: 8px 16px;
+    border-radius: 20px; /* Fully round inner buttons */
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    
-    /* Neon Glow */
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
+/* Hover Effect: Glow & Border */
 .btn-sim:hover:not(:disabled) {
     background: rgba(0, 243, 255, 0.15);
-    border-color: var(--accent-cyan);
-    box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
-    transform: translateY(-2px) scale(1.05);
-    text-shadow: 0 0 8px var(--accent-cyan);
+    border-color: rgba(0, 243, 255, 0.5);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+    transform: translateY(-1px);
 }
 
+/* Disabled State */
 .btn-sim:disabled {
     opacity: 0.3;
     cursor: not-allowed;
-    border-color: transparent;
-    background: rgba(0,0,0,0.3);
+    background: transparent;
 }
 
-/* Reset Button Specific Style (Purple) */
+/* RESET BUTTON (Purple Accent) */
 .btn-sim.reset-btn {
-    border-color: rgba(188, 19, 254, 0.3);
     color: #bc13fe;
 }
 .btn-sim.reset-btn:hover {
     background: rgba(188, 19, 254, 0.15);
-    border-color: #bc13fe;
-    box-shadow: 0 0 15px rgba(188, 19, 254, 0.4);
-    text-shadow: 0 0 8px #bc13fe;
+    border-color: rgba(188, 19, 254, 0.5);
+    box-shadow: 0 0 10px rgba(188, 19, 254, 0.2);
+}
+
+/* =========================================
+   THE VISUAL STAGE (Reserved Zone Layout)
+   ========================================= */
+.visual-stage {
+    position: relative; /* Anchor for absolute children */
+    width: auto;
+    height: auto; 
+    min-height: 200px;
+    margin: 20px 0;
+    
+    background: radial-gradient(circle, rgba(20,20,30,0.4) 0%, rgba(0,0,0,0.6) 100%), 
+                repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(0, 243, 255, 0.03) 20px), 
+                repeating-linear-gradient(90deg, transparent, transparent 19px, rgba(0, 243, 255, 0.03) 20px);
+    border: 2px solid rgba(0, 243, 255, 0.3); 
+    border-radius: 30px;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.05);
+    overflow: hidden;
+}
+
+/* THE GRAPH */
+.visual-stage .mermaid-wrapper {
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    
+    /* INCREASED PADDING: Reserves more empty space at the bottom */
+    
+}
+
+/* THE CONTROLS (Sleek Floating Pill) */
+.sim-controls {
+    position: absolute;
+    bottom: 0px; 
+    left: 50%;
+    transform: translateX(-50%); /* Perfect Center */
+    
+    /* The Container IS the Pill now */
+    display: inline-flex; /* Shrink to fit buttons */
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--accent-cyan);
+    border-radius: 30px; /* Huge radius for pill shape */
+    padding: 4px; /* Inner spacing */
+    
+    z-index: 1000; 
+    pointer-events: auto;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.6);
+}
+
+/* THE BUTTONS INSIDE */
+.btn-sim {
+    background: transparent;
+    border: none;
+    color: var(--accent-cyan);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    
+    padding: 8px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 25px; /* Match container curvature */
+    
+    /* Remove shadows from individual buttons */
+    box-shadow: none !important; 
+}
+
+/* Hover Effect: Light up the section */
+.btn-sim:hover:not(:disabled) {
+    background: rgba(0, 243, 255, 0.15);
+    color: #fff;
+    text-shadow: 0 0 8px var(--accent-cyan);
+    transform: none; /* Don't move, just glow */
+}
+
+/* Disabled State */
+.btn-sim:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    color: #555;
+}
+
+/* Separator Lines (The "Dividers") */
+.btn-sim + .btn-sim {
+    border-left: 1px solid rgba(0, 243, 255, 0.2);
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    padding-left: 20px;
+}
+/* Fix the previous button's right radius if it has a neighbor */
+.btn-sim:has(+ .btn-sim) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-right: 20px;
+}
+
+
+/* --- TABLE ACTIVE ROW (Text Glow Only) --- */
+
+/* 1. FORCE RESET: Strip any ugly backgrounds the AI adds */
+.simulation-data {
+    /* 1. FORCE SEPARATION FROM BUTTONS */
+    margin-top: 30px !important; 
+    
+    /* 2. PREVENT OVERLAP */
+    display: block;
+    width: 100%;
+    clear: both; /* Drop below any floating elements */
+    position: relative;
+}
+
+/* Ensure the table inside fills the container */
+.simulation-data table {
+    width: 100%;
+    margin: 0; /* Let the container handle spacing */
+}
+
+.simulation-data tr {
+    background-color: transparent !important;
+}
+
+/* 2. NEON TEXT HIGHLIGHT */
+/* The AI will use class='active-row' */
+.active-row td {
+    color: #bc13fe !important; /* Neon Purple Text */
+    font-weight: 700 !important;
+    text-shadow: 0 0 15px rgba(188, 19, 254, 0.8); /* intense glow */
+    letter-spacing: 0.5px;
+    
+    /* Optional: Subtle borders to frame the text line */
+    border-top: 1px solid rgba(188, 19, 254, 0.3);
+    border-bottom: 1px solid rgba(188, 19, 254, 0.3);
+}
+
+/* 3. Ensure hover doesn't ruin the glow */
+.simulation-data tr:hover td {
+    color: #fff !important;
+    text-shadow: 0 0 5px white;
 }
