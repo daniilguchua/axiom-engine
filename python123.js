@@ -1,5 +1,3 @@
-console.log("🔥 V3.0 LOADED - SMASH FIX INCLUDED 🔥");
-
 // client.js
 
 
@@ -644,50 +642,123 @@ window.isSimulationUpdate = false;
 // HELPER: The Multi-Pass Sanitizer
 
 function sanitizeMermaidString(raw) {
-    let clean = raw
-        // 1. Strip Markdown Wrappers
-        .replace(/^mermaid\s*/i, '')
-        .replace(/```mermaid/g, '').replace(/```/g, '')
-        .trim();
 
-    // 2. CRITICAL: Fix "Unquoted Subgraphs" with special chars
-    // Detects: subgraph Left Subtree (< 50)
-    // Converts to: subgraph subgraph_123 ["Left Subtree (< 50)"]
-    clean = clean.replace(/subgraph\s+([^\n\[]+?)(?=\s*[\n;])/gi, (match, rawTitle) => {
-        const safeId = "subgraph_" + Math.floor(Math.random() * 10000);
-        const cleanTitle = rawTitle.trim();
-        return `subgraph ${safeId} ["${cleanTitle}"]`;
-    });
+// 1. Basic Cleanup
 
-    // 3. Fix "Command Smashing" (The Quote-Semicolon Trap)
-    // Inserts a newline after a semicolon ONLY IF that semicolon is followed by a command keyword
-    // and NOT inside a quote.
-    const keyCommands = "subgraph|end|direction|classDef|linkStyle|style|click";
-    const smashRegex = new RegExp(`(];|\\);|\\w;)\\s*(${keyCommands})`, "gi");
-    clean = clean.replace(smashRegex, '$1\n$2');
+let clean = raw
 
-    // 4. Fix "Direction" Smash specifically (common Gemini error)
-    // e.g., "direction TB;NodeA" -> "direction TB\nNodeA"
-    clean = clean.replace(/(direction\s+[A-Z]{2})\s*;\s*([A-Za-z])/gi, '$1\n$2');
+.replace(/^mermaid\s*/i, '')
 
-    // 5. General Semicolon-to-Newline expander
-    // This Regex splits semicolons that are NOT inside double quotes.
-    // It creates the "forced newline" structure Mermaid demands.
-    clean = clean.replace(/;(?=(?:[^"]*"[^"]*")*[^"]*$)/g, ';\n');
+.replace(/```mermaid/g, '').replace(/```/g, '')
 
-    // 6. Final Polish (Arrays, bullets, lingering garbage)
-    clean = clean
-        .replace(/(\["|\[\s*)\s*[-*]\s+/g, '$1• ') // Convert markdown lists to bullets
-        .replace(/\\"/g, "'") // Convert escaped quotes to single quotes for safety
-        .replace(/""/g, "'")  // Fix double-double quotes
-        .replace(/\n\s*\n/g, '\n'); // Remove empty lines
+.trim();
 
-    // 7. Auto-Header
-    if (!clean.includes('graph ') && !clean.includes('sequence') && !clean.includes('stateDiagram')) {
-        clean = 'graph TD\n' + clean;
-    }
 
-    return clean;
+
+// 2. DETECT & FIX HEADERS
+
+// e.g., "graph TDsubgraph" -> "graph TD\nsubgraph"
+
+clean = clean.replace(/^(graph|flowchart)\s+([A-Z]{2})(?=[^\n])/i, '$1 $2\n');
+
+
+
+// 3. AUTO-HEADER INJECTION
+
+const validHeaders = ['graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'gantt', 'pie'];
+
+const hasHeader = validHeaders.some(header => clean.startsWith(header));
+
+if (!hasHeader) {
+
+clean = 'graph LR\n' + clean;
+
+}
+
+
+
+// 4. FIX "UNQUOTED SUBGRAPHS"
+
+clean = clean.replace(/subgraph\s+([^\n\[]+?)(?=\s*[\n;])/gi, (match, rawTitle) => {
+
+const safeId = "subgraph_" + Math.floor(Math.random() * 10000);
+
+const cleanTitle = rawTitle.trim();
+
+return `subgraph ${safeId} ["${cleanTitle}"]`;
+
+});
+
+
+
+// 5. AGGRESSIVE SMASH FIX (Quotes/Brackets + Command)
+
+const keyCommands = "subgraph|end|direction|classDef|linkStyle|style|click|graph";
+
+const aggressiveSmash = new RegExp(`(["\\]])\\s*(${keyCommands})`, "gi");
+
+clean = clean.replace(aggressiveSmash, '$1\n$2');
+
+
+
+// 6. FIX DIRECTION SMASH (The Error You Just Saw)
+
+// Detects: "direction TDN50" -> "direction TD\nN50"
+
+// Logic: Finds 'direction' + 2 letters, followed immediately by any alphanumeric char.
+
+clean = clean.replace(/(direction\s+[A-Z]{2})([A-Za-z0-9])/gi, '$1\n$2');
+
+
+
+// 7. FIX ESCAPED SINGLE QUOTES (The "Backslash Curse")
+
+// Detects: N50[\'50\'] -> N50['50']
+
+clean = clean.replace(/\\'/g, "'");
+
+
+
+// 8. SEMICOLON CLEANUP
+
+clean = clean.replace(/(graph\s+[A-Z]{2});/gi, '$1');
+
+clean = clean.replace(/(flowchart\s+[A-Z]{2});/gi, '$1');
+
+clean = clean.replace(/end;/gi, 'end');
+
+
+// 9. General Semicolon-to-Newline (only outside quotes)
+
+clean = clean.replace(/;(?=(?:[^"]*"[^"]*")*[^"]*$)/g, ';\n');
+
+
+
+// 10. FINAL POLISH
+
+clean = clean.replace(/\\n\s*[-*]\s+/g, '<br/>• ');
+
+
+// B. Fix lists at the very start of a node label (e.g. ["- Item..."])
+
+clean = clean.replace(/(\["|\[\s*)\s*[-*]\s+/g, '$1• ');
+
+
+
+// C. General Quote Cleanup
+
+clean = clean
+
+.replace(/\\"/g, "'")
+
+.replace(/""/g, "'")
+
+.replace(/\n\s*\n/g, '\n');
+
+
+
+return clean;
+
 }
 
 async function fixMermaid(container) {
@@ -1002,39 +1073,66 @@ triggerAutoRepair(badCode, errorMsg, wrapperElement);
 
 
 async function triggerAutoRepair(badCode, errorMsg, wrapperElement) {
-    if (window.isRepairing) return;
-    window.isRepairing = true;
 
-    // --- STRONGER REPAIR PROMPT ---
-    const repairPrompt = `
-    SYSTEM ALERT: MERMAID RENDERING FAILED.
-    
-    The parser reported this error:
-    "${errorMsg}"
-    
-    It is likely due to "Command Smashing" (missing newlines).
-    
-    BAD CODE SNAPSHOT:
-    \`\`\`mermaid
-    ${badCode}
-    \`\`\`
-    
-    **YOUR TASK:**
-    1.  Look for patterns like \`Node[Label]classDef\` and CHANGE them to:
-        Node[Label]
-        classDef
-    2.  Ensure every \`classDef\`, \`style\`, and \`linkStyle\` is on its OWN line.
-    3.  Ensure the graph declaration (e.g., \`graph TD\`) is followed by a newline.
-    
-    **OUTPUT ONLY THE RAW MERMAID CODE. NO MARKDOWN. NO JSON.**
-    `;
+if (window.isRepairing) return;
 
-    try {
-        const res = await fetch(`${API_URL}/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: repairPrompt })
-        });
+window.isRepairing = true;
+
+
+
+// 4. THE "SURGICAL" PROMPT
+
+// We explicitly ban JSON and conversation to get raw code.
+
+const repairPrompt = `
+
+CRITICAL SYSTEM ALERT: MERMAID RENDERING FAILED.
+
+
+ERROR REPORT: "${errorMsg}"
+
+
+BROKEN CODE:
+
+\`\`\`mermaid
+
+${badCode}
+
+\`\`\`
+
+
+YOUR MISSION:
+
+1. Fix the syntax error identified in the report.
+
+2. Remove any "smushed" commands (e.g., ensure newlines between ']' and 'direction').
+
+3. Ensure all text labels use SINGLE QUOTES (') not double quotes.
+
+4. Remove any semicolons after 'graph', 'subgraph', or 'end'.
+
+
+OUTPUT FORMAT:
+
+Return ONLY the corrected Mermaid code.
+
+NO JSON. NO "Here is the code". NO Markdown backticks.
+
+JUST THE CODE.
+
+`;
+
+
+
+try {
+
+const res = await fetch(`${API_URL}/chat`, {
+
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+
+body: JSON.stringify({ message: repairPrompt })
+
+});
 
 
 
