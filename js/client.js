@@ -1,5 +1,3 @@
-console.log("🔥 V3.0 LOADED - SMASH FIX INCLUDED 🔥");
-
 // client.js
 
 
@@ -404,13 +402,9 @@ if (!text) return;
 
 userInput.value = '';
 
-
-
 let targetElement;
 
 let isUpdateMode = window.isSimulationUpdate && window.lastBotMessageDiv;
-
-
 
 if (isUpdateMode) {
 
@@ -419,22 +413,27 @@ targetElement = window.lastBotMessageDiv.querySelector('.msg-body');
 targetElement.style.opacity = '0.5';
 
 } else {
+    appendMessage('user', text);
+    
+    // 1. Create an empty bubble first
+    const botContent = appendMessage('model', ' '); 
+    targetElement = botContent.parentElement; 
+    window.lastBotMessageDiv = botContent.closest('.msg.model');
 
-appendMessage('user', text);
-
-const botDiv = appendMessage('model', 'Processing...');
-
-targetElement = botDiv.parentElement;
-
-window.lastBotMessageDiv = botDiv.closest('.msg.model');
-
+    // 2. Inject the Loader HTML directly
+    targetElement.innerHTML = `
+        <div class="axiom-loader">
+            <div class="loader-spinner"></div>
+            <div class="loader-content">
+                <div class="loader-text">COMPUTING VECTORS...</div>
+                <div class="loader-bar-bg"><div class="loader-bar-fill"></div></div>
+            </div>
+        </div>`;
 }
 
 
 
 window.isProcessing = true;
-
-
 
 try {
 
@@ -447,13 +446,11 @@ body: JSON.stringify({ message: text })
 });
 
 
-
 const reader = res.body.getReader();
 
 const decoder = new TextDecoder();
 
 let fullText = "";
-
 
 
 while (true) {
@@ -467,7 +464,6 @@ fullText += decoder.decode(value, { stream: true });
 }
 
 
-
 // 1. DETECT JSON PLAYLIST
 
 if (fullText.includes('"type": "simulation_playlist"')) {
@@ -475,8 +471,6 @@ if (fullText.includes('"type": "simulation_playlist"')) {
 try {
 
 let cleanJson = fullText;
-
-
 
 // STRATEGY A: Code Block Extraction
 
@@ -650,232 +644,209 @@ function sanitizeMermaidString(raw) {
         .replace(/```mermaid/g, '').replace(/```/g, '')
         .trim();
 
-    // 2. CRITICAL: Fix "Unquoted Subgraphs" with special chars
-    // Detects: subgraph Left Subtree (< 50)
-    // Converts to: subgraph subgraph_123 ["Left Subtree (< 50)"]
-    clean = clean.replace(/subgraph\s+([^\n\[]+?)(?=\s*[\n;])/gi, (match, rawTitle) => {
-        const safeId = "subgraph_" + Math.floor(Math.random() * 10000);
-        const cleanTitle = rawTitle.trim();
-        return `subgraph ${safeId} ["${cleanTitle}"]`;
-    });
+    // 2. Fix Unquoted Subgraphs (The random ID generator)
+    clean = clean.replace(/subgraph\s+([^\n\[]+?)(?=\s*[\n;])/gi, (m, t) => `subgraph subgraph_${Math.floor(Math.random()*10000)} ["${t.trim()}"]`);
 
-    // 3. Fix "Command Smashing" (The Quote-Semicolon Trap)
-    // Inserts a newline after a semicolon ONLY IF that semicolon is followed by a command keyword
-    // and NOT inside a quote.
+    // 3. Fix Command Smashing (The Quote-Semicolon Trap)
+    // We explicitly list the keywords to be safe
     const keyCommands = "subgraph|end|direction|classDef|linkStyle|style|click";
     const smashRegex = new RegExp(`(];|\\);|\\w;)\\s*(${keyCommands})`, "gi");
     clean = clean.replace(smashRegex, '$1\n$2');
 
-    // 4. Fix "Direction" Smash specifically (common Gemini error)
-    // e.g., "direction TB;NodeA" -> "direction TB\nNodeA"
-    clean = clean.replace(/(direction\s+[A-Z]{2})\s*;\s*([A-Za-z])/gi, '$1\n$2');
+    // 4. CRITICAL FIX: Brute Force Direction Splitter (Fixes "TDW_ih" crash)
+    // Instead of complex logic, we just force a newline after any direction command.
+    clean = clean.replace(/direction\s*(TD|LR|BT|RL|TB)/gi, 'direction $1\n');
 
-    // 5. General Semicolon-to-Newline expander
-    // This Regex splits semicolons that are NOT inside double quotes.
-    // It creates the "forced newline" structure Mermaid demands.
+    // 5. CRITICAL FIX: Mixed Arrow Repair (Fixes "Lexical Error")
+    // Catches illegal mix of solid start (--) and dotted end (.->)
+    clean = clean.replace(/--\s*("[^"]*")\s*\.->/g, '-- $1 -->');
+    clean = clean.replace(/-\.\s*("[^"]*")\s*->/g, '-. $1 .->');
+
+    // 6. General Semicolon-to-Newline expander
     clean = clean.replace(/;(?=(?:[^"]*"[^"]*")*[^"]*$)/g, ';\n');
 
-    // 6. Final Polish (Arrays, bullets, lingering garbage)
+    // 7. Final Polish (Restored all your previous checks)
     clean = clean
-        .replace(/(\["|\[\s*)\s*[-*]\s+/g, '$1• ') // Convert markdown lists to bullets
-        .replace(/\\"/g, "'") // Convert escaped quotes to single quotes for safety
-        .replace(/""/g, "'")  // Fix double-double quotes
+        .replace(/(\["|\[\s*)\s*[-*]\s+/g, '$1• ') // Bullets
+        .replace(/\\"/g, "'") // Escaped quotes
+        .replace(/""/g, "'")  // Double-double quotes
         .replace(/\n\s*\n/g, '\n'); // Remove empty lines
 
-    // 7. Auto-Header
+    // 8. Auto-Header
     if (!clean.includes('graph ') && !clean.includes('sequence') && !clean.includes('stateDiagram')) {
-        clean = 'graph TD\n' + clean;
+        clean = 'graph LR\n' + clean;
     }
 
     return clean;
 }
 
 async function fixMermaid(container) {
-
-const codes = container.querySelectorAll('pre code');
-
-
-// 1. FORCE EXIT FULL SCREEN (Cleanup)
-
-const oldWrappers = document.querySelectorAll('body > .mermaid-wrapper.fullscreen');
-
-if (oldWrappers.length > 0) {
-
-oldWrappers.forEach(w => w.remove());
-
-window.isCinemaMode = false;
-
-}
-
-
-
-for (const codeBlock of codes) {
-
-let rawGraph = codeBlock.textContent;
-
-const isMermaid = codeBlock.classList.contains('language-mermaid') ||
-
-rawGraph.includes('graph TD') || rawGraph.includes('graph LR') ||
-
-rawGraph.includes('sequenceDiagram');
-
-
-
-if (isMermaid) {
-
-const preElement = codeBlock.parentElement;
-
-
-
-// --- SURGICAL PARSE ---
-
-const cleanGraph = sanitizeMermaidString(rawGraph);
-
-// ----------------------
-
-
-
-// 3. BUILD DOM (PRESERVED "CINEMA MODE" ARCHITECTURE)
-
-const wrapperId = 'wrapper-' + Date.now();
-
-const graphWrapper = document.createElement('div');
-
-graphWrapper.className = 'mermaid-wrapper';
-
-graphWrapper.id = wrapperId;
-
-
-
-const graphDiv = document.createElement('div');
-
-graphDiv.className = 'mermaid';
-
-graphDiv.id = 'mermaid-' + Date.now();
-
-graphDiv.textContent = cleanGraph;
-
-
-
-
-
-// ... HUD (PRESERVED) ...
-
-const hudDiv = document.createElement('div');
-
-hudDiv.className = 'explanation-hud';
-
-hudDiv.id = `hud-${graphDiv.id}`;
-
-hudDiv.innerHTML = `
-
-<div class="hud-title">SYSTEM ANALYSIS</div>
-
-<div class="hud-content">
-
-<div id="node-details-${graphDiv.id}" style="margin-top:15px; border-top:1px solid rgba(0,243,255,0.2); padding-top:10px;">
-
-<p style="opacity:0.7; font-style:italic;">Select a node to inspect details...</p>
-
-</div>
-
-</div>
-
-`;
-
-
-
-graphWrapper.appendChild(graphDiv);
-
-graphWrapper.appendChild(hudDiv);
-
-preElement.replaceWith(graphWrapper);
-
-
-
-// 4. SCROLL HANDLING
-
-graphWrapper.addEventListener('wheel', (e) => {
-
-const isOverHud = e.target.closest('.explanation-hud');
-
-if (graphWrapper.matches(':hover') && !isOverHud) { e.preventDefault(); }
-
-}, { passive: false });
-
-
-
-// 5. RENDER EXECUTION
-
-try {
-
-await new Promise(r => setTimeout(r, 50));
-
-await mermaid.init(undefined, graphDiv);
-
-window.repairAttempts = 0;
-
-
-
-// --- SVG PAN ZOOM & CLICK LISTENERS (PRESERVED) ---
-
-setTimeout(() => {
-
-const svg = graphDiv.querySelector('svg');
-
-if(svg) {
-
-
-// --- CLICK LOGIC (PRESERVED) ---
-
-let isDragging = false; let startX = 0; let startY = 0;
-
-svg.addEventListener('mousedown', (e) => { isDragging = false; startX = e.clientX; startY = e.clientY; });
-
-svg.addEventListener('mousemove', (e) => { if (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5) isDragging = true; });
-
-
-
-svg.querySelectorAll('.node').forEach(node => {
-
-node.style.cursor = "pointer"; node.style.pointerEvents = "bounding-box";
-
-node.onclick = (e) => {
-
-e.preventDefault(); e.stopPropagation();
-
-if (isDragging) return;
-
-const rawId = node.id;
-
-const idParts = rawId.split('-');
-
-// Robust ID extraction for Mermaid's varying SVG structure
-
-let cleanId = idParts.find(p => isNaN(p) && p !== 'flowchart' && p !== 'graph' && p.length > 1);
-
-if (!cleanId) cleanId = node.textContent.trim();
-
-window.mermaidNodeClick(cleanId, graphWrapper);
-
-};
-
+    const codes = container.querySelectorAll('pre code');
+
+    // 1. CLEANUP (Remove old fullscreen wrappers)
+    const oldWrappers = document.querySelectorAll('body > .mermaid-wrapper.fullscreen');
+    if (oldWrappers.length > 0) {
+        oldWrappers.forEach(w => w.remove());
+        window.isCinemaMode = false;
+    }
+
+    for (const codeBlock of codes) {
+        let rawGraph = codeBlock.textContent;
+        const isMermaid = codeBlock.classList.contains('language-mermaid') ||
+                          rawGraph.includes('graph TD') || rawGraph.includes('graph LR') ||
+                          rawGraph.includes('sequenceDiagram');
+
+        if (isMermaid) {
+            const preElement = codeBlock.parentElement;
+            
+            // We use your existing sanitizer (assuming it is working sufficiently for now)
+            const cleanGraph = sanitizeMermaidString(rawGraph);
+
+            // 2. BUILD THE INTERACTIVE STAGE
+            const wrapperId = 'wrapper-' + Date.now();
+            const graphWrapper = document.createElement('div');
+            graphWrapper.className = 'mermaid-wrapper';
+            graphWrapper.id = wrapperId;
+            
+            // FORCE CSS FOR ZOOM ENGINE (Overrides style.css to ensure safety)
+            graphWrapper.style.overflow = "hidden"; // Clip the edges
+            graphWrapper.style.cursor = "grab";     // Show hand cursor
+            graphWrapper.style.position = "relative";
+
+            const graphDiv = document.createElement('div');
+            graphDiv.className = 'mermaid';
+            graphDiv.id = 'mermaid-' + Date.now();
+            graphDiv.textContent = cleanGraph;
+            
+            // TRANSFORMATION LAYER
+            graphDiv.style.transformOrigin = "0 0"; // Zoom from top-left corner
+            graphDiv.style.transition = "transform 0.05s linear"; // Ultra-fast response
+            graphDiv.style.width = "100%";
+            graphDiv.style.height = "100%";
+
+            // HUD
+            const hudDiv = document.createElement('div');
+            hudDiv.className = 'explanation-hud';
+            hudDiv.id = `hud-${graphDiv.id}`;
+            hudDiv.innerHTML = `
+                <div class="hud-title">SYSTEM ANALYSIS</div>
+                <div class="hud-content">
+                    <div id="node-details-${graphDiv.id}" style="margin-top:15px; border-top:1px solid rgba(0,243,255,0.2); padding-top:10px;">
+                        <p style="opacity:0.7; font-style:italic;">Select a node to inspect details...</p>
+                    </div>
+                </div>
+            `;
+
+            graphWrapper.appendChild(graphDiv);
+            graphWrapper.appendChild(hudDiv);
+            preElement.replaceWith(graphWrapper);
+
+            // 3. RENDER & ATTACH PHYSICS
+            try {
+                await new Promise(r => setTimeout(r, 50));
+                await mermaid.init(undefined, graphDiv);
+                window.repairAttempts = 0;
+
+                setTimeout(() => {
+                    const svg = graphDiv.querySelector('svg');
+                    if(svg) {
+                        // 1. SETUP DIMENSIONS
+                        svg.style.width = "100%";
+                        svg.style.height = "100%";
+                        svg.style.maxWidth = "none";
+                        
+                        // 2. PAN & ZOOM VARIABLES
+                        let scale = 1;
+                        let panning = false;
+                        let pointX = 0;
+                        let pointY = 0;
+                        let start = { x: 0, y: 0 };
+
+                        // 3. ZOOM LOGIC (Mouse Wheel)
+                        graphWrapper.addEventListener('wheel', (e) => {
+    e.preventDefault();
+
+    // 1. Calculate Mouse Position relative to the container
+    const rect = graphWrapper.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left; 
+    const offsetY = e.clientY - rect.top; 
+
+    // 2. Calculate the World Point (where the mouse is pointing in the graph logic)
+    // We reverse the current transform to find the "true" point
+    const worldX = (offsetX - pointX) / scale;
+    const worldY = (offsetY - pointY) / scale;
+
+    // 3. Determine Zoom Factor (The "Smoothness")
+    // Use a small factor like 0.1 for 10% increments
+    const zoomIntensity = 0.1; 
+    const delta = -Math.sign(e.deltaY); // Normalize wheel direction (-1 or 1)
+    
+    // Calculate new scale
+    const newScale = scale * (1 + (delta * zoomIntensity));
+
+    // 4. Clamp Limits (0.2x to 5x)
+    const constrainedScale = Math.min(Math.max(0.2, newScale), 5);
+
+    // 5. Adjust Pan (PointX/Y) to keep the mouse point stable
+    // The math: NewPan = Mouse - (WorldPoint * NewScale)
+    pointX = offsetX - (worldX * constrainedScale);
+    pointY = offsetY - (worldY * constrainedScale);
+
+    // 6. Apply
+    scale = constrainedScale;
+    graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
 });
 
-}
+                        // 4. PAN START (MouseDown)
+                        graphWrapper.addEventListener('mousedown', (e) => {
+                            // Don't drag if clicking a node or the HUD
+                            if (e.target.closest('.node') || e.target.closest('.explanation-hud')) return;
+                            
+                            e.preventDefault();
+                            start = { x: e.clientX - pointX, y: e.clientY - pointY };
+                            panning = true;
+                            graphWrapper.style.cursor = "grabbing";
+                        });
 
-}, 200);
+                        // 5. PAN MOVE (MouseMove)
+                        graphWrapper.addEventListener('mousemove', (e) => {
+                            if (!panning) return;
+                            e.preventDefault();
+                            pointX = e.clientX - start.x;
+                            pointY = e.clientY - start.y;
+                            graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+                        });
 
-} catch (renderErr) {
+                        // 6. PAN END (MouseUp)
+                        graphWrapper.addEventListener('mouseup', () => { 
+                            panning = false; 
+                            graphWrapper.style.cursor = "grab"; 
+                        });
+                        graphWrapper.addEventListener('mouseleave', () => { 
+                            panning = false; 
+                            graphWrapper.style.cursor = "grab"; 
+                        });
 
-handleError(graphWrapper, cleanGraph, renderErr.message);
+                        // 7. NODE CLICK LISTENERS (Preserved)
+                        svg.querySelectorAll('.node').forEach(node => {
+                            node.style.cursor = "pointer";
+                            node.onclick = (e) => {
+                                e.preventDefault(); e.stopPropagation();
+                                const rawId = node.id;
+                                const idParts = rawId.split('-');
+                                let cleanId = idParts.find(p => isNaN(p) && p !== 'flowchart' && p !== 'graph' && p.length > 1);
+                                if (!cleanId) cleanId = node.textContent.trim();
+                                window.mermaidNodeClick(cleanId, graphWrapper);
+                            };
+                        });
+                    }
+                }, 200);
 
-}
-
-}
-
-}
-
+            } catch (renderErr) {
+                handleError(graphWrapper, cleanGraph, renderErr.message);
+            }
+        }
+    }
 }
 
 // --- HELPER: VISUAL CONFIRMATION TOAST ---
@@ -1024,7 +995,7 @@ async function triggerAutoRepair(badCode, errorMsg, wrapperElement) {
         Node[Label]
         classDef
     2.  Ensure every \`classDef\`, \`style\`, and \`linkStyle\` is on its OWN line.
-    3.  Ensure the graph declaration (e.g., \`graph TD\`) is followed by a newline.
+    3.  Ensure the graph declaration (e.g., \`graph TD OR LR\`) is followed by a newline.
     
     **OUTPUT ONLY THE RAW MERMAID CODE. NO MARKDOWN. NO JSON.**
     `;
@@ -1199,8 +1170,7 @@ content.className = 'content';
 
 if(role === 'model') {
 
-content.innerHTML = `<div class="msg-header"><span>GHOST // SYSTEM RESPONSE</span></div><div class="msg-body"><span class="stream-text">${marked.parse(text)}</span></div>`;
-
+content.innerHTML = `<div class="msg-header"><span>AXIOM // SYSTEM</span></div><div class="msg-body"><span class="stream-text">${marked.parse(text)}</span></div>`;
 } else {
 
 content.innerHTML = marked.parse(text);
@@ -1222,43 +1192,32 @@ return content;
 
 
 function activateChatMode(initialMsg) {
+    if(urlInputContainer) urlInputContainer.style.display = 'none';
 
-urlInputContainer.style.display = 'none';
+    window.appMode = 'CHAT';
+    lobbyPanel.style.opacity = '0';
+    lobbyPanel.style.pointerEvents = 'none';
 
-window.appMode = 'CHAT';
+    setTimeout(() => {
+        lobbyPanel.classList.add('hidden');
+        container.classList.add('mode-focus');
+        disconnectBtn.style.display = 'block';
+        chatPanel.style.display = 'flex';
+        setTimeout(() => { chatPanel.style.opacity = '1'; }, 50);
+    }, 500);
 
-lobbyPanel.style.opacity = '0';
+    // UPDATED TEXT
+    statusText.innerText = "ENGINE ONLINE"; 
+    statusDot.classList.add('active');
 
-lobbyPanel.style.pointerEvents = 'none';
-
-setTimeout(() => {
-
-lobbyPanel.classList.add('hidden');
-
-container.classList.add('mode-focus');
-
-disconnectBtn.style.display = 'block';
-
-chatPanel.style.display = 'flex';
-
-setTimeout(() => { chatPanel.style.opacity = '1'; }, 50);
-
-}, 500);
-
-statusText.innerText = "NEURAL_LINK_ACTIVE";
-
-statusDot.classList.add('active');
-
-setTimeout(() => {
-
-if(initialMsg) appendMessage('model', `### UPLOAD COMPLETE\n> System has ingested the file.\n\n${initialMsg}`);
-
-else appendMessage('model', `### SYSTEM ONLINE\nProtocol initialized. Neural link established.\n\n**Awaiting input...**`);
-
-}, 250);
-
+    setTimeout(() => {
+        if(initialMsg) {
+            appendMessage('model', `### CONTEXT LOADED\n${initialMsg}`);
+        } else {
+            appendMessage('model', `### AXIOM ENGINE v1.2\n**Ready for input.** Define simulation parameters.`);
+        }
+    }, 250);
 }
-
 
 
 function disconnect() {
@@ -1320,57 +1279,85 @@ setTimeout(() => { userInput.value = val; sendMessage(); }, 800);
 
 
 if(lobbyBtn) lobbyBtn.addEventListener('click', handleLobbyInit);
-
 if(lobbyInput) lobbyInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleLobbyInit(); } });
 
+// --- CHANGED: CARD 2 (QUICK SIMULATION) ---
+// Focuses the text input instead of opening a URL bar
+// --- CHANGED: CARD 2 (QUICK SIMULATION) ---
+// Now toggles the Preset Menu
+const cardSim = document.getElementById('card-sim');
+const presetMenu = document.getElementById('quick-presets');
 
-
-// File Upload
-
-const card1 = document.getElementById('card-1');
-
-const fileInput = document.getElementById('file-upload');
-
-if(card1 && fileInput) {
-
-card1.addEventListener('click', () => { fileInput.click(); });
-
-fileInput.addEventListener('change', async (e) => {
-
-const file = e.target.files[0]; if(!file) return;
-
-const fd = new FormData(); fd.append('file', file);
-
-try {
-
-const res = await fetch(`${API_URL}/upload`, { method:'POST', body: fd });
-
-const data = await res.json();
-
-activateChatMode(`File: ${data.filename}`);
-
-} catch(e) { console.error(e); }
-
-});
-
+if(cardSim && presetMenu) {
+    cardSim.addEventListener('click', () => {
+        // Toggle the 'active' class to slide it open/closed
+        const isActive = presetMenu.classList.contains('active');
+        
+        if (isActive) {
+            presetMenu.classList.remove('active');
+            cardSim.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        } else {
+            presetMenu.classList.add('active');
+            cardSim.style.borderColor = '#00f3ff'; // Keep card highlighted
+        }
+    });
 }
 
-
-
-// URL Input
-
-const card2 = document.getElementById('card-2');
-
-if(card2) {
-
-card2.addEventListener('click', () => {
-
-const c = document.getElementById('url-input-container');
-
-c.style.display = (c.style.display === 'none' || c.style.display === '') ? 'block' : 'none';
-
+// --- HANDLE PRESET CLICKS ---
+document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const prompt = e.target.getAttribute('data-prompt');
+        
+        // 1. Populate Input
+        if(lobbyInput) lobbyInput.value = prompt;
+        
+        // 2. Hide Menu
+        presetMenu.classList.remove('active');
+        
+        // 3. Launch
+        handleLobbyInit();
+    });
 });
 
+// --- CHANGED: CARD 1 (DEEP CONTEXT / UPLOAD) + SPINNER FIX ---
+const cardContext = document.getElementById('card-context');
+const fileInput = document.getElementById('file-upload');
+const spinnerOverlay = document.getElementById('spin-pdf'); // The new spinner ID
+
+if(cardContext && fileInput) {
+    // 1. Click card -> Trigger hidden input
+    cardContext.addEventListener('click', (e) => { 
+        // Prevent triggering if clicking the spinner itself
+        if(e.target.closest('#spin-pdf')) return;
+        fileInput.click(); 
+    });
+
+    // 2. Handle File Selection
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0]; 
+        if(!file) return;
+
+        // SHOW SPINNER
+        if(spinnerOverlay) spinnerOverlay.style.display = 'flex';
+
+        const fd = new FormData(); 
+        fd.append('file', file);
+
+        try {
+            const res = await fetch(`${API_URL}/upload`, { method:'POST', body: fd });
+            const data = await res.json();
+            
+            // HIDE SPINNER
+            if(spinnerOverlay) spinnerOverlay.style.display = 'none';
+            
+            activateChatMode(`**SYSTEM INGEST COMPLETE**\nTarget Data: _${data.filename}_`);
+            
+        } catch(e) { 
+            console.error(e); 
+            if(spinnerOverlay) spinnerOverlay.style.display = 'none';
+            alert("INGEST FAILED: " + e.message);
+        }
+    });
 }
 
 

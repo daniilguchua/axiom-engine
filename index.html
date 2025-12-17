@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GHOST // SYSTEM</title>
+    <title>AXIOM // ENGINE v1.2</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.3.0/dist/mermaid.min.js"></script>    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.3.0/dist/mermaid.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -22,57 +23,81 @@
 
     <div id="app-container">
         <header>
-            <div class="brand">GHOST <span>//</span> NEURAL</div>
+            <div class="brand">
+                AXIOM <span>//</span> ENGINE <span class="version">v1.2</span>
+            </div>
             <div class="header-right">
-                <button id="btn-disconnect">DISCONNECT</button>
+                <button id="btn-disconnect">END SESSION</button>
                 <div class="status-badge">
                     <div class="status-dot" id="status-dot"></div>
-                    <span id="status-text">IDLE</span>
+                    <span id="status-text">SYSTEM IDLE</span>
                 </div>
             </div>
         </header>
 
         <div id="lobby-panel">
-            <div class="cards-row">
-                <div class="tech-card" id="card-1">
-                    <div class="tech-icon" id="card-1-icon">⚡</div>
-                    <div class="tech-title" id="card-1-title">DATA INGEST</div>
-                    <div class="tech-desc" id="card-1-desc">Upload Local PDF</div>
-                    <div class="spinner" id="spin-pdf">UPLOADING...</div>
-                    <input type="file" id="file-upload" hidden accept=".pdf">
-                </div>
-                <div class="tech-card" id="card-2">
-                    <div class="tech-icon" id="card-2-icon">📡</div>
-                    <div class="tech-title" id="card-2-title">NET UPLINK</div>
-                    <div class="tech-desc" id="card-2-desc">Connect Live URL</div>
+    <div class="lobby-content">
+        <div class="construct-header">AXIOM // ENGINE v1.2</div>
+        
+        <div class="cards-row">
+            <div class="tech-card" id="card-sim">
+                <div class="card-corner top-left"></div>
+                <div class="tech-icon">⚡</div>
+                <div class="tech-content">
+                    <div class="tech-title">QUICK SIMULATION</div>
+                    <div class="tech-desc">Select Algorithms</div>
                 </div>
             </div>
 
-            <div id="url-input-container" style="display:none; width:300px; margin-top: 1rem;">
-                <input type="text" id="url-input-lobby" placeholder="Input Target URL..." style="width:100%;">
-            </div>
-            <div class="lobby-search-wrapper">
-                <button id="lobby-enhance-btn" title="Auto-Enhance Prompt">✨</button>
-                <input type="text" id="lobby-input" placeholder="AWAITING DIRECTIVE...">
-                <button id="lobby-btn">INITIALIZE</button>
+            <div class="tech-card" id="card-context">
+                <div class="card-corner top-right"></div>
+                <div class="tech-icon">📂</div>
+                <div class="tech-content">
+                    <div class="tech-title">DEEP CONTEXT</div>
+                    <div class="tech-desc">Ingest Course PDF</div>
+                </div>
+                <div class="spinner-overlay" id="spin-pdf" style="display:none;">
+                    <div class="spin-ring"></div>
+                    <span>INGESTING...</span>
+                </div>
+                <input type="file" id="file-upload" hidden accept=".pdf">
             </div>
         </div>
 
-        <div id="chat-panel">
-            
-            <div id="chat-history">
+        <div id="quick-presets">
+            <div class="preset-label">SELECT TARGET PROTOCOL:</div>
+            <div class="preset-buttons">
+                <button class="preset-btn" data-prompt="Visualize Binary Search on a sorted array of 15 integers">Binary Search</button>
+                <button class="preset-btn" data-prompt="Simulate the TCP 3-Way Handshake between Client and Server">TCP Handshake</button>
+                <button class="preset-btn" data-prompt="Show Dijkstra's Algorithm finding the shortest path on a weighted graph">Dijkstra's Algo</button>
+                <button class="preset-btn" data-prompt="Visualize the stages of Mitosis in a cell">Cell Mitosis</button>
+                <button class="preset-btn" data-prompt="Simulate a QuickSort partition step">Quick Sort</button>
+                <button class="preset-btn" data-prompt="Show how a Neural Network creates weights during Backpropagation">Neural Net</button>
             </div>
+        </div>
+
+        <div class="lobby-search-wrapper">
+            <button id="lobby-enhance-btn" title="Optimize Prompt">✨</button>
+            <input type="text" id="lobby-input" placeholder="Or type custom parameter...">
+            <button id="lobby-btn">INITIALIZE</button>
+        </div>
+    </div>
+</div>
+
+        <div id="chat-panel">
+            <div id="chat-history"></div>
+            
             <div class="input-wrapper">
                 <div class="input-row">
-                    <button class="btn secondary" id="btn-enhance" title="Enhance Prompt">✨</button>
-                    <input type="text" id="user-input" placeholder="Enter command...">
+                    <button class="btn secondary" id="btn-enhance">✨</button>
+                    <input type="text" id="user-input" placeholder="Modify simulation parameters...">
                     <button class="btn secondary" onclick="document.getElementById('file-upload').click()">📎</button>
-                    <button class="btn" id="btn-send">TRANSMIT</button>
+                    <button class="btn" id="btn-send">EXECUTE</button>
                 </div>
                 <div class="utility-bar">
                     <button class="util-btn" id="btn-summ">SUMMARIZE</button>
-                    <button class="util-btn" id="btn-tone">TONE ANALYSIS</button>
-                    <button class="util-btn" id="btn-reset" style="color:#ff5555">PURGE MEMORY</button>
+                    <button class="util-btn" id="btn-tone">ANALYSIS</button>
+                    <button class="util-btn" id="btn-reset" style="color:#ff5555">RESET ENGINE</button>
                 </div>
             </div>
         </div>

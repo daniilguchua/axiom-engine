@@ -201,67 +201,35 @@ def chat():
 """
 
     MERMAID_FIX = f"""
-
 ### 4. THE COMPILER RULES (STRICT SYNTAX ENFORCEMENT)
-
-You are generating a JSON string that contains Mermaid code.
-
-
+You are generating a JSON string. The parser is extremely strict.
 
 **CRITICAL FORMATTING RULES:**
 
-1. **ORIENTATION STRATEGY:**
+1. **NO LITERAL NEWLINES IN STRINGS:**
+   * **FATAL ERROR:** "Label line 1
+     Label line 2" 
+   * **CORRECT:** "Label line 1\\nLabel line 2"
+   * You **MUST** use `\\n` for newlines inside the JSON string values. Do not press "Enter".
 
-* **FLOWCHARTS:** Use `graph LR` (Left-to-Right) for processes, linked lists, and timelines.
+2. **THE "CARD" RULE (NO MASHED TEXT):**
+   * **NEVER** put multiple variables on the same line inside a node.
+   * **Usage:** Use `<br/>` for visual line breaks inside the Mermaid node label.
+   * **Example:** `Node[\\"w1=0.5<br/>w2=0.3\\"]`
 
-* **TREES/HIERARCHIES:** Use `graph TD` (Top-Down) for Binary Trees, B-Trees, and Heaps.
+3. **ESCAPE DOUBLE QUOTES:**
+   * You CANNOT write `Node["Text"]`.
+   * You MUST write `Node[\\"Text\\"]`.
 
-2. **NODE SHAPES:**
+4. **SEMICOLON PLACEMENT:**
+   * **DO:** Put semicolons after Nodes, Links, Styles, and ClassDefs. `A-->B;`
+   * **DO NOT:** Put semicolons after `graph`, `subgraph`, `end`, or `direction`.
 
-* **Standard Nodes:** `id((Label))` for Circles (General Trees).
+5. **NO "COMMAND SMASHING":**
+   * **FATAL:** `Node[\\"A\\"];direction LR`
+   * **REQUIRED:** `Node[\\"A\\"];\\ndirection LR` (Use \\n to separate commands)
 
-* **Data Blocks:** `id["Label"]` for Squares (B-Trees, Arrays).
-
-* **B-Tree Format:** Use pipes for multiple keys: `NodeA['[ 10 | 20 | 30 ]']`
-
-3. **RICH DATA NODES (THE "DATA CARD" RULE):**
-
-* **Do NOT** put data in a separate table if it fits in the node.
-
-* **Format:** Use HTML inside the node label to create a "Card".
-
-* **Syntax:** `NodeID['<b>NODE TITLE</b><br/><hr/>Dist: 10<br/>Status: Active']`
-
-* **Result:** This renders a box with a title, a horizontal line, and data rows inside the graph.
-
-4.. **ESCAPE DOUBLE QUOTES:** You CANNOT write `Node["Text"]`. You MUST write `Node[\\"Text\\"]`.
-
-5.. **NEWLINE LITERALS:** Use `\\n` for line breaks.
-
-5. **SEMICOLON PLACEMENT (STRICT):**
-
-* **DO:** Put semicolons after Nodes, Links, Styles, and ClassDefs.
-
-(e.g., `A-->B;`, `style A fill:#f9f;`)
-
-* **DO NOT:** Put semicolons after `graph`, `subgraph`, `end`, or `direction`.
-
-(e.g., **BAD:** `subgraph A;` | **GOOD:** `subgraph A`)
-
-6. **SUBGRAPH IDs:** IDs cannot have spaces. Titles must be quoted.
-
-* `subgraph Cluster1 [\\"My Title\\"]`
-
-7. **NO "COMMAND SMASHING":**
-
-* **FATAL:** `Node[\\"A\\"];direction LR`
-
-* **REQUIRED:** `Node[\\"A\\"];\\ndirection LR`
-
-
-
-**ONE-SHOT EXAMPLE (MIMIC THIS):**
-
+**ONE-SHOT EXAMPLE (MIMIC THIS EXACTLY):**
 {ONE_SHOT_EXAMPLE}
 
 """
@@ -585,7 +553,7 @@ HANDLING CONTINUATIONS: If the user sends COMMAND: CONTINUE_SIMULATION:
             HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
         }
 
-        model = genai.GenerativeModel('gemini-2.5-pro')
+        model = genai.GenerativeModel('models/gemini-3-pro-preview')
         
         stream = model.generate_content(
             full_prompt, 
@@ -630,55 +598,56 @@ def enhance():
     msg = data.get("message", "")
     
     # Check if this is a simulation request
-    is_simulation = any(k in msg.lower() for k in ["simulate", "simulation", "step", "interactive", "run", "show me"])
+    # We broaden the keywords to catch more intent
+    is_simulation = any(k in msg.lower() for k in ["simulate", "simulation", "step", "interactive", "run", "show me", "visualize", "algorithm", "process"])
 
-    # --- THE COSTARA METHOD (PROFESSOR EDITION) ---
-    meta_prompt = f"""
-    You are a Prompt Architect. Use the **COSTARA Method** to rewrite the user's request: "{msg}".
-
-    **GOAL:** Create a clear, specific prompt that will make GHOST generate a high-quality, compassionate educational simulation.
-
-    **RULES:**
-    1. **DO NOT** output the simulation yourself.
-    2. **DO NOT** output JSON, Protocol Headers, or "BEGIN_PAYLOAD".
-    3. **OUTPUT ONLY** the rewritten text prompt. Nothing else.
-
-    **C - CONTEXT:** The user is interacting with "GHOST", a High-Fidelity Educational Simulation Engine using Mermaid.js.
-    **O - OBJECTIVE:** Create a specific, step-by-step interactive simulation instruction that teaches the concept deeply.
-    **S - STYLE:** Visually stunning but highly accessible. The AI should act like a **Compassionate Professor**—patient, clear, and eager to help the student understand. Use analogies and examples.
-    **T - TONE:** Encouraging, Academic, Precise, and Warm.
-    **A - AUDIENCE:** The GHOST Backend AI (which requires strict syntax compliance).
-    **R - RULES (CRITICAL):** 1. Demand **Custom Styling**: "Use `classDef` to distinguish Active, Visited, and Future nodes."
-        2. Demand **Flow Highlighting**: "Use `linkStyle` to highlight the active path."
-        3. * **CLEAN GRAPH:** Do NOT include control nodes (Next/Prev) in the graph. The system handles navigation externally.
-        4. Demand **Safety**: "No spaces in IDs, No literal newlines."
-        5. Demand **Pedagogy**: "Include a `summary` field to explain the concept concept first, and ensure step `instructions` are verbose (3-4 sentences) with real-world examples."
+    # --- THE COSTARA METHOD (VISIONARY ARCHITECT EDITION) ---
+    # This prompt tells the AI to act like a Creative Director for your engine.
     
-    **A - ACTION:** Write the final optimized prompt for GHOST.
+    meta_prompt = f"""
+    You are an expert Prompt Engineer for a High-Fidelity Educational Simulation Engine (Axiom Engine). 
+    Use the **COSTARA Method** to rewrite the user's request: "{msg}".
 
-    **OUTPUT:** Return ONLY the refined prompt text.
+    **GOAL:** Transform the user's simple request into a sophisticated "Creative Brief" that triggers the Engine's interactive JSON capabilities.
+
+    **C - CONTEXT:** The user wants to visualize a complex Computer Science or System concept.
+    **O - OBJECTIVE:** Trigger the "Simulation Playlist" mode (JSON output) to teach this concept step-by-step.
+    **S - STYLE:** "The Compassionate Professor." The output prompt should demand deep analogies, real-world comparisons, and "Big-O" analysis.
+    **T - TONE:** Academic, Precise, yet Engaging and Narrative-driven.
+    **A - AUDIENCE:** The Axiom Backend AI (which strictly speaks JSON).
+    
+    **R - RULES (THE CREATIVE CONSTRAINTS):**
+    1. **Format Trigger:** Explicitly command the AI to "Output a JSON Simulation Playlist."
+    2. **Pedagogy Over Aesthetics:** Do NOT dictate specific colors (e.g., "make it red"). Instead, say: "Use high-contrast visual cues to distinguish active elements from inactive ones." (Let the Engine decide the colors).
+    3. **Narrative Flow:** Ask the AI to "Treat the algorithm as a story with a beginning, middle, and end."
+    4. **Data Depth:** Demand that the `data_table` field be used to track variables (pointers, accumulators, stack state) in real-time.
+    5. **The "Why":** Demand that the `instruction` field explains *why* a change happened, not just *what* happened.
+
+    **A - ACTION:** Write the final optimized prompt text.
+
+    **OUTPUT:** Return ONLY the refined prompt text. Do not add quotes or labels.
     """
 
     if not is_simulation:
-        # Simpler COSTARA for non-simulation questions (General Explanation)
+        # Simpler COSTARA for general questions
         meta_prompt = f"""
         Use the COSTARA method to enhance this question: "{msg}".
-        **C:** User needs a clear explanation. 
-        **O:** Provide a compassionate, structured answer. 
-        **S:** Patient Professor. 
-        **T:** Warm and Professional. 
-        **R:** Use Markdown headers, clear examples, and analogies. 
-        **A:** Rewrite the prompt to ask GHOST to explain this concept kindly and clearly.
+        **C:** User needs a clear, academic explanation.
+        **O:** Provide a compassionate, structured answer.
+        **S:** The "Compassionate Professor."
+        **T:** Warm, Professional, and Lucid.
+        **R:** Ask the AI to use Markdown headers, clear examples, and analogies.
+        **A:** Rewrite the prompt to ask for a clear explanation.
         """
     
     try:
         model = genai.GenerativeModel('gemini-2.5-flash') 
         res = model.generate_content(meta_prompt)
+        # Clean up any potential markdown formatting the AI adds to the response
         clean_text = res.text.strip().replace('```markdown', '').replace('```', '').strip()
         return jsonify({"enhanced_prompt": clean_text})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 @app.route('/analyze-tone', methods=['POST'])
 def analyze():
     if not DB["full_text"]: return jsonify({"error": "No text"}), 400

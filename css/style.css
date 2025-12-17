@@ -234,45 +234,11 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
    3. GRAPH ENGINE (Standard + Cinema)
    ========================================= */
 
-/* Standard Container */
-.mermaid-wrapper + table{
-    position: relative; display: flex; flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: fit-content !important;
-    margin: 20px 0;
-    background: radial-gradient(circle, rgba(20,20,30,0.4) 0%, rgba(0,0,0,0.6) 100%), 
-                repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(0, 243, 255, 0.03) 20px), 
-                repeating-linear-gradient(90deg, transparent, transparent 19px, rgba(0, 243, 255, 0.03) 20px);
-    border: 1px solid rgba(0, 243, 255, 0.3); border-radius: 8px;
-    box-shadow: 0 0 15px rgba(0, 243, 255, 0.05);
-    box-sizing: border-box; overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Cinema Mode (Fullscreen) */
-.mermaid-wrapper.fullscreen {
-    position: fixed !important; top: 0 !important; left: 0 !important;
-    width: 100vw !important; height: 100vh !important;
-    margin: 0 !important; border: none !important; border-radius: 0 !important;
-    background: #050505 !important; z-index: 2147483647 !important;
-}
 
 /* Graph Area */
-.mermaid { flex-grow: 1; width: 100%; height: 100%; position: relative; overflow: hidden; }
-.mermaid-wrapper.fullscreen .mermaid { height: 65% !important; border-bottom: 1px solid rgba(0, 243, 255, 0.2); }
-.mermaid svg { 
-    width: 100% !important; 
-    height: auto !important; /* Preserves aspect ratio */
-    max-height: 590px; /* Cap huge graphs so they don't take forever to scroll */
-    display: block;
-    margin: 0 auto;
-}
+.mermaid { flex-grow: 1; width: 100%; height: 100%; position: relative; overflow: hidden; transition: transform 0.05s ease-out; 
+    transform-origin: 0 0;}
 
-/* Controls */
-.mermaid-controls {
-    display: none !important; 
-}
 
 /* =========================================
    4. HUD & DATA SKINS (The Table Fix)
@@ -285,8 +251,6 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
     background: rgba(8, 8, 10, 0.98); border-top: 2px solid var(--accent-cyan);
     box-sizing: border-box; z-index: 200;
 }
-.mermaid-wrapper.fullscreen .explanation-hud { display: flex !important; animation: slideUp 0.3s ease-out; }
-
 /* HUD Header */
 .hud-title {
     flex-shrink: 0; padding: 15px 25px;
@@ -546,18 +510,7 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
     overflow: hidden;
 }
 
-/* THE GRAPH */
-.visual-stage .mermaid-wrapper {
-    width: auto !important;
-    height: auto !important;
-    margin: 0 !important;
-    border: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    
-    /* INCREASED PADDING: Reserves more empty space at the bottom */
-    
-}
+
 
 /* THE CONTROLS (Sleek Floating Pill) */
 .sim-controls {
@@ -670,3 +623,422 @@ input[type="text"]:focus { background: rgba(10, 12, 16, 0.9); border-color: var(
     color: #fff !important;
     text-shadow: 0 0 5px white;
 }
+
+/* --- 1. NEW BRANDING --- */
+.brand {
+    font-family: var(--font-header);
+    font-size: 1.1rem;
+    letter-spacing: 3px;
+    color: #fff;
+    font-weight: 700;
+    text-shadow: none; /* Removed the heavy blur for clarity */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.brand span { color: var(--accent-cyan); }
+.brand .version {
+    font-size: 0.6rem;
+    background: rgba(255,255,255,0.1);
+    padding: 2px 6px;
+    border-radius: 2px;
+    color: var(--text-secondary);
+    font-family: var(--font-code);
+}
+
+/* --- 2. THE CONSTRUCT DECK (Lobby Container) --- */
+#lobby-panel {
+    justify-content: center; /* Center vertically */
+    padding-bottom: 5vh;
+}
+
+.construct-frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    padding: 4rem;
+    background: rgba(5, 5, 8, 0.6); /* Darker, cleaner backing */
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    position: relative;
+}
+
+/* Construct decorative header */
+.construct-header {
+    font-family: var(--font-code);
+    color: var(--accent-cyan);
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    margin-bottom: 1rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+}
+
+/* --- 3. REDESIGNED CARDS --- */
+.cards-row { gap: 1.5rem; }
+
+.tech-card {
+    width: 280px; height: 160px;
+    background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    display: flex; flex-direction: row; /* Horizontal layout now */
+    align-items: center;
+    padding: 0 1.5rem;
+    gap: 1rem;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+/* Hover State: Cleaner, less "glowy mess" */
+.tech-card:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: var(--accent-cyan);
+    transform: translateY(-2px);
+}
+
+.tech-icon {
+    font-size: 2rem;
+    filter: drop-shadow(0 0 10px rgba(0,243,255,0.3));
+}
+
+.tech-content { text-align: left; }
+
+.tech-title {
+    font-size: 0.85rem;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.tech-desc {
+    font-size: 0.65rem;
+    color: #888;
+    text-transform: none; /* Easier to read */
+    font-family: var(--font-ui);
+}
+
+/* Decorative Corners for "Engine" feel */
+.card-corner {
+    position: absolute; width: 8px; height: 8px;
+    border-top: 2px solid var(--accent-cyan);
+    border-left: 2px solid var(--accent-cyan);
+    opacity: 0; transition: 0.3s;
+}
+.card-corner.top-left { top: -1px; left: -1px; border-radius: 4px 0 0 0; }
+.card-corner.top-right { top: -1px; right: -1px; transform: rotate(90deg); border-radius: 4px 0 0 0; }
+.tech-card:hover .card-corner { opacity: 1; }
+
+/* --- 4. SPINNER FIX (Overlay Style) --- */
+.spinner-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(5px);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px;
+    z-index: 10;
+    border-radius: 12px;
+}
+.spin-ring {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(0, 243, 255, 0.3);
+    border-top: 2px solid var(--accent-cyan);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+.spinner-overlay span {
+    font-family: var(--font-code);
+    font-size: 0.7rem;
+    color: var(--accent-cyan);
+    letter-spacing: 1px;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* --- 5. LOBBY INPUT --- */
+.lobby-search-wrapper {
+    width: 100%;
+    max-width: 600px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+}
+#lobby-input {
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+}
+#lobby-btn {
+    background: var(--accent-cyan);
+    color: #000;
+    border: none;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+#lobby-btn:hover {
+    background: #fff;
+    box-shadow: 0 0 15px rgba(255,255,255,0.4);
+}
+
+/* --- LOBBY TRANSPARENCY FIX (Let the ball show!) --- */
+#lobby-panel {
+    justify-content: flex-end; /* Push UI to bottom */
+    padding-bottom: 8vh;       /* Leave space at bottom */
+    background: transparent;   /* No background color */
+}
+
+.lobby-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    /* No background here either! Just floating elements */
+}
+
+/* Make cards slightly more transparent */
+.tech-card {
+    background: rgba(0, 0, 0, 0.4); /* See-through dark */
+    backdrop-filter: blur(5px);
+}
+
+/* --- THE PRESET GRID STYLING --- */
+#quick-presets {
+    width: 600px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(0, 243, 255, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    backdrop-filter: blur(10px);
+    
+    /* Animation for sliding open */
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    margin-top: -10px;
+}
+
+#quick-presets.active {
+    max-height: 300px; /* Open up */
+    opacity: 1;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.preset-label {
+    font-family: var(--font-code);
+    font-size: 0.7rem;
+    color: var(--accent-cyan);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+.preset-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr; /* 3 columns */
+    gap: 8px;
+}
+
+.preset-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    padding: 10px;
+    font-size: 0.75rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: 0.2s;
+}
+
+.preset-btn:hover {
+    background: rgba(0, 243, 255, 0.1);
+    border-color: var(--accent-cyan);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
+}
+
+/* --- AXIOM LOADER (THE PROCESSING STATE) --- */
+.axiom-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center content internally */
+    gap: 15px;
+    padding: 12px 25px; /* Bigger padding */
+    background: rgba(0, 0, 0, 0.6); /* Darker background */
+    border: 1px solid rgba(0, 243, 255, 0.15);
+    border-radius: 50px; /* Fully rounded pill shape */
+    font-family: var(--font-code);
+    
+    /* CENTERING MAGIC */
+    margin: 10px auto; /* Top/Bottom margin 10px, Left/Right AUTO (Centers it) */
+    width: fit-content; /* Only take up as much space as needed */
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); /* Float effect */
+}
+
+/* The Spinning Ring */
+.loader-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(0, 243, 255, 0.2);
+    border-top: 2px solid var(--accent-cyan);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+}
+
+/* The Text & Bar Container */
+.loader-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.loader-text {
+    font-size: 0.75rem;
+    color: var(--accent-cyan);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    animation: blink 2s infinite;
+}
+
+.loader-bar-bg {
+    width: 120px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+    border-radius: 2px;
+}
+
+.loader-bar-fill {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    width: 40%;
+    background: var(--accent-cyan);
+    box-shadow: 0 0 10px var(--accent-cyan);
+    animation: scan 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes scan { 
+    0% { left: -40%; } 
+    50% { width: 60%; }
+    100% { left: 100%; } 
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+
+/* 1. Base State */
+.mermaid g.node rect,
+.mermaid g.node circle,
+.mermaid g.node polygon,
+.mermaid g.node path {
+    transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform-origin: center center;
+}
+
+/* 2. Hover State (The "Pop") */
+.mermaid g.node:hover rect,
+.mermaid g.node:hover circle,
+.mermaid g.node:hover polygon,
+.mermaid g.node:hover path {
+    /* OPTICAL ILLUSION OF GROWTH */
+    stroke-width: 10px !important;  /* Massive border increase = Looks bigger */
+    stroke: #ffffff !important;     /* Pure White Flash */
+    
+    /* NEON GLOW */
+    filter: drop-shadow(0 0 20px rgba(0, 243, 255, 1)) !important;
+    
+    /* Bring to front visually */
+    z-index: 9999;
+}
+
+/* 3. Text Crispness */
+.mermaid g.node:hover foreignObject div {
+    color: #ffffff !important;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 1);
+    font-weight: 800;
+    transform: scale(1.05); /* Slight text bump is usually safe */
+}
+
+/* =========================================
+   FINAL GRAPH ENGINE (Unified)
+   ========================================= */
+
+/* 1. WRAPPER: Full Size + Safety Cushion + Scrolling */
+.mermaid-wrapper {
+    height: auto !important;
+    max-height: 70vh;
+    width: 100% !important;
+    
+    /* Layout */
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    
+    /* THE SAFETY CUSHION: 60px padding prevents "Cut Off" on hover */
+
+    /* SCROLLING: Allow graph to exceed bounds if needed */
+    overflow: auto !important;
+    
+}
+
+/* 2. SVG: Allow Bleeding (No Cut Off) */
+.mermaid svg {
+    width: 100% !important;
+    height: auto !important;
+    max-width: none !important;
+    
+    /* CRITICAL: Allows glow/shadow to draw outside the box */
+    overflow: visible !important;
+}
+
+/* 3. NODE PHYSICS: Target Shape, Not Position */
+.mermaid g.node rect,
+.mermaid g.node circle,
+.mermaid g.node polygon,
+.mermaid g.node path {
+    transform-origin: center center;
+    transform-box: fill-box;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 4. HOVER STATE: Massive Pop (1.5x) */
+.mermaid g.node:hover rect,
+.mermaid g.node:hover circle,
+.mermaid g.node:hover polygon,
+.mermaid g.node:hover path {
+    transform: scale(1.5); /* Grow 50% */
+    stroke: #ffffff !important;
+    stroke-width: 4px !important;
+    filter: drop-shadow(0 0 25px rgba(0, 243, 255, 0.8));
+    opacity: 1 !important;
+}
+
+/* 5. TEXT: Scale Text with Node */
+.mermaid g.node:hover foreignObject {
+    transform-origin: center center;
+    transform-box: fill-box;
+    transition: all 0.2s ease;
+    transform: scale(1.5); 
+}
+
+/* 6. TEXT HIGHLIGHT */
+.mermaid g.node:hover foreignObject div {
+    color: #ffffff !important;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 1);
+    font-weight: 800;
+}
+
+/* 7. LAYERING: Bring to Front */
+.mermaid g.node:hover {
+    z-index: 9999;
+    position: relative;
+}
+
+/* 8. SCROLLBARS */
+.mermaid-wrapper::-webkit-scrollbar { width: 8px; height: 8px; }
+.mermaid-wrapper::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); border-radius: 4px; }
+.mermaid-wrapper::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.2); border-radius: 4px; }
