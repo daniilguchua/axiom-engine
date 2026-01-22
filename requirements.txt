@@ -12,3 +12,9 @@ pydantic>=2.0
 requests
 beautifulsoup4
 python-dotenv
+redis
+pydantic
+pydantic-settings
+typing_extensions
+numpy
+scikit-learn

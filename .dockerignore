@@ -1,0 +1,9 @@
+__pycache__
+venv
+.git
+.gitignore
+.env
+axiom_data/
+axiom.db
+axiom.db-journal
+__pycache__/

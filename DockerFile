@@ -1,22 +1,18 @@
-# 1. Use a lightweight Python base image
+# 1. Base Image: Use a lightweight version of Python
 FROM python:3.9-slim
 
-# 2. Set the working directory inside the container
+# 2. Work Directory: Where our code lives inside the box
 WORKDIR /app
 
-# 3. Copy dependency file to the container
+# 3. Dependencies: Copy requirements first to leverage Docker caching
 COPY requirements.txt .
-
-# 4. Install dependencies
-# (We add --no-cache-dir to keep the image small)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copy the rest of your code to the container
+# 4. Copy Code: Move your actual source code into the box
 COPY . .
 
-# 6. Expose the port the app runs on
+# 5. Network: Allow the world to see port 5000
 EXPOSE 5000
 
-# 7. Define the command to run the app
-# We use 'gunicorn' for production stability instead of 'python app.py'
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
+# 6. Launch: How to start the app
+CMD ["python", "app.py"]

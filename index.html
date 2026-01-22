@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AXIOM // ENGINE v1.2</title>
+    <title>AXIOM // ENGINE v1.3</title>
 
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11.3.0/dist/mermaid.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -24,9 +24,13 @@
     <div id="app-container">
         <header>
             <div class="brand">
-                AXIOM <span>//</span> ENGINE <span class="version">v1.2</span>
+                AXIOM <span>//</span> ENGINE <span class="version">v1.3</span>
             </div>
             <div class="header-right">
+                <div class="difficulty-indicator" id="difficulty-badge" title="Click to change difficulty">
+                    <span class="diff-icon">⚙️</span>
+                    <span class="diff-text">ENGINEER</span>
+                </div>
                 <button id="btn-disconnect">END SESSION</button>
                 <div class="status-badge">
                     <div class="status-dot" id="status-dot"></div>
@@ -36,53 +40,63 @@
         </header>
 
         <div id="lobby-panel">
-    <div class="lobby-content">
-        <div class="construct-header">AXIOM // ENGINE v1.2</div>
-        
-        <div class="cards-row">
-            <div class="tech-card" id="card-sim">
-                <div class="card-corner top-left"></div>
-                <div class="tech-icon">⚡</div>
-                <div class="tech-content">
-                    <div class="tech-title">QUICK SIMULATION</div>
-                    <div class="tech-desc">Select Algorithms</div>
+            <div class="lobby-content">
+            
+                <!-- HERO TAGLINE -->
+                <div class="hero-tagline">
+                    <h1>See Algorithms <span style="background: linear-gradient(135deg, #8B5CF6, #60A5FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Think</span></h1>
+                    <p>Interactive algorithm visualization engine powered by AI. Transform complex concepts into <span class="highlight">step-by-step simulations</span> you can explore.</p>
                 </div>
-            </div>
+                
+                <!-- SECTION LABEL -->
+                <div class="construct-header">
+                    <span>Choose Your Path</span>
+                </div>
+                
+                <!-- FEATURE CARDS -->
+                <div class="cards-row">
+                    <div class="tech-card" id="card-sim">
+                        <div class="tech-icon">⚡</div>
+                        <div class="tech-content">
+                            <div class="tech-title">Start Simulation</div>
+                            <div class="tech-desc">Type any algorithm or concept. Watch it come alive with interactive visualizations.</div>
+                        </div>
+                    </div>
+                    <div class="tech-card" id="card-context">
+                        <div class="tech-icon">📄</div>
+                        <div class="tech-content">
+                            <div class="tech-title">Load Context</div>
+                            <div class="tech-desc">Upload a PDF to analyze. Ask questions with document-aware responses.</div>
+                        </div>
+                        <input type="file" id="file-upload" accept=".pdf" style="display:none;">
+                        <div class="spinner-overlay" id="spin-pdf" style="display:none;">
+                            <div class="spin-ring"></div>
+                            <span>PROCESSING</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- QUICK PRESETS -->
+                <div id="quick-presets">
+                    <div class="preset-label">Popular Simulations</div>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" data-prompt="Simulate binary search step by step, showing how the search space narrows">🔍 Binary Search</button>
+                        <button class="preset-btn" data-prompt="Simulate Dijkstra's shortest path algorithm on a weighted graph">🗺️ Dijkstra's Algorithm</button>
+                        <button class="preset-btn" data-prompt="Simulate neural network backpropagation with actual gradient calculations">🧠 Backpropagation</button>
+                        <button class="preset-btn" data-prompt="Simulate quicksort with partition visualization and pivot selection">📊 QuickSort</button>
+                        <button class="preset-btn" data-prompt="Simulate TCP three-way handshake between client and server">🌐 TCP Handshake</button>
+                        <button class="preset-btn" data-prompt="Simulate BFS traversal on a graph, showing the queue and visited nodes">🔄 BFS Traversal</button>
+                    </div>
+                </div>
 
-            <div class="tech-card" id="card-context">
-                <div class="card-corner top-right"></div>
-                <div class="tech-icon">📂</div>
-                <div class="tech-content">
-                    <div class="tech-title">DEEP CONTEXT</div>
-                    <div class="tech-desc">Ingest Course PDF</div>
+                <div class="lobby-search-wrapper">
+                    <button id="lobby-enhance-btn" title="Enhance prompt with AI">✨</button>
+                    <input type="text" id="lobby-input" placeholder="Describe an algorithm, concept, or process to visualize..." autocomplete="off">
+                    <button id="lobby-btn">GENERATE →</button>
                 </div>
-                <div class="spinner-overlay" id="spin-pdf" style="display:none;">
-                    <div class="spin-ring"></div>
-                    <span>INGESTING...</span>
-                </div>
-                <input type="file" id="file-upload" hidden accept=".pdf">
+            
             </div>
         </div>
-
-        <div id="quick-presets">
-            <div class="preset-label">SELECT TARGET PROTOCOL:</div>
-            <div class="preset-buttons">
-                <button class="preset-btn" data-prompt="Visualize Binary Search on a sorted array of 15 integers">Binary Search</button>
-                <button class="preset-btn" data-prompt="Simulate the TCP 3-Way Handshake between Client and Server">TCP Handshake</button>
-                <button class="preset-btn" data-prompt="Show Dijkstra's Algorithm finding the shortest path on a weighted graph">Dijkstra's Algo</button>
-                <button class="preset-btn" data-prompt="Visualize the stages of Mitosis in a cell">Cell Mitosis</button>
-                <button class="preset-btn" data-prompt="Simulate a QuickSort partition step">Quick Sort</button>
-                <button class="preset-btn" data-prompt="Show how a Neural Network creates weights during Backpropagation">Neural Net</button>
-            </div>
-        </div>
-
-        <div class="lobby-search-wrapper">
-            <button id="lobby-enhance-btn" title="Optimize Prompt">✨</button>
-            <input type="text" id="lobby-input" placeholder="Or type custom parameter...">
-            <button id="lobby-btn">INITIALIZE</button>
-        </div>
-    </div>
-</div>
 
         <div id="chat-panel">
             <div id="chat-history"></div>
@@ -94,16 +108,128 @@
                     <button class="btn secondary" onclick="document.getElementById('file-upload').click()">📎</button>
                     <button class="btn" id="btn-send">EXECUTE</button>
                 </div>
-                <div class="utility-bar">
-                    <button class="util-btn" id="btn-summ">SUMMARIZE</button>
-                    <button class="util-btn" id="btn-tone">ANALYSIS</button>
-                    <button class="util-btn" id="btn-reset" style="color:#ff5555">RESET ENGINE</button>
-                </div>
             </div>
         </div>
     </div>
 
-    <script src="js/client.js"></script>
-    <script src="js/neural-bg.js"></script>
+    <!-- DIFFICULTY SELECTION MODAL -->
+    <dialog id="difficulty-modal" class="difficulty-modal">
+        <div class="difficulty-modal-content">
+            <div class="difficulty-modal-header">
+                <h2>🎯 Choose Your Learning Level</h2>
+                <p>Select the depth and style that matches your experience</p>
+            </div>
+            
+            <div class="difficulty-cards">
+                <!-- EXPLORER -->
+                <div class="difficulty-card" data-difficulty="explorer">
+                    <div class="diff-card-header explorer">
+                        <span class="diff-card-icon">🌟</span>
+                        <span class="diff-card-title">Explorer</span>
+                    </div>
+                    <div class="diff-card-tagline">Fun & Friendly Learning</div>
+                    <div class="diff-card-body">
+                        <p class="diff-card-desc">Perfect for beginners! Uses games, analogies, and emojis to make algorithms approachable and fun.</p>
+                        <div class="diff-card-audience">
+                            <strong>Best for:</strong> CS101/102 students, visual learners, anyone new to algorithms
+                        </div>
+                        <ul class="diff-card-features">
+                            <li>🎮 Game & real-world analogies</li>
+                            <li>😊 Encouraging, simple language</li>
+                            <li>📊 Clean diagrams (8-15 nodes)</li>
+                            <li>🎉 Celebrates your progress!</li>
+                        </ul>
+                    </div>
+                    <div class="diff-card-example">
+                        <strong>Example:</strong> "BFS is like a pizza delivery driver visiting ALL houses on one street before moving to the next!"
+                    </div>
+                </div>
+                
+                <!-- ENGINEER -->
+                <div class="difficulty-card selected" data-difficulty="engineer">
+                    <div class="diff-card-header engineer">
+                        <span class="diff-card-icon">⚙️</span>
+                        <span class="diff-card-title">Engineer</span>
+                        <span class="diff-card-badge">RECOMMENDED</span>
+                    </div>
+                    <div class="diff-card-tagline">Technical & Practical</div>
+                    <div class="diff-card-body">
+                        <p class="diff-card-desc">Industry-ready explanations with Big-O analysis, pseudocode, edge cases, and real-world applications.</p>
+                        <div class="diff-card-audience">
+                            <strong>Best for:</strong> DS&A students, interview prep, working developers
+                        </div>
+                        <ul class="diff-card-features">
+                            <li>📐 Time/Space complexity analysis</li>
+                            <li>💻 Pseudocode with calculations</li>
+                            <li>⚠️ Edge cases & invariants</li>
+                            <li>🔧 Real-world applications</li>
+                        </ul>
+                    </div>
+                    <div class="diff-card-example">
+                        <strong>Example:</strong> "Dijkstra's runs in O((V+E)log V) with a binary heap. The invariant: extracted nodes have final distances."
+                    </div>
+                </div>
+                
+                <!-- ARCHITECT -->
+                <div class="difficulty-card" data-difficulty="architect">
+                    <div class="diff-card-header architect">
+                        <span class="diff-card-icon">🏗️</span>
+                        <span class="diff-card-title">Architect</span>
+                    </div>
+                    <div class="diff-card-tagline">Deep Theory & Systems</div>
+                    <div class="diff-card-body">
+                        <p class="diff-card-desc">Research-level depth with mathematical rigor, hardware context, tensor operations, and scaling analysis.</p>
+                        <div class="diff-card-audience">
+                            <strong>Best for:</strong> Grad students, senior engineers, ML researchers
+                        </div>
+                        <ul class="diff-card-features">
+                            <li>📝 Mathematical derivations</li>
+                            <li>🖥️ Hardware-aware (FLOPs, bandwidth)</li>
+                            <li>🔬 Numerical stability analysis</li>
+                            <li>📈 Scaling & production concerns</li>
+                        </ul>
+                    </div>
+                    <div class="diff-card-example">
+                        <strong>Example:</strong> "Attention is O(n²d). The n×n matrix is memory-bound; Flash Attention tiles to avoid materialization."
+                    </div>
+                </div>
+            </div>
+            
+            <div class="difficulty-modal-footer">
+                <button id="btn-diff-cancel" class="btn-diff secondary">Cancel</button>
+                <button id="btn-diff-confirm" class="btn-diff primary">
+                    <span id="btn-diff-text">Start with Engineer Mode</span>
+                    <span class="btn-arrow">→</span>
+                </button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- INPUT MODAL (existing) -->
+    <dialog id="input-modal" class="cyber-modal">
+        <div class="modal-content">
+            <div class="modal-header">>> AXIOM_INPUT_REQUIRED</div>
+            <div class="modal-body">
+                <label id="modal-label">Enter Parameter:</label>
+                <input type="text" id="modal-input-field" autocomplete="off">
+            </div>
+            <div class="modal-footer">
+                <button id="btn-modal-cancel">ABORT</button>
+                <button id="btn-modal-confirm">EXECUTE_COMMAND</button>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/sanitizer.js"></script>
+    <script src="js/repair.js"></script>
+    <script src="neural-bg.js"></script> 
+    <script src="js/renderer.js"></script>
+    <script src="js/controllers.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/interactions.js"></script>
+    <script src="js/difficulty.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
