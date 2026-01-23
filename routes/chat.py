@@ -87,12 +87,13 @@ def chat():
     # =========================================================================
     
     if is_new_sim:
-        # Include difficulty in cache key consideration
-        cache_key = f"{difficulty}:{user_msg}"
+        # Use raw prompt for semantic search, difficulty as filter
+        cache_key = user_msg  # No longer prefix with difficulty
         
         if not cache_manager.has_pending_repair(session_id, cache_key):
             cached_data = cache_manager.get_cached_simulation(
-                cache_key, 
+                cache_key,
+                difficulty=difficulty,  # Filter by difficulty
                 require_complete=True,
                 require_verified=True
             )
@@ -102,6 +103,7 @@ def chat():
                 user_db["current_sim_data"] = cached_data.get('steps', [])
                 user_db["current_step_index"] = 0
                 user_db["original_prompt"] = cache_key
+                user_db["original_difficulty"] = difficulty
                 
                 logger.info(f"⚡ Cache hit for: {user_msg[:40]}... (difficulty: {difficulty})")
                 return jsonify(cached_data)
@@ -116,7 +118,8 @@ def chat():
         user_db["chat_history"] = []
         user_db["current_sim_data"] = []
         user_db["current_step_index"] = 0
-        user_db["original_prompt"] = f"{difficulty}:{user_msg}"
+        user_db["original_prompt"] = user_msg  # Raw prompt, no difficulty prefix
+        user_db["original_difficulty"] = difficulty  # Store difficulty separately
         user_db["simulation_verified"] = False
         logger.info(f"🆕 NEW SIMULATION ({difficulty}): {user_msg[:50]}... (Session: {session_id[:16]}...)")
         
@@ -323,10 +326,17 @@ Match the {difficulty.upper()} mode style in your response.
                 # Fix double-escaped quotes
                 clean_json = clean_json.replace('\\\\"', '\\"')
                 
-                # Reject if it looks like code
-                if clean_json.startswith(('queue', 'def ', 'import ', 'class ', 'if ', 'for ', 'while ', 'pseudocode')):
-                    logger.error(f"❌ AI output looks like code, not JSON. First 200 chars: {clean_json[:200]}")
-                    raise ValueError("AI generated code instead of JSON. Please retry.")
+                # Reject if it looks like code (Python, JS, pseudocode, etc.)
+                code_patterns = (
+                    'queue', 'def ', 'import ', 'class ', 'if ', 'for ', 'while ', 
+                    'pseudocode', 'function', 'const ', 'let ', 'var ', 'return ',
+                    '#!/', '#include', 'public ', 'private ', 'void ', 'int ',
+                    '// ', '/* ', 'async ', 'await ', 'console.', 'print('
+                )
+                stripped = clean_json.lstrip()
+                if stripped.startswith(code_patterns) or not stripped.startswith('{'):
+                    logger.error(f"❌ AI output is not JSON. First 200 chars: {clean_json[:200]}")
+                    raise ValueError("AI generated code/text instead of JSON. Please retry.")
                 
                 data_obj = json.loads(clean_json)
                 new_steps = []

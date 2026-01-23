@@ -140,7 +140,12 @@ mermaid.initialize({
         useMaxWidth: false,
         rankSpacing: 80,
         nodeSpacing: 60,
-        padding: 20
+        padding: 25,
+        subGraphTitleMargin: {
+            top: 10,
+            bottom: 10
+        },
+        wrappingWidth: 300
     }
 });
 

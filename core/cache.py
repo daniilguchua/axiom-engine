@@ -124,6 +124,7 @@ class CacheManager:
                     ("access_count", "INTEGER DEFAULT 0"),
                     ("avg_rating", "REAL"),
                     ("client_verified", "BOOLEAN DEFAULT 0"),
+                    ("difficulty", "TEXT DEFAULT 'engineer'"),
                 ]
                 
                 for col_name, col_type in migrations:
@@ -147,7 +148,8 @@ class CacheManager:
                         created_at TIMESTAMP,
                         last_accessed TIMESTAMP,
                         access_count INTEGER DEFAULT 0,
-                        avg_rating REAL
+                        avg_rating REAL,
+                        difficulty TEXT DEFAULT 'engineer'
                     )
                 ''')
             
@@ -225,6 +227,7 @@ class CacheManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cache_prompt ON simulation_cache(prompt_key)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cache_status ON simulation_cache(status)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cache_verified ON simulation_cache(client_verified)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cache_difficulty ON simulation_cache(difficulty)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_pending_session ON pending_repairs(session_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_broken_hash ON broken_simulations(prompt_hash)')
             
@@ -237,6 +240,7 @@ class CacheManager:
     def get_cached_simulation(
         self, 
         user_prompt: str,
+        difficulty: str = "engineer",
         require_complete: bool = True,
         require_verified: bool = False
     
@@ -246,6 +250,7 @@ class CacheManager:
         
         Args:
             user_prompt: The user's query
+            difficulty: The difficulty level (explorer, engineer, architect) - MUST match exactly
             require_complete: If True, only return simulations marked as complete
             
         Returns:
@@ -265,18 +270,18 @@ class CacheManager:
             cursor = conn.cursor()
             
             # Build query based on completeness requirement
-            # FIX: Build query based on requirements
-            conditions = []
+            # FIX: Build query based on requirements + difficulty filter
+            conditions = [f"difficulty = '{difficulty}'"]  # MUST match difficulty exactly
             if require_complete:
-                conditions.append("status = 'complete' OR status = 'verified'")
+                conditions.append("(status = 'complete' OR status = 'verified')")
                 conditions.append("is_final_complete = 1")
             if require_verified:
                 conditions.append("client_verified = 1")
 
-            where_clause = " AND ".join(conditions) if conditions else "1=1"
+            where_clause = " AND ".join(conditions)
             
             cursor.execute(f"""
-                SELECT prompt_key, embedding, playlist_json, status, is_final_complete, client_verified
+                SELECT prompt_key, embedding, playlist_json, status, is_final_complete, client_verified, difficulty
                 FROM simulation_cache 
                 WHERE {where_clause}
             """)
@@ -288,7 +293,7 @@ class CacheManager:
         best_key = None
         
         for row in rows:
-            db_key, db_emb_json, data, status, is_final, verified = row
+            db_key, db_emb_json, data, status, is_final, verified, db_difficulty = row
             if not db_emb_json:
                 continue
                 
@@ -296,7 +301,7 @@ class CacheManager:
                 db_vec = json.loads(db_emb_json)
                 score = cosine_similarity(query_vec, db_vec)
                 
-                logger.debug(f"Similarity '{user_prompt[:30]}...' vs '{db_key[:30]}...': {score:.4f}")
+                logger.debug(f"Similarity '{user_prompt[:30]}...' vs '{db_key[:30]}...' (diff={db_difficulty}): {score:.4f}")
                 
                 if score > best_score:
                     best_score = score
@@ -307,20 +312,21 @@ class CacheManager:
                 continue
         
         if best_score >= self.SIMILARITY_THRESHOLD:
-            logger.info(f"⚡ CACHE HIT ({best_score:.2f}): '{user_prompt[:40]}...' matched '{best_key[:40]}...'")
+            logger.info(f"⚡ CACHE HIT ({best_score:.2f}, {difficulty}): '{user_prompt[:40]}...' matched '{best_key[:40]}...'")
             
             # Update access metrics
             self._update_access_metrics(best_key)
             
             return json.loads(best_match)
         
-        logger.debug(f"Cache miss for: '{user_prompt[:40]}...' (best score: {best_score:.2f})")
+        logger.debug(f"Cache miss for: '{user_prompt[:40]}...' (difficulty={difficulty}, best score: {best_score:.2f})")
         return None
     
     def save_simulation(
         self,
         prompt: str,
         playlist_data: Dict[str, Any],
+        difficulty: str = "engineer",
         is_final_complete: bool = False,
         client_verified: bool = False,
         session_id: Optional[str] = None
@@ -335,6 +341,7 @@ class CacheManager:
         Args:
             prompt: The original user prompt
             playlist_data: The complete playlist JSON
+            difficulty: The difficulty level (explorer, engineer, architect)
             is_final_complete: Whether the simulation reached its natural end
             session_id: Session ID for repair checking
             
@@ -403,8 +410,8 @@ class CacheManager:
                 cursor.execute("""
                     INSERT INTO simulation_cache 
                     (prompt_key, embedding, playlist_json, status, step_count, 
-                     is_final_complete, client_verified, created_at, last_accessed, access_count)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                     is_final_complete, client_verified, difficulty, created_at, last_accessed, access_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                     ON CONFLICT(prompt_key) DO UPDATE SET
                         embedding = excluded.embedding,
                         playlist_json = excluded.playlist_json,
@@ -415,13 +422,14 @@ class CacheManager:
                             WHEN excluded.client_verified = 1 THEN 1 
                             ELSE simulation_cache.client_verified 
                         END,
+                        difficulty = excluded.difficulty,
                         last_accessed = excluded.last_accessed
                 """, (
                     clean_key, emb_json, json_str, status, step_count,
-                    is_final_complete, client_verified, datetime.now(), datetime.now()
+                    is_final_complete, client_verified, difficulty, datetime.now(), datetime.now()
                 ))
                 conn.commit()
-                logger.info(f"💾 CACHED: '{clean_key[:40]}...' ({step_count} steps, verified={client_verified})")
+                logger.info(f"💾 CACHED: '{clean_key[:40]}...' ({step_count} steps, difficulty={difficulty}, verified={client_verified})")
                 return True
             except sqlite3.Error as e:
                 logger.error(f"Cache save failed: {e}")

@@ -1338,6 +1338,22 @@ g.node foreignObject div {
     font-weight: 700 !important;
     fill: var(--accent) !important;
     font-family: var(--font-header) !important;
+    padding-right: 12px !important;
+}
+
+/* Fix subgraph header text cutoff */
+.mermaid g.cluster text,
+.mermaid .cluster-label text,
+.mermaid .subgraph text,
+.mermaid g.cluster .nodeLabel {
+    text-anchor: start !important;
+    dominant-baseline: middle !important;
+}
+
+/* Ensure cluster/subgraph boxes have room for text */
+.mermaid g.cluster rect,
+.mermaid .cluster rect {
+    padding: 10px !important;
 }
 
 /* === CLASS-BASED NODE COLORS (Semantic!) === */

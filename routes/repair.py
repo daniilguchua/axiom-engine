@@ -70,8 +70,10 @@ def confirm_complete():
     if not last_step.get("is_final", False):
         return jsonify({"error": "Simulation not marked as final"}), 400
     
-    # Get the original prompt for cache key
+    # Get the original prompt and difficulty for cache key
     original_prompt = user_db.get("original_prompt", "")
+    original_difficulty = user_db.get("original_difficulty", "engineer")
+    
     if not original_prompt:
         for msg in user_db["chat_history"]:
             if msg["role"] == "user":
@@ -98,6 +100,7 @@ def confirm_complete():
     success = cache_manager.save_simulation(
         prompt=original_prompt,
         playlist_data=full_playlist,
+        difficulty=original_difficulty,  # Pass difficulty for proper cache filtering
         is_final_complete=True,
         client_verified=True, 
         session_id=session_id
@@ -105,8 +108,8 @@ def confirm_complete():
     
     if success:
         user_db["simulation_verified"] = True
-        logger.info(f"✅ Simulation verified & cached: '{original_prompt[:40]}...'")
-        return jsonify({"status": "cached", "prompt": original_prompt[:50]}), 200
+        logger.info(f"✅ Simulation verified & cached: '{original_prompt[:40]}...' (difficulty={original_difficulty})")
+        return jsonify({"status": "cached", "prompt": original_prompt[:50], "difficulty": original_difficulty}), 200
     else:
         return jsonify({"status": "cache_failed"}), 500
 
