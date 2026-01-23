@@ -28,7 +28,8 @@ AXIOM.state = {
     lastBotMessageDiv: null,
     isSimulationUpdate: false,
     lastUserMessage: null,
-    lastPromptedForDifficulty: null  // Track last prompt we showed difficulty modal for
+    lastPromptedForDifficulty: null,
+    lastPromptedLobbyInput: null
 };
 
 // =============================================================================

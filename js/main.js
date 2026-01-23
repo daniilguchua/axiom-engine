@@ -51,41 +51,8 @@
         // Track for retry functionality
         AXIOM.state.lastUserMessage = text;
         
-        // Check if this looks like a new simulation and we should prompt for difficulty
-        const simKeywords = ['simulate', 'simulation', 'visualize', 'step', 'show me', 'create', 'demonstrate', 'run'];
-        const isNewSimulation = simKeywords.some(kw => text.toLowerCase().includes(kw));
-        
-        // Don't prompt for difficulty on continuations or non-simulations
-        const isContinuation = ['next', 'continue', 'proceed', 'more'].some(kw => text.toLowerCase().includes(kw));
-        
-        // Check if we've already prompted for this exact text (prevents loops)
-        const alreadyPrompted = AXIOM.state.lastPromptedForDifficulty === text;
-        
-        if (isNewSimulation && !isContinuation && !skipDifficultyPrompt && !AXIOM.state.isSimulationUpdate && !alreadyPrompted) {
-            // Mark that we're prompting for this text
-            AXIOM.state.lastPromptedForDifficulty = text;
-            
-            // Clear input immediately to prevent re-triggering if user clicks Generate again
-            if (!isStringArg) {
-                AXIOM.elements.userInput.value = '';
-            }
-            
-            // Show difficulty modal and wait for selection
-            AXIOM.difficulty.show(text, (selectedDifficulty) => {
-                // Clear the tracking after confirming (so new prompts can trigger modal again)
-                AXIOM.state.lastPromptedForDifficulty = null;
-                // User confirmed difficulty, now send the message
-                sendMessageWithDifficulty(text, selectedDifficulty);
-            });
-            return;
-        }
-        
-        // Clear tracking if we're not prompting (new message)
-        if (!alreadyPrompted) {
-            AXIOM.state.lastPromptedForDifficulty = null;
-        }
-        
-        // Use current difficulty if not prompting
+        // Always use the currently selected difficulty (no modal prompts)
+        // The user can change difficulty using the selector bar before sending
         sendMessageWithDifficulty(text, AXIOM.difficulty.current);
     }
     
@@ -364,6 +331,8 @@
     function retryLastMessage() {
         if (AXIOM.state.lastUserMessage) {
             console.log("🔄 Retrying:", AXIOM.state.lastUserMessage.substring(0, 50) + "...");
+            // Clear tracking so it can be re-evaluated if needed
+            AXIOM.state.lastPromptedForDifficulty = null;
             // Skip difficulty prompt on retry - use current difficulty
             sendMessageWithDifficulty(AXIOM.state.lastUserMessage, AXIOM.difficulty.current);
         } else {

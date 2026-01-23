@@ -19,9 +19,9 @@
 const NEURAL_CONFIG = {
     // Particle counts for different layers
     particles: {
-        primary: 2000,      // Main text/shape particles
-        ambient: 500,       // Background floating particles  
-        connections: 150    // Connection line count
+        primary: 2500,      // Main text particles (denser for readability)
+        ambient: 300,       // Background floating particles (reduced noise)
+        connections: 80     // Connection line count (fewer, cleaner)
     },
     
     // Colors
@@ -37,20 +37,20 @@ const NEURAL_CONFIG = {
     timing: {
         introDelay: 0,           // ms before text appears
         morphDuration: 2000,       // ms for shape transitions
-        textRevealDuration: 1000,  // ms for initial text reveal
+        textRevealDuration: 1500,  // ms for initial text reveal (slower)
         pulseInterval: 50          // ms between pulse waves
     },
     
-    // Physics
+    // Physics (smoother, less klunky)
     physics: {
-        mouseInfluence: 150,    // Mouse attraction radius
-        mouseStrength: 0.08,    // How strongly particles follow mouse
-        returnSpeed: 0.03,      // How fast particles return to position
-        drift: 0.5              // Ambient drift amount
+        mouseInfluence: 120,    // Tighter mouse radius
+        mouseStrength: 0.04,    // Gentler mouse push
+        returnSpeed: 0.06,      // Faster snap-back to position
+        drift: 0.3              // Less ambient wobble
     },
     
-    // Text to display (can be customized!)
-    heroText: "HELLOTHERE",
+    // Text to display
+    heroText: "AXIOM",
     tagline: "SEE ALGORITHMS THINK"
 };
 
@@ -72,9 +72,9 @@ class TextPointGenerator {
      * @param {number} particleCount - Number of points to generate
      * @returns {Float32Array} - Array of x,y,z coordinates
      */
-    generatePoints(text, fontSize = 120, particleCount = 2000) {
-        // Size canvas to fit text
-        this.ctx.font = `bold ${fontSize}px "Space Grotesk", "Inter", sans-serif`;
+    generatePoints(text, fontSize = 160, particleCount = 2500) {
+        // Size canvas to fit text - use heavier font for better readability
+        this.ctx.font = `900 ${fontSize}px "Inter", "SF Pro Display", system-ui, sans-serif`;
         const metrics = this.ctx.measureText(text);
         const textWidth = metrics.width;
         const textHeight = fontSize * 1.2;
@@ -86,7 +86,7 @@ class TextPointGenerator {
         this.ctx.fillStyle = '#000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        this.ctx.font = `bold ${fontSize}px "Space Grotesk", "Inter", sans-serif`;
+        this.ctx.font = `900 ${fontSize}px "Inter", "SF Pro Display", system-ui, sans-serif`;
         this.ctx.fillStyle = '#fff';
         this.ctx.textBaseline = 'middle';
         this.ctx.textAlign = 'center';
@@ -125,186 +125,21 @@ class TextPointGenerator {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SHAPE GENERATORS
-// Each returns Float32Array of [x, y, z] coordinates
+// SHAPE GENERATOR (Simplified - only scatter for idle state)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ShapeGenerators = {
-    // Scattered random sphere (idle state)
-    scatter(count) {
-        const coords = new Float32Array(count * 3);
-        for (let i = 0; i < count; i++) {
-            const r = 100 + Math.random() * 300;
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            
-            coords[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-            coords[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-            coords[i * 3 + 2] = r * Math.cos(phi) * 0.3;  // Flatten z
-        }
-        return coords;
-    },
-    
-    // Neural network layers
-    neural(count) {
-        const coords = new Float32Array(count * 3);
-        const layers = [6, 12, 12, 8, 4];
-        const layerSpacing = 100;
-        const totalWidth = (layers.length - 1) * layerSpacing;
+function generateScatter(count) {
+    const coords = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+        const r = 100 + Math.random() * 300;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
         
-        for (let i = 0; i < count; i++) {
-            const layerIdx = Math.floor(Math.random() * layers.length);
-            const nodesInLayer = layers[layerIdx];
-            const nodeIdx = Math.floor(Math.random() * nodesInLayer);
-            
-            const x = (layerIdx * layerSpacing) - totalWidth / 2 + (Math.random() - 0.5) * 20;
-            const y = (nodeIdx - nodesInLayer / 2 + 0.5) * 40 + (Math.random() - 0.5) * 15;
-            const z = (Math.random() - 0.5) * 30;
-            
-            coords[i * 3] = x;
-            coords[i * 3 + 1] = y;
-            coords[i * 3 + 2] = z;
-        }
-        return coords;
-    },
-    
-    // Binary tree structure
-    tree(count) {
-        const coords = new Float32Array(count * 3);
-        const levels = 6;
-        const spread = 300;
-        
-        for (let i = 0; i < count; i++) {
-            const level = Math.floor(Math.random() * levels);
-            const nodesAtLevel = Math.pow(2, level);
-            const nodeIndex = Math.floor(Math.random() * nodesAtLevel);
-            
-            const x = (nodeIndex - nodesAtLevel / 2 + 0.5) * (spread / nodesAtLevel) + (Math.random() - 0.5) * 20;
-            const y = (levels / 2 - level) * 60 + (Math.random() - 0.5) * 15;
-            const z = (Math.random() - 0.5) * 25;
-            
-            coords[i * 3] = x;
-            coords[i * 3 + 1] = y;
-            coords[i * 3 + 2] = z;
-        }
-        return coords;
-    },
-    
-    // Graph with connected nodes
-    graph(count) {
-        const coords = new Float32Array(count * 3);
-        const nodes = 12;
-        const rings = 2;
-        
-        for (let i = 0; i < count; i++) {
-            const ring = Math.floor(Math.random() * rings);
-            const nodeIdx = Math.floor(Math.random() * nodes);
-            const angle = (nodeIdx / nodes) * Math.PI * 2;
-            const radius = 80 + ring * 70;
-            
-            coords[i * 3] = Math.cos(angle) * radius + (Math.random() - 0.5) * 30;
-            coords[i * 3 + 1] = Math.sin(angle) * radius + (Math.random() - 0.5) * 30;
-            coords[i * 3 + 2] = (Math.random() - 0.5) * 40;
-        }
-        return coords;
-    },
-    
-    // Sorted array visualization
-    array(count) {
-        const coords = new Float32Array(count * 3);
-        const boxes = 16;
-        const boxWidth = 35;
-        const totalWidth = boxes * boxWidth;
-        
-        for (let i = 0; i < count; i++) {
-            const boxIdx = Math.floor(Math.random() * boxes);
-            const height = (boxIdx / boxes) * 100 + 30;  // Bars of increasing height
-            
-            coords[i * 3] = (boxIdx - boxes / 2 + 0.5) * boxWidth + (Math.random() - 0.5) * 25;
-            coords[i * 3 + 1] = (Math.random() - 0.5) * height;
-            coords[i * 3 + 2] = (Math.random() - 0.5) * 15;
-        }
-        return coords;
-    },
-    
-    // Stack structure
-    stack(count) {
-        const coords = new Float32Array(count * 3);
-        const layers = 10;
-        const layerHeight = 30;
-        
-        for (let i = 0; i < count; i++) {
-            const layer = Math.floor(Math.random() * layers);
-            
-            coords[i * 3] = (Math.random() - 0.5) * 80;
-            coords[i * 3 + 1] = (layer - layers / 2) * layerHeight + (Math.random() - 0.5) * 15;
-            coords[i * 3 + 2] = (Math.random() - 0.5) * 40;
-        }
-        return coords;
-    },
-    
-    // DNA helix (for algorithms/bio)
-    helix(count) {
-        const coords = new Float32Array(count * 3);
-        const turns = 3;
-        const height = 300;
-        const radius = 80;
-        
-        for (let i = 0; i < count; i++) {
-            const t = (i / count) * turns * Math.PI * 2;
-            const y = (i / count - 0.5) * height;
-            const strand = Math.random() > 0.5 ? 0 : Math.PI;
-            
-            coords[i * 3] = Math.cos(t + strand) * radius + (Math.random() - 0.5) * 20;
-            coords[i * 3 + 1] = y + (Math.random() - 0.5) * 10;
-            coords[i * 3 + 2] = Math.sin(t + strand) * radius * 0.3;
-        }
-        return coords;
-    },
-    
-    // Infinity symbol (for continuous processes)
-    infinity(count) {
-        const coords = new Float32Array(count * 3);
-        const scale = 150;
-        
-        for (let i = 0; i < count; i++) {
-            const t = (i / count) * Math.PI * 2;
-            // Parametric equation for infinity/lemniscate
-            const x = scale * Math.cos(t) / (1 + Math.sin(t) * Math.sin(t));
-            const y = scale * Math.sin(t) * Math.cos(t) / (1 + Math.sin(t) * Math.sin(t));
-            
-            coords[i * 3] = x + (Math.random() - 0.5) * 30;
-            coords[i * 3 + 1] = y + (Math.random() - 0.5) * 30;
-            coords[i * 3 + 2] = (Math.random() - 0.5) * 40;
-        }
-        return coords;
+        coords[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        coords[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        coords[i * 3 + 2] = r * Math.cos(phi) * 0.3;  // Flatten z
     }
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// KEYWORD DETECTION
-// Maps user input to appropriate visualization
-// ═══════════════════════════════════════════════════════════════════════════
-
-function detectShapeFromText(text) {
-    if (!text) return 'scatter';
-    const lower = text.toLowerCase();
-    
-    const patterns = {
-        neural: /neural|network|backprop|layer|perceptron|gradient|deep.?learning|ai|machine.?learning/,
-        tree: /tree|binary|bst|heap|trie|avl|red.?black|decision/,
-        graph: /graph|dijkstra|bfs|dfs|path|network|vertex|edge|shortest/,
-        array: /array|list|sorting|sort|search|binary.?search|merge|quick|bubble/,
-        stack: /stack|push|pop|lifo|recursion|call.?stack|undo|bracket/,
-        helix: /dna|genetic|biology|recursion|spiral|crypto/,
-        infinity: /loop|infinite|continuous|stream|pipeline|flow/
-    };
-    
-    for (const [shape, pattern] of Object.entries(patterns)) {
-        if (pattern.test(lower)) return shape;
-    }
-    
-    return 'scatter';
+    return coords;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -347,7 +182,7 @@ const originalPositions = new Float32Array(particleCount * 3);
 const colors = new Float32Array(particleCount * 3);
 
 // Initialize with scattered positions
-const scatterCoords = ShapeGenerators.scatter(particleCount);
+const scatterCoords = generateScatter(particleCount);
 for (let i = 0; i < particleCount * 3; i++) {
     positions[i] = scatterCoords[i];
     targetPositions[i] = scatterCoords[i];
@@ -394,10 +229,10 @@ function createGlowTexture() {
 }
 
 const material = new THREE.PointsMaterial({
-    size: 4,
+    size: 5,
     map: createGlowTexture(),
     transparent: true,
-    opacity: 0,  // Start invisible for reveal
+    opacity: 0.6,  // Start visible for better readability
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     vertexColors: true
@@ -511,16 +346,13 @@ function updateConnections() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const state = {
-    phase: 'intro',           // 'intro', 'text', 'idle', 'shape'
+    phase: 'intro',           // 'intro', 'text', 'idle'
     time: 0,
-    morphProgress: 0,
-    targetShape: 'scatter',
-    currentShape: 'scatter',
     introProgress: 0,
+    currentShape: 'scatter',
     mouseX: 0,
     mouseY: 0,
     isMouseActive: false,
-    lastInputText: '',
     connectionTimer: 0
 };
 
@@ -529,8 +361,8 @@ const state = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function startIntroSequence() {
-    // Generate text points for "AXIOM"
-    const textCoords = textGenerator.generatePoints(NEURAL_CONFIG.heroText, 140, particleCount);
+    // Generate text points for "AXIOM" with larger font for visibility
+    const textCoords = textGenerator.generatePoints(NEURAL_CONFIG.heroText, 180, particleCount);
     
     // Start with particles scattered
     for (let i = 0; i < particleCount * 3; i++) {
@@ -552,7 +384,7 @@ function startIntroSequence() {
     setTimeout(() => {
         if (state.phase === 'text') {
             // Scatter to idle state
-            const scatterCoords = ShapeGenerators.scatter(particleCount);
+            const scatterCoords = generateScatter(particleCount);
             for (let i = 0; i < particleCount * 3; i++) {
                 targetPositions[i] = scatterCoords[i];
                 originalPositions[i] = scatterCoords[i];
@@ -688,10 +520,10 @@ function animate() {
         fy += Math.cos(state.time * 0.7 + i * 0.02) * drift * (isBusy ? 2 : 1);
         fz += Math.sin(state.time * 0.5 + i * 0.015) * drift * 0.5;
         
-        // Update velocity with damping
-        velocities[ix] = velocities[ix] * 0.9 + fx;
-        velocities[iy] = velocities[iy] * 0.9 + fy;
-        velocities[iz] = velocities[iz] * 0.9 + fz;
+        // Update velocity with higher damping for smoother motion
+        velocities[ix] = velocities[ix] * 0.95 + fx;
+        velocities[iy] = velocities[iy] * 0.95 + fy;
+        velocities[iz] = velocities[iz] * 0.95 + fz;
         
         // Update position
         positions[ix] += velocities[ix];
@@ -761,39 +593,17 @@ function easeInOutCubic(t) {
 
 window.neuralCanvas = {
     /**
-     * Morph particles into a specific shape
-     * @param {string} shapeName - One of: scatter, neural, tree, graph, array, stack, helix, infinity
+     * Reset to scattered idle state
      */
-    morphToShape(shapeName) {
-        if (!ShapeGenerators[shapeName]) {
-            console.warn(`Unknown shape: ${shapeName}, using scatter`);
-            shapeName = 'scatter';
-        }
+    reset() {
+        state.phase = 'idle';
+        state.currentShape = 'scatter';
         
-        if (shapeName === state.currentShape) return;
-        
-        console.log(`🎨 Morphing to: ${shapeName}`);
-        state.targetShape = shapeName;
-        state.currentShape = shapeName;
-        state.phase = 'shape';
-        
-        const newCoords = ShapeGenerators[shapeName](particleCount);
+        const newCoords = generateScatter(particleCount);
         for (let i = 0; i < particleCount * 3; i++) {
             targetPositions[i] = newCoords[i];
             originalPositions[i] = newCoords[i];
         }
-    },
-    
-    /**
-     * Detect shape from text and morph
-     * @param {string} text - User input text
-     */
-    detectAndMorph(text) {
-        if (text === state.lastInputText) return;
-        state.lastInputText = text;
-        
-        const shape = detectShapeFromText(text);
-        this.morphToShape(shape);
     },
     
     /**
@@ -804,24 +614,17 @@ window.neuralCanvas = {
         console.log(`✨ Spelling: ${text}`);
         state.phase = 'text';
         
-        const textCoords = textGenerator.generatePoints(text, 100, particleCount);
+        const textCoords = textGenerator.generatePoints(text, 140, particleCount);
         for (let i = 0; i < particleCount * 3; i++) {
             targetPositions[i] = textCoords[i];
         }
         
-        // Return to idle after 4 seconds
+        // Return to idle after 5 seconds
         setTimeout(() => {
             if (state.phase === 'text') {
-                this.morphToShape('scatter');
+                this.reset();
             }
-        }, 4000);
-    },
-    
-    /**
-     * Reset to default scattered state
-     */
-    reset() {
-        this.morphToShape('scatter');
+        }, 5000);
     },
     
     /**
@@ -859,20 +662,8 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Listen to lobby input for shape detection
+// Start the intro sequence on DOM load
 document.addEventListener('DOMContentLoaded', () => {
-    const lobbyInput = document.getElementById('lobby-input');
-    if (lobbyInput) {
-        let debounceTimer;
-        lobbyInput.addEventListener('input', (e) => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                window.neuralCanvas.detectAndMorph(e.target.value);
-            }, 300);
-        });
-    }
-    
-    // Start the intro sequence
     setTimeout(() => {
         startIntroSequence();
     }, NEURAL_CONFIG.timing.introDelay);
@@ -881,5 +672,5 @@ document.addEventListener('DOMContentLoaded', () => {
 // Start animation loop
 animate();
 
-console.log('🧠 AXIOM Neural Canvas v2.0 — "The Recruiter Magnet" initialized');
-console.log('💡 Try: neuralCanvas.spellText("HIRE ME") or neuralCanvas.morphToShape("neural")');
+console.log('🧠 AXIOM Neural Canvas v2.1 — Polished Edition initialized');
+console.log('💡 Try: neuralCanvas.spellText("AXIOM") or neuralCanvas.playIntro()');

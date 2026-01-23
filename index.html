@@ -44,7 +44,7 @@
             
                 <!-- HERO TAGLINE -->
                 <div class="hero-tagline">
-                    <h1>See Algorithms <span style="background: linear-gradient(135deg, #8B5CF6, #60A5FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Think</span></h1>
+                    <h1>See Algorithms <span>Think</span></h1>
                     <p>Interactive algorithm visualization engine powered by AI. Transform complex concepts into <span class="highlight">step-by-step simulations</span> you can explore.</p>
                 </div>
                 
@@ -76,7 +76,7 @@
                     </div>
                 </div>
                 
-                <!-- QUICK PRESETS -->
+                <!-- QUICK PRESETS (hidden by default via CSS, revealed on card-sim click) -->
                 <div id="quick-presets">
                     <div class="preset-label">Popular Simulations</div>
                     <div class="preset-buttons">
@@ -103,8 +103,40 @@
             
             <div class="input-wrapper">
                 <div class="input-row">
+                    <!-- Difficulty Dropdown -->
+                    <div class="difficulty-dropdown" id="difficulty-dropdown">
+                        <button class="diff-dropdown-trigger" id="diff-trigger" type="button">
+                            <span class="diff-current-icon">⚙️</span>
+                            <span class="diff-current-text">Engineer</span>
+                            <span class="diff-chevron">▾</span>
+                        </button>
+                        <div class="diff-dropdown-menu" id="diff-menu">
+                            <button class="diff-option" data-difficulty="explorer" type="button">
+                                <span class="diff-option-icon">🌟</span>
+                                <span class="diff-option-content">
+                                    <span class="diff-option-name">Explorer</span>
+                                    <span class="diff-option-desc">Beginner-friendly</span>
+                                </span>
+                            </button>
+                            <button class="diff-option active" data-difficulty="engineer" type="button">
+                                <span class="diff-option-icon">⚙️</span>
+                                <span class="diff-option-content">
+                                    <span class="diff-option-name">Engineer</span>
+                                    <span class="diff-option-desc">Technical</span>
+                                </span>
+                            </button>
+                            <button class="diff-option" data-difficulty="architect" type="button">
+                                <span class="diff-option-icon">🏗️</span>
+                                <span class="diff-option-content">
+                                    <span class="diff-option-name">Architect</span>
+                                    <span class="diff-option-desc">Deep theory</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    
                     <button class="btn secondary" id="btn-enhance">✨</button>
-                    <input type="text" id="user-input" placeholder="Modify simulation parameters...">
+                    <input type="text" id="user-input" placeholder="Describe what you want to simulate...">
                     <button class="btn secondary" onclick="document.getElementById('file-upload').click()">📎</button>
                     <button class="btn" id="btn-send">EXECUTE</button>
                 </div>

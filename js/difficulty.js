@@ -35,7 +35,7 @@
     let currentDifficulty = 'engineer';
     let pendingPrompt = null;
     let pendingCallback = null;
-    let isModalOpen = false;
+    let isModalOpen = false; // Track modal state to prevent duplicate opens
     
     // =========================================================================
     // MODAL MANAGEMENT
@@ -50,7 +50,7 @@
             return;
         }
         
-        // Prevent showing modal if it's already open
+        // Prevent duplicate modal opens
         if (isModalOpen) {
             console.log('Difficulty modal already open, ignoring duplicate request');
             return;
@@ -58,7 +58,7 @@
         
         pendingPrompt = prompt;
         pendingCallback = callback;
-        isModalOpen = true;
+        isModalOpen = true; // Set flag when modal is opened
         
         // Update the confirm button text
         updateConfirmButton();
@@ -68,6 +68,15 @@
         
         // Add animation class
         modal.classList.add('modal-open');
+        
+        // Clear the backdrop if it persists
+        const backdrop = document.querySelector('dialog::backdrop');
+        if (backdrop) {
+            backdrop.style.opacity = '0';
+            backdrop.style.pointerEvents = 'none';
+        }
+        
+        console.log('✅ Difficulty modal shown');
     }
     
     function hideDifficultyModal() {
@@ -75,10 +84,18 @@
         if (modal) {
             modal.classList.remove('modal-open');
             modal.close();
+            isModalOpen = false; // Clear flag when modal is closed
+            
+            // Ensure backdrop is removed
+            const backdrop = document.querySelector('dialog::backdrop');
+            if (backdrop) {
+                backdrop.style.opacity = '0';
+                backdrop.style.pointerEvents = 'none';
+            }
         }
-        isModalOpen = false;
         pendingPrompt = null;
         pendingCallback = null;
+        console.log('✅ Difficulty modal hidden');
     }
     
     function updateConfirmButton() {
@@ -101,7 +118,7 @@
         
         currentDifficulty = difficulty;
         
-        // Update card selection UI
+        // Update card selection UI (for modal)
         document.querySelectorAll('.difficulty-card').forEach(card => {
             card.classList.remove('selected');
             if (card.dataset.difficulty === difficulty) {
@@ -109,10 +126,13 @@
             }
         });
         
+        // Update selector bar buttons
+        updateSelectorBar();
+        
         // Update header badge
         updateDifficultyBadge();
         
-        // Update confirm button
+        // Update confirm button (for modal)
         updateConfirmButton();
         
         console.log('📊 Difficulty selected:', difficulty);
@@ -143,28 +163,34 @@
     // =========================================================================
     
     function confirmDifficulty() {
+        console.log('✅ Difficulty confirmed:', currentDifficulty);
         hideDifficultyModal();
         
         if (pendingCallback) {
+            console.log('📞 Calling difficulty callback with:', currentDifficulty);
             pendingCallback(currentDifficulty);
         }
     }
     
     function cancelDifficulty() {
+        console.log('❌ Difficulty selection cancelled');
         hideDifficultyModal();
+        
+        // Restore lobby input if it was cleared prematurely
+        if (AXIOM.state && AXIOM.state.lastPromptedLobbyInput) {
+            if (AXIOM.elements && AXIOM.elements.lobbyInput) {
+                AXIOM.elements.lobbyInput.value = AXIOM.state.lastPromptedLobbyInput;
+                AXIOM.state.lastPromptedLobbyInput = null;
+            }
+        }
+        
+        pendingPrompt = null;
+        pendingCallback = null;
         
         // Clear the tracking so user can try again
         if (AXIOM.state) {
             AXIOM.state.lastPromptedForDifficulty = null;
         }
-        
-        // Restore lobby input if we have a pending prompt (user cancelled)
-        if (pendingPrompt && AXIOM.elements && AXIOM.elements.lobbyInput) {
-            AXIOM.elements.lobbyInput.value = pendingPrompt;
-        }
-        
-        pendingPrompt = null;
-        pendingCallback = null;
     }
     
     // =========================================================================
@@ -172,26 +198,91 @@
     // =========================================================================
     
     function initDifficultySystem() {
-        // Card click handlers
+        // =====================================================================
+        // DROPDOWN FUNCTIONALITY
+        // =====================================================================
+        
+        const dropdown = document.getElementById('difficulty-dropdown');
+        const trigger = document.getElementById('diff-trigger');
+        const menu = document.getElementById('diff-menu');
+        
+        // Toggle dropdown on trigger click
+        if (trigger && menu && dropdown) {
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('open');
+                menu.classList.toggle('open');
+            });
+            
+            // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (!dropdown.contains(e.target)) {
+                    dropdown.classList.remove('open');
+                    menu.classList.remove('open');
+                }
+            });
+            
+            // Close on escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    dropdown.classList.remove('open');
+                    menu.classList.remove('open');
+                }
+            });
+        }
+        
+        // Dropdown option click handlers
+        document.querySelectorAll('.diff-option').forEach(option => {
+            option.addEventListener('click', () => {
+                const newDifficulty = option.dataset.difficulty;
+                selectDifficulty(newDifficulty);
+                
+                // Update active state on options
+                document.querySelectorAll('.diff-option').forEach(opt => {
+                    opt.classList.remove('active');
+                });
+                option.classList.add('active');
+                
+                // Update trigger display
+                updateDropdownTrigger(newDifficulty);
+                
+                // Close dropdown
+                if (dropdown && menu) {
+                    dropdown.classList.remove('open');
+                    menu.classList.remove('open');
+                }
+                
+                // Show toast notification
+                if (AXIOM.ui && AXIOM.ui.showToast) {
+                    AXIOM.ui.showToast(`Switched to ${DifficultyLevels[newDifficulty].name} mode`);
+                }
+            });
+        });
+        
+        // =====================================================================
+        // MODAL FUNCTIONALITY (kept for header badge)
+        // =====================================================================
+        
+        // Modal card click handlers (for modal if still used)
         document.querySelectorAll('.difficulty-card').forEach(card => {
             card.addEventListener('click', () => {
                 selectDifficulty(card.dataset.difficulty);
             });
         });
         
-        // Confirm button
+        // Confirm button (for modal)
         const confirmBtn = document.getElementById('btn-diff-confirm');
         if (confirmBtn) {
             confirmBtn.addEventListener('click', confirmDifficulty);
         }
         
-        // Cancel button
+        // Cancel button (for modal)
         const cancelBtn = document.getElementById('btn-diff-cancel');
         if (cancelBtn) {
             cancelBtn.addEventListener('click', cancelDifficulty);
         }
         
-        // Close on backdrop click
+        // Close on backdrop click (for modal)
         const modal = document.getElementById('difficulty-modal');
         if (modal) {
             modal.addEventListener('click', (e) => {
@@ -201,20 +292,51 @@
             });
         }
         
-        // Header badge click (to change difficulty mid-session)
+        // Header badge click (to change difficulty mid-session - opens modal)
         const badge = document.getElementById('difficulty-badge');
         if (badge) {
             badge.addEventListener('click', () => {
                 showDifficultyModal(null, (newDiff) => {
-                    AXIOM.ui.showToast(`Switched to ${DifficultyLevels[newDiff].name} mode`);
+                    updateDropdownTrigger(newDiff);
+                    updateDropdownOptions(newDiff);
+                    if (AXIOM.ui && AXIOM.ui.showToast) {
+                        AXIOM.ui.showToast(`Switched to ${DifficultyLevels[newDiff].name} mode`);
+                    }
                 });
             });
         }
         
-        // Initialize badge
+        // Initialize badge and dropdown
         updateDifficultyBadge();
+        updateDropdownTrigger(currentDifficulty);
+        updateDropdownOptions(currentDifficulty);
         
         console.log('✅ AXIOM Difficulty System initialized');
+    }
+    
+    function updateDropdownTrigger(difficulty) {
+        const iconEl = document.querySelector('.diff-current-icon');
+        const textEl = document.querySelector('.diff-current-text');
+        
+        if (iconEl && textEl && DifficultyLevels[difficulty]) {
+            iconEl.textContent = DifficultyLevels[difficulty].icon;
+            textEl.textContent = DifficultyLevels[difficulty].name;
+        }
+    }
+    
+    function updateDropdownOptions(difficulty) {
+        document.querySelectorAll('.diff-option').forEach(opt => {
+            opt.classList.remove('active');
+            if (opt.dataset.difficulty === difficulty) {
+                opt.classList.add('active');
+            }
+        });
+    }
+    
+    // Legacy function for compatibility
+    function updateSelectorBar() {
+        updateDropdownTrigger(currentDifficulty);
+        updateDropdownOptions(currentDifficulty);
     }
     
     // =========================================================================
@@ -254,7 +376,8 @@
         select: selectDifficulty,
         get: getCurrentDifficulty,
         prompt: promptForDifficulty,
-        init: initDifficultySystem
+        init: initDifficultySystem,
+        updateSelectorBar: updateSelectorBar
     };
     
     // Initialize when DOM is ready

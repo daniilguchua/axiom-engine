@@ -287,63 +287,86 @@ Match the {difficulty.upper()} mode style in your response.
                     clean_chunk = chunk.text.replace("$$", "").replace(r"\[", "(").replace(r"\]", ")")
                     full_response += clean_chunk
                     yield clean_chunk
-            
-            # =========================================================
-            # POST-STREAM PROCESSING
-            # =========================================================
-            
-            if expect_json:
-                try:
-                    clean_json = full_response.strip()
-                    
-                    if clean_json.startswith("```json"):
-                        clean_json = clean_json.split("```json")[1].split("```")[0]
-                    elif clean_json.startswith("```"):
-                        clean_json = clean_json.split("```")[1].split("```")[0]
-                    
-                    data_obj = json.loads(clean_json.strip())
-                    new_steps = []
-                    
-                    if isinstance(data_obj, dict) and "steps" in data_obj:
-                        new_steps = data_obj["steps"]
-                    elif isinstance(data_obj, list):
-                        new_steps = data_obj
-                    
-                    if new_steps:
-                        if mode == "NEW_SIMULATION":
-                            user_db["current_sim_data"] = new_steps
-                        else:
-                            user_db["current_sim_data"].extend(new_steps)
-                        
-                        user_db["current_step_index"] = len(user_db["current_sim_data"]) - 1
-                        
-                        last_step = user_db["current_sim_data"][-1]
-                        is_final = last_step.get("is_final", False)
-                        
-                        if is_final:
-                            logger.info(f"⏳ Simulation complete, awaiting client verification...")
-                            user_db["awaiting_verification"] = True
-                        else:
-                            logger.info(f"⏳ Step complete (not final). Total: {len(user_db['current_sim_data'])}")
-                    
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON parse error: {e}")
-                except Exception as e:
-                    logger.exception(f"Post-processing error: {e}")
-            
-            # Update chat history
-            user_db["chat_history"].append({"role": "user", "content": user_msg})
-            user_db["chat_history"].append({"role": "model", "content": full_response})
-            
-            if sources:
-                source_text = "\n\n**SOURCES:**\n" + "\n".join([
-                    f"- {s.get('source', 'Unknown')}" for s in sources
-                ])
-                yield source_text
-                
+        except StopIteration:
+            # Stream ended normally - this is expected when the stream completes
+            pass
         except Exception as e:
-            logger.exception(f"Generation error: {e}")
+            logger.exception(f"Streaming error: {e}")
             yield f"\n\n**SYSTEM ERROR:** {str(e)}"
+        
+        # =========================================================
+        # POST-STREAM PROCESSING
+        # =========================================================
+        
+        if expect_json:
+            try:
+                clean_json = full_response.strip()
+                
+                # Remove markdown code blocks
+                if "```json" in clean_json:
+                    parts = clean_json.split("```json")
+                    if len(parts) > 1:
+                        clean_json = parts[1].split("```")[0]
+                elif "```" in clean_json:
+                    parts = clean_json.split("```")
+                    if len(parts) >= 3:
+                        clean_json = parts[1]
+                
+                clean_json = clean_json.strip()
+                
+                # Fix common JSON issues
+                import re
+                # Fix unescaped backslashes (not valid JSON escapes)
+                clean_json = re.sub(r'\\(?![\\"/bfnrtu]|u[0-9a-fA-F]{4})', r'\\\\', clean_json)
+                # Fix single quotes
+                clean_json = clean_json.replace("\\'", "'")
+                # Fix double-escaped quotes
+                clean_json = clean_json.replace('\\\\"', '\\"')
+                
+                # Reject if it looks like code
+                if clean_json.startswith(('queue', 'def ', 'import ', 'class ', 'if ', 'for ', 'while ', 'pseudocode')):
+                    logger.error(f"❌ AI output looks like code, not JSON. First 200 chars: {clean_json[:200]}")
+                    raise ValueError("AI generated code instead of JSON. Please retry.")
+                
+                data_obj = json.loads(clean_json)
+                new_steps = []
+                
+                if isinstance(data_obj, dict) and "steps" in data_obj:
+                    new_steps = data_obj["steps"]
+                elif isinstance(data_obj, list):
+                    new_steps = data_obj
+                
+                if new_steps:
+                    if mode == "NEW_SIMULATION":
+                        user_db["current_sim_data"] = new_steps
+                    else:
+                        user_db["current_sim_data"].extend(new_steps)
+                    
+                    user_db["current_step_index"] = len(user_db["current_sim_data"]) - 1
+                    
+                    last_step = user_db["current_sim_data"][-1]
+                    is_final = last_step.get("is_final", False)
+                    
+                    if is_final:
+                        logger.info(f"⏳ Simulation complete, awaiting client verification...")
+                        user_db["awaiting_verification"] = True
+                    else:
+                        logger.info(f"⏳ Step complete (not final). Total: {len(user_db['current_sim_data'])}")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parse error: {e}")
+            except Exception as e:
+                logger.exception(f"Post-processing error: {e}")
+        
+        # Update chat history
+        user_db["chat_history"].append({"role": "user", "content": user_msg})
+        user_db["chat_history"].append({"role": "model", "content": full_response})
+        
+        if sources:
+            source_text = "\n\n**SOURCES:**\n" + "\n".join([
+                f"- {s.get('source', 'Unknown')}" for s in sources
+            ])
+            yield source_text
     
     return Response(generate(), mimetype='text/plain')
 

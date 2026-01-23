@@ -157,37 +157,20 @@
         const val = AXIOM.elements.lobbyInput.value;
         if (!val) return;
         
-        // Show difficulty modal for new simulations
-        const simKeywords = ['simulate', 'simulation', 'visualize', 'step', 'show', 'create', 'demonstrate', 'run'];
-        const isSimulation = simKeywords.some(kw => val.toLowerCase().includes(kw));
+        // Clear lobby input and transition to chat mode
+        // User can select difficulty using the selector bar before sending
+        AXIOM.elements.lobbyInput.value = '';
         
-        if (isSimulation) {
-            // Show difficulty selection modal
-            // Store the prompt value - we'll clear lobby input after confirmation
-            AXIOM.difficulty.show(val, (selectedDifficulty) => {
-                // Clear lobby input AFTER user confirms difficulty
-                AXIOM.elements.lobbyInput.value = '';
-                
-                // User selected difficulty, now activate chat mode
-                activateChatMode();
-                setTimeout(() => {
-                    // Safety check to ensure function exists
-                    if (typeof AXIOM.sendMessageWithDifficulty === 'function') {
-                        AXIOM.sendMessageWithDifficulty(val, selectedDifficulty);
-                    } else {
-                        console.warn("Fallback to standard sendMessage");
-                        AXIOM.sendMessage(val, true);
-                    }
-                }, 800);
-            });
-        } else {
-            // Not a simulation, go directly to chat
-            activateChatMode();
-            setTimeout(() => {
-                AXIOM.elements.userInput.value = val;
-                AXIOM.sendMessage(val, true); // Skip difficulty prompt
-            }, 800);
-        }
+        activateChatMode();
+        setTimeout(() => {
+            AXIOM.elements.userInput.value = val;
+            // Use current difficulty from selector bar (no modal)
+            if (typeof AXIOM.sendMessageWithDifficulty === 'function') {
+                AXIOM.sendMessageWithDifficulty(val, AXIOM.difficulty.current);
+            } else {
+                AXIOM.sendMessage(val, true);
+            }
+        }, 800);
     }
     
     // =========================================================================
