@@ -1,5 +1,5 @@
 /* =========================================
-   AXIOM ENGINE — Professional Edition
+   AXIOM ENGINE â€” Professional Edition
    "See Algorithms Think"
    ========================================= */
 
@@ -234,7 +234,7 @@ header {
 }
 
 /* =========================================
-   5. LOBBY — THE HERO SECTION
+   5. LOBBY â€” THE HERO SECTION
    ========================================= */
 #lobby-panel {
     flex: 1;
@@ -259,17 +259,28 @@ header {
 }
 
 /* Staggered entrance animations */
-.lobby-content > * {
+.lobby-content > *:not(#quick-presets):not(#presets-backdrop) {
     opacity: 0;
     transform: translateY(30px);
     animation: lobby-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.lobby-content > *:nth-child(1) { animation-delay: 0.1s; }
-.lobby-content > *:nth-child(2) { animation-delay: 0.2s; }
-.lobby-content > *:nth-child(3) { animation-delay: 0.3s; }
-.lobby-content > *:nth-child(4) { animation-delay: 0.4s; }
-.lobby-content > *:nth-child(5) { animation-delay: 0.5s; }
+/* Ensure fixed positioning works for modals */
+#quick-presets,
+#presets-backdrop {
+    animation: none !important;
+    transform: none;
+}
+
+#quick-presets.active {
+    transform: translate(-50%, -50%);
+}
+
+.lobby-content > *:nth-child(1):not(#quick-presets):not(#presets-backdrop) { animation-delay: 0.1s; }
+.lobby-content > *:nth-child(2):not(#quick-presets):not(#presets-backdrop) { animation-delay: 0.2s; }
+.lobby-content > *:nth-child(3):not(#quick-presets):not(#presets-backdrop) { animation-delay: 0.3s; }
+.lobby-content > *:nth-child(4):not(#quick-presets):not(#presets-backdrop) { animation-delay: 0.4s; }
+.lobby-content > *:nth-child(5):not(#quick-presets):not(#presets-backdrop) { animation-delay: 0.5s; }
 
 @keyframes lobby-fade-up {
     0% {
@@ -469,64 +480,164 @@ header {
 
 /* === PRESETS PANEL === */
 #quick-presets {
-    width: 100%;
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 900px;
+    max-height: 85vh;
     background: var(--bg-surface);
-    border: 1px solid transparent;
+    border: 2px solid var(--accent);
     border-radius: var(--radius-lg);
     padding: 0;
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1000;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
 }
 
 #quick-presets.active {
-    max-height: 250px;
+    display: block;
+}
+
+/* Backdrop overlay */
+#presets-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 999;
+}
+
+#presets-backdrop.active {
     opacity: 1;
-    padding: 20px;
-    margin-bottom: 12px;
-    border-color: var(--border-subtle);
+    visibility: visible;
+    pointer-events: all;
+}
+
+/* Preset panel header */
+.presets-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-base);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.presets-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+}
+
+.presets-close {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all 0.2s ease;
+}
+
+.presets-close:hover {
+    background: rgba(248, 113, 113, 0.2);
+    border-color: #F87171;
+    color: #F87171;
+    transform: scale(1.05);
+}
+
+/* Scrollable content area */
+.presets-content {
+    padding: 24px;
+    max-height: calc(85vh - 80px);
+    overflow-y: auto;
+}
+
+.presets-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.presets-content::-webkit-scrollbar-track {
+    background: var(--bg-base);
+    border-radius: 4px;
+}
+
+.presets-content::-webkit-scrollbar-thumb {
+    background: var(--border-muted);
+    border-radius: 4px;
+}
+
+.presets-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+.preset-category {
+    margin-bottom: 28px;
+}
+
+.preset-category:last-child {
+    margin-bottom: 0;
 }
 
 .preset-label {
     font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text-muted);
-    letter-spacing: 0.1em;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     margin-bottom: 14px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    font-weight: 600;
 }
 
 .preset-label::after {
     content: '';
     flex: 1;
     height: 1px;
-    background: var(--border-subtle);
+    background: linear-gradient(to right, var(--border-subtle), transparent);
 }
 
 .preset-buttons {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px;
 }
 
 .preset-btn {
-    padding: 12px 14px;
-    padding-left: 18px;
+    padding: 10px 12px;
+    padding-left: 16px;
     background: var(--bg-base);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 12px;
     font-family: var(--font-sans);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.18s ease;
     text-align: left;
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 /* Slide-in accent border */
@@ -546,7 +657,8 @@ header {
     background: var(--accent-muted);
     border-color: var(--accent);
     color: var(--text-primary);
-    padding-left: 22px;
+    padding-left: 20px;
+    transform: translateX(2px);
 }
 
 .preset-btn:hover::before {
@@ -811,7 +923,7 @@ header {
 }
 
 .msg-body .stream-text.typing::after {
-    content: '▋';
+    content: 'â–‹';
     color: var(--accent);
     animation: blink 0.8s infinite;
 }
@@ -1307,10 +1419,13 @@ input[type="text"]:focus {
 }
 
 .mermaid svg {
-    width: 100% !important;
-    height: 100% !important;
-    max-width: none !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
     overflow: visible !important;
+    margin: 0 auto !important;
+    display: block !important;
 }
 
 /* === HUD OVERLAY === */
@@ -1396,7 +1511,7 @@ input[type="text"]:focus {
 }
 
 /* =========================================
-   11. MERMAID GRAPH — HIGH VISIBILITY THEME
+   11. MERMAID GRAPH â€” HIGH VISIBILITY THEME
    ========================================= */
 
 /* === BASE NODE STYLING === */
@@ -1975,7 +2090,7 @@ g.node:hover .nodeLabel {
 .cyber-modal.wide .modal-content { max-width: 900px; width: 90vw; }
 
 /* =========================================
-   AXIOM ENGINE â€” Difficulty System Styles
+   AXIOM ENGINE Ã¢â‚¬â€ Difficulty System Styles
    ========================================= */
 
 /* =========================================
@@ -2386,7 +2501,7 @@ g.node:hover .nodeLabel {
 
 /* Checkmark for selected */
 .difficulty-card.selected::after {
-    content: 'âœ“';
+    content: 'Ã¢Å“â€œ';
     position: absolute;
     top: 16px;
     right: 16px;
@@ -2583,4 +2698,3 @@ pre::before {
         animation: none;
     }
 }
-

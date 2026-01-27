@@ -20,10 +20,6 @@ faiss_index/
 .env
 *.key
 
-# Logs and databases
-*.log
-*.db
-*.sqlite
 
 # CSS (hiding 3000 lines to reduce noise)
 css/

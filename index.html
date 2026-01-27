@@ -76,18 +76,209 @@
                     </div>
                 </div>
                 
+                <!-- QUICK PRESETS BACKDROP -->
+                <div id="presets-backdrop"></div>
+
                 <!-- QUICK PRESETS (hidden by default via CSS, revealed on card-sim click) -->
                 <div id="quick-presets">
-                    <div class="preset-label">Popular Simulations</div>
-                    <div class="preset-buttons">
-                        <button class="preset-btn" data-prompt="Simulate binary search step by step, showing how the search space narrows">🔍 Binary Search</button>
-                        <button class="preset-btn" data-prompt="Simulate Dijkstra's shortest path algorithm on a weighted graph">🗺️ Dijkstra's Algorithm</button>
-                        <button class="preset-btn" data-prompt="Simulate neural network backpropagation with actual gradient calculations">🧠 Backpropagation</button>
-                        <button class="preset-btn" data-prompt="Simulate quicksort with partition visualization and pivot selection">📊 QuickSort</button>
-                        <button class="preset-btn" data-prompt="Simulate TCP three-way handshake between client and server">🌐 TCP Handshake</button>
-                        <button class="preset-btn" data-prompt="Simulate BFS traversal on a graph, showing the queue and visited nodes">🔄 BFS Traversal</button>
+                    <div class="presets-header">
+                        <div class="presets-title">⚡ Algorithm Library</div>
+                        <button class="presets-close" id="close-presets">×</button>
                     </div>
-                </div>
+                    <div class="presets-content">
+
+                    <!-- SORTING ALGORITHMS -->
+                    <div class="preset-category">
+                        <div class="preset-label">🔢 Sorting Algorithms</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate quicksort with partition visualization and pivot selection">QuickSort</button>
+                            <button class="preset-btn" data-prompt="Simulate mergesort showing the divide and conquer process">MergeSort</button>
+                            <button class="preset-btn" data-prompt="Simulate heapsort with heap construction and extraction">HeapSort</button>
+                            <button class="preset-btn" data-prompt="Simulate bubble sort with optimization to detect sorted arrays early">Bubble Sort</button>
+                            <button class="preset-btn" data-prompt="Simulate insertion sort showing how elements are inserted into sorted position">Insertion Sort</button>
+                            <button class="preset-btn" data-prompt="Simulate selection sort with minimum element selection">Selection Sort</button>
+                            <button class="preset-btn" data-prompt="Simulate radix sort for integer sorting with digit buckets">Radix Sort</button>
+                            <button class="preset-btn" data-prompt="Simulate counting sort showing frequency array technique">Counting Sort</button>
+                            <button class="preset-btn" data-prompt="Simulate bucket sort dividing elements into buckets">Bucket Sort</button>
+                        </div>
+                    </div>
+
+                    <!-- SEARCH ALGORITHMS -->
+                    <div class="preset-category">
+                        <div class="preset-label">🔍 Search Algorithms</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate binary search step by step showing how the search space narrows">Binary Search</button>
+                            <button class="preset-btn" data-prompt="Simulate linear search checking each element sequentially">Linear Search</button>
+                            <button class="preset-btn" data-prompt="Simulate jump search with optimal jump size calculation">Jump Search</button>
+                            <button class="preset-btn" data-prompt="Simulate interpolation search with position estimation">Interpolation Search</button>
+                            <button class="preset-btn" data-prompt="Simulate exponential search combining binary search">Exponential Search</button>
+                            <button class="preset-btn" data-prompt="Simulate ternary search dividing into three parts">Ternary Search</button>
+                        </div>
+                    </div>
+
+                    <!-- GRAPH ALGORITHMS -->
+                    <div class="preset-category">
+                        <div class="preset-label">🗺️ Graph Algorithms</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate Dijkstra's shortest path algorithm on a weighted graph">Dijkstra's Algorithm</button>
+                            <button class="preset-btn" data-prompt="Simulate BFS traversal on a graph showing the queue and visited nodes">Breadth-First Search</button>
+                            <button class="preset-btn" data-prompt="Simulate DFS traversal with recursive stack visualization">Depth-First Search</button>
+                            <button class="preset-btn" data-prompt="Simulate A* pathfinding with heuristic function and open/closed lists">A* Pathfinding</button>
+                            <button class="preset-btn" data-prompt="Simulate Bellman-Ford algorithm detecting negative cycles">Bellman-Ford</button>
+                            <button class="preset-btn" data-prompt="Simulate Floyd-Warshall all-pairs shortest path">Floyd-Warshall</button>
+                            <button class="preset-btn" data-prompt="Simulate Kruskal's MST algorithm with union-find">Kruskal's MST</button>
+                            <button class="preset-btn" data-prompt="Simulate Prim's MST algorithm with priority queue">Prim's MST</button>
+                            <button class="preset-btn" data-prompt="Simulate topological sort on a DAG">Topological Sort</button>
+                            <button class="preset-btn" data-prompt="Simulate Tarjan's algorithm for strongly connected components">Tarjan's SCC</button>
+                            <button class="preset-btn" data-prompt="Simulate Kosaraju's algorithm for SCC detection">Kosaraju's SCC</button>
+                            <button class="preset-btn" data-prompt="Simulate cycle detection in directed graph">Cycle Detection</button>
+                            <button class="preset-btn" data-prompt="Simulate bipartite graph checking with two-coloring">Bipartite Check</button>
+                            <button class="preset-btn" data-prompt="Simulate max flow min cut with Ford-Fulkerson">Ford-Fulkerson</button>
+                        </div>
+                    </div>
+
+                    <!-- TREE ALGORITHMS -->
+                    <div class="preset-category">
+                        <div class="preset-label">🌳 Tree Algorithms</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate AVL tree insertion with rotation balancing">AVL Tree Insert</button>
+                            <button class="preset-btn" data-prompt="Simulate Red-Black tree operations with color flipping">Red-Black Tree</button>
+                            <button class="preset-btn" data-prompt="Simulate binary search tree insertion and deletion">BST Operations</button>
+                            <button class="preset-btn" data-prompt="Simulate B-tree insertion for database indexing">B-Tree Insert</button>
+                            <button class="preset-btn" data-prompt="Simulate trie construction for string prefix matching">Trie Construction</button>
+                            <button class="preset-btn" data-prompt="Simulate segment tree for range queries">Segment Tree</button>
+                            <button class="preset-btn" data-prompt="Simulate Fenwick tree for cumulative frequency">Fenwick Tree (BIT)</button>
+                            <button class="preset-btn" data-prompt="Simulate tree traversal inorder, preorder, postorder">Tree Traversals</button>
+                            <button class="preset-btn" data-prompt="Simulate lowest common ancestor using binary lifting">LCA Query</button>
+                        </div>
+                    </div>
+
+                    <!-- DYNAMIC PROGRAMMING -->
+                    <div class="preset-category">
+                        <div class="preset-label">💎 Dynamic Programming</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate knapsack 0/1 problem with dp table">0/1 Knapsack</button>
+                            <button class="preset-btn" data-prompt="Simulate longest common subsequence with backtracking">LCS Problem</button>
+                            <button class="preset-btn" data-prompt="Simulate longest increasing subsequence in O(n log n)">LIS Problem</button>
+                            <button class="preset-btn" data-prompt="Simulate edit distance (Levenshtein) between two strings">Edit Distance</button>
+                            <button class="preset-btn" data-prompt="Simulate coin change problem with minimum coins">Coin Change</button>
+                            <button class="preset-btn" data-prompt="Simulate matrix chain multiplication optimal parenthesization">Matrix Chain</button>
+                            <button class="preset-btn" data-prompt="Simulate rod cutting problem for maximum profit">Rod Cutting</button>
+                            <button class="preset-btn" data-prompt="Simulate subset sum problem with dp">Subset Sum</button>
+                            <button class="preset-btn" data-prompt="Simulate fibonacci with memoization vs tabulation">Fibonacci DP</button>
+                        </div>
+                    </div>
+
+                    <!-- STRING ALGORITHMS -->
+                    <div class="preset-category">
+                        <div class="preset-label">📝 String Algorithms</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate KMP pattern matching with failure function">KMP Algorithm</button>
+                            <button class="preset-btn" data-prompt="Simulate Rabin-Karp string matching with rolling hash">Rabin-Karp</button>
+                            <button class="preset-btn" data-prompt="Simulate Z-algorithm for pattern searching">Z-Algorithm</button>
+                            <button class="preset-btn" data-prompt="Simulate Manacher's algorithm for longest palindrome">Manacher's Algorithm</button>
+                            <button class="preset-btn" data-prompt="Simulate suffix array construction">Suffix Array</button>
+                            <button class="preset-btn" data-prompt="Simulate Aho-Corasick for multiple pattern matching">Aho-Corasick</button>
+                        </div>
+                    </div>
+
+                    <!-- DATA STRUCTURES -->
+                    <div class="preset-category">
+                        <div class="preset-label">🗄️ Data Structures</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate hash table with chaining collision resolution">Hash Table (Chaining)</button>
+                            <button class="preset-btn" data-prompt="Simulate hash table with open addressing and linear probing">Hash Table (Open Addr)</button>
+                            <button class="preset-btn" data-prompt="Simulate priority queue with binary heap">Priority Queue</button>
+                            <button class="preset-btn" data-prompt="Simulate union-find (disjoint set) with path compression">Union-Find</button>
+                            <button class="preset-btn" data-prompt="Simulate LRU cache with doubly linked list and hash map">LRU Cache</button>
+                            <button class="preset-btn" data-prompt="Simulate stack operations push, pop, peek">Stack Operations</button>
+                            <button class="preset-btn" data-prompt="Simulate queue operations enqueue, dequeue">Queue Operations</button>
+                            <button class="preset-btn" data-prompt="Simulate circular buffer for streaming data">Circular Buffer</button>
+                            <button class="preset-btn" data-prompt="Simulate skip list for fast search">Skip List</button>
+                            <button class="preset-btn" data-prompt="Simulate bloom filter for membership testing">Bloom Filter</button>
+                        </div>
+                    </div>
+
+                    <!-- MACHINE LEARNING -->
+                    <div class="preset-category">
+                        <div class="preset-label">🧠 Machine Learning</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate neural network backpropagation with actual gradient calculations">Backpropagation</button>
+                            <button class="preset-btn" data-prompt="Simulate gradient descent optimization step by step">Gradient Descent</button>
+                            <button class="preset-btn" data-prompt="Simulate k-means clustering with centroid updates">K-Means Clustering</button>
+                            <button class="preset-btn" data-prompt="Simulate decision tree construction with information gain">Decision Tree</button>
+                            <button class="preset-btn" data-prompt="Simulate k-nearest neighbors classification">KNN Algorithm</button>
+                            <button class="preset-btn" data-prompt="Simulate linear regression with least squares">Linear Regression</button>
+                            <button class="preset-btn" data-prompt="Simulate logistic regression with sigmoid activation">Logistic Regression</button>
+                            <button class="preset-btn" data-prompt="Simulate support vector machine margin maximization">SVM</button>
+                            <button class="preset-btn" data-prompt="Simulate attention mechanism in transformers">Attention Mechanism</button>
+                        </div>
+                    </div>
+
+                    <!-- CRYPTOGRAPHY -->
+                    <div class="preset-category">
+                        <div class="preset-label">🔐 Cryptography</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate RSA encryption and decryption process">RSA Algorithm</button>
+                            <button class="preset-btn" data-prompt="Simulate Diffie-Hellman key exchange">Diffie-Hellman</button>
+                            <button class="preset-btn" data-prompt="Simulate AES encryption rounds">AES Encryption</button>
+                            <button class="preset-btn" data-prompt="Simulate SHA-256 hashing with message blocks">SHA-256 Hashing</button>
+                            <button class="preset-btn" data-prompt="Simulate Merkle tree construction for blockchain">Merkle Tree</button>
+                        </div>
+                    </div>
+
+                    <!-- SYSTEM DESIGN -->
+                    <div class="preset-category">
+                        <div class="preset-label">⚙️ System Design & Networks</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate TCP three-way handshake between client and server">TCP Handshake</button>
+                            <button class="preset-btn" data-prompt="Simulate consistent hashing for distributed systems">Consistent Hashing</button>
+                            <button class="preset-btn" data-prompt="Simulate load balancing with round-robin algorithm">Load Balancing</button>
+                            <button class="preset-btn" data-prompt="Simulate rate limiting with token bucket algorithm">Rate Limiting</button>
+                            <button class="preset-btn" data-prompt="Simulate consensus with Raft protocol">Raft Consensus</button>
+                            <button class="preset-btn" data-prompt="Simulate database transaction with ACID properties">ACID Transaction</button>
+                            <button class="preset-btn" data-prompt="Simulate two-phase commit for distributed transactions">Two-Phase Commit</button>
+                            <button class="preset-btn" data-prompt="Simulate cache eviction policies LRU, LFU, FIFO">Cache Eviction</button>
+                        </div>
+                    </div>
+
+                    <!-- NUMBER THEORY & MATH -->
+                    <div class="preset-category">
+                        <div class="preset-label">🔢 Number Theory & Math</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate Euclidean algorithm for GCD">GCD (Euclidean)</button>
+                            <button class="preset-btn" data-prompt="Simulate Sieve of Eratosthenes for prime generation">Sieve of Eratosthenes</button>
+                            <button class="preset-btn" data-prompt="Simulate fast exponentiation by squaring">Fast Exponentiation</button>
+                            <button class="preset-btn" data-prompt="Simulate Chinese Remainder Theorem">Chinese Remainder</button>
+                            <button class="preset-btn" data-prompt="Simulate FFT for polynomial multiplication">Fast Fourier Transform</button>
+                            <button class="preset-btn" data-prompt="Simulate matrix multiplication Strassen's algorithm">Strassen's Matrix Mult</button>
+                        </div>
+                    </div>
+
+                    <!-- COMPUTATIONAL GEOMETRY -->
+                    <div class="preset-category">
+                        <div class="preset-label">📐 Computational Geometry</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate convex hull with Graham scan">Convex Hull</button>
+                            <button class="preset-btn" data-prompt="Simulate line intersection checking">Line Intersection</button>
+                            <button class="preset-btn" data-prompt="Simulate closest pair of points divide and conquer">Closest Pair</button>
+                            <button class="preset-btn" data-prompt="Simulate Voronoi diagram construction">Voronoi Diagram</button>
+                        </div>
+                    </div>
+
+                    <!-- GREEDY ALGORITHMS -->
+                    <div class="preset-category">
+                        <div class="preset-label">🎯 Greedy Algorithms</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-prompt="Simulate Huffman coding for data compression">Huffman Encoding</button>
+                            <button class="preset-btn" data-prompt="Simulate activity selection problem">Activity Selection</button>
+                            <button class="preset-btn" data-prompt="Simulate fractional knapsack greedy approach">Fractional Knapsack</button>
+                            <button class="preset-btn" data-prompt="Simulate interval scheduling maximization">Interval Scheduling</button>
+                        </div>
+                    </div>
+
+                    </div><!-- /.presets-content -->
+                </div><!-- /#quick-presets -->
 
                 <div class="lobby-search-wrapper">
                     <button id="lobby-enhance-btn" title="Enhance prompt with AI">✨</button>

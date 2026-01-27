@@ -251,57 +251,62 @@ def sanitize_mermaid_code(mermaid_code: str) -> str:
         return ""
     
     code = mermaid_code
-    
-    # 0. BASIC CLEANUP - Force horizontal layout
+
+    # 0. CRITICAL: Remove backslash escapes that LLM incorrectly adds
+    # Fix: B[\"Label\"] → B["Label"]
+    code = code.replace('\\"', '"')
+    code = code.replace("\\'", "'")
+
+    # 1. BASIC CLEANUP - Force horizontal layout
     code = re.sub(r'(graph|flowchart)\s+(TD|TB)', r'\1 LR', code, flags=re.IGNORECASE)
-    
-    # 1. FIX: Unescaped quotes inside labels
+
+    # 2. FIX: Unescaped quotes inside labels
     def fix_internal_quotes(match):
         content = match.group(1)
         clean_content = content.replace('"', "'")
         return f'["{clean_content}"]'
     code = re.sub(r'\["([^"]*?)"\]', fix_internal_quotes, code)
-    
-    # 2. FIX: Parenthesis inside labels (Mermaid interprets them as shapes)
+
+    # 3. FIX: Parenthesis inside labels (Mermaid interprets them as shapes)
     def escape_parens(match):
         opener, content, closer = match.groups()
         safe_content = content.replace("(", "#40;").replace(")", "#41;")
         return f"{opener}{safe_content}{closer}"
     code = re.sub(r'(\[")([^"]*?)("\])', escape_parens, code)
     code = re.sub(r'(\(")([^"]*?)("\))', escape_parens, code)
-    
-    # 3. FIX: Illegal markdown lists in nodes
+
+    # 4. FIX: Illegal markdown lists in nodes
     code = code.replace('["-', '["•').replace('\\n-', '\\n•')
-    
-    # 4. FIX: Missing semicolons after classDef
+
+    # 5. FIX: Missing semicolons after classDef
     code = re.sub(r'(classDef.*?[^;])(\n|$)', r'\1;\2', code)
-    
-    # 5. FIX: "Smashed" commands (no space after closing bracket)
+
+    # 6. FIX: "Smashed" commands (no space after closing bracket)
     code = re.sub(r'([>])\s*([A-Z])', r'\1\n\2', code)
     code = re.sub(r'endsubgraph', 'end', code)
-    
-    # 6. FIX: Malformed stadium shapes
+
+    # 7. FIX: Malformed stadium shapes
     code = re.sub(r'\(\["(.*?)"\];', r'(["\1"]);', code)
-    
-    # 7. FIX: Mismatched brackets
+
+    # 8. FIX: Mismatched brackets
     code = re.sub(r'\["([^"]*?)"\);', r'["\1"];', code)
-    
-    # 8. FIX: Run-on link statements - force newlines
+
+    # 9. FIX: Run-on link statements - force newlines
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?-->)', r';\n\1', code)
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?==>)', r';\n\1', code)
-    
-    # 9. FIX: Empty arrow labels
+
+    # 10. FIX: Empty arrow labels
     code = code.replace('-- "" -->', '-->')
     code = code.replace('-- "" ---', '---')
-    
-    # 10. FIX: Orphaned CSS properties
+
+    # 11. FIX: Orphaned CSS properties
     code = re.sub(r'stroke-width\s*(?::|;|\s|$)', 'stroke-width:2px;', code, flags=re.IGNORECASE)
     code = re.sub(r'stroke-dasharray\s+(\d+)', r'stroke-dasharray:\1', code, flags=re.IGNORECASE)
-    
-    # 11. FIX: Ensure proper spacing after graph declaration
+
+    # 12. FIX: Ensure proper spacing after graph declaration
     code = re.sub(r'(graph\s+(?:LR|TB|TD|RL|BT))([A-Za-z])', r'\1\n\2', code)
-    
-    # 12. FIX: Remove double semicolons
+
+    # 13. FIX: Remove double semicolons
     code = re.sub(r';+', ';', code)
     
     return code

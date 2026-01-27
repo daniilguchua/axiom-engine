@@ -386,9 +386,150 @@
     }
     
     // =========================================================================
+    // GHOST REPAIR SYSTEM - Automatic Testing
+    // =========================================================================
+
+    /**
+     * Automatically capture and test raw mermaid through all 5 pipelines.
+     * This runs in the background and doesn't block rendering.
+     */
+    async function ghostCaptureAndTest(rawMermaid, simId = null, stepIndex = null, userPrompt = null) {
+        // Don't block the main flow - run in background
+        setTimeout(async () => {
+            try {
+                console.log(`🔍 [GHOST] Starting automatic capture for ${rawMermaid.length} chars`);
+
+                // Step 1: Capture raw and get pipeline versions
+                const captureResponse = await fetch(`${API_URL}/debug/capture-raw`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        raw_mermaid: rawMermaid,
+                        session_id: AXIOM.currentSessionId || 'unknown',
+                        sim_id: simId,
+                        step_index: stepIndex,
+                        prompt: userPrompt
+                    })
+                });
+
+                if (!captureResponse.ok) {
+                    throw new Error(`Capture failed: ${captureResponse.status}`);
+                }
+
+                const captureData = await captureResponse.json();
+
+                if (!captureData.success) {
+                    throw new Error(captureData.error || 'Capture failed');
+                }
+
+                console.log(`✅ [GHOST] Captured raw output, testing through 5 pipelines...`);
+
+                // Step 2: Apply transformations for each pipeline
+                const pipelineCode = {
+                    raw: rawMermaid,
+                    python: captureData.pipelines.python,  // Already sanitized by server
+                    mermaidjs: AXIOM.sanitizer ? AXIOM.sanitizer.sanitizeMermaidString(rawMermaid) : rawMermaid,
+                    python_then_js: AXIOM.sanitizer ? AXIOM.sanitizer.sanitizeMermaidString(captureData.pipelines.python) : captureData.pipelines.python,
+                    js_then_python: rawMermaid  // Will apply JS first, then we need Python (simplified: just raw for now)
+                };
+
+                // For JS→Python pipeline, apply JS sanitizer first
+                if (AXIOM.sanitizer) {
+                    const jsSanitized = AXIOM.sanitizer.sanitizeMermaidString(rawMermaid);
+                    // We'd need to send this back to server for Python sanitization, but for now use JS-only
+                    pipelineCode.js_then_python = jsSanitized;
+                }
+
+                console.log(`📊 [GHOST] Pipeline transformations applied:`, {
+                    raw_length: pipelineCode.raw.length,
+                    python_length: pipelineCode.python.length,
+                    mermaidjs_length: pipelineCode.mermaidjs.length,
+                    python_then_js_length: pipelineCode.python_then_js.length,
+                    js_then_python_length: pipelineCode.js_then_python.length
+                });
+
+                // Step 3: Test each pipeline
+                const testResults = {};
+                const pipelines = ['raw', 'python', 'mermaidjs', 'python_then_js', 'js_then_python'];
+
+                for (const pipeline of pipelines) {
+                    const code = pipelineCode[pipeline];
+                    const result = await testMermaidRendering(code, pipeline);
+                    testResults[pipeline] = result;
+                    console.log(`  ${pipeline}: ${result.rendered ? '✓ Success' : '✗ Failed'} ${result.error ? '(' + result.error + ')' : ''}`);
+                }
+
+                console.log(`📊 [GHOST] Test results:`, testResults);
+
+                // Step 3: Log to database
+                await fetch(`${API_URL}/debug/log-test-results`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        raw_mermaid: rawMermaid,
+                        session_id: AXIOM.currentSessionId || 'unknown',
+                        sim_id: simId,
+                        step_index: stepIndex,
+                        prompt: userPrompt,
+                        test_results: testResults
+                    })
+                });
+
+                console.log(`✅ [GHOST] Test complete and logged to database`);
+
+            } catch (error) {
+                console.warn(`⚠️ [GHOST] Background testing failed (non-critical):`, error);
+                // Don't throw - this is background testing and shouldn't break the app
+            }
+        }, 100); // Small delay to not block rendering
+    }
+
+    /**
+     * Test if a mermaid code string renders successfully.
+     * Returns: { output, error, rendered }
+     */
+    async function testMermaidRendering(code, pipelineName) {
+        return new Promise((resolve) => {
+            try {
+                // Create invisible test div
+                const testDiv = document.createElement('div');
+                testDiv.className = 'mermaid';
+                testDiv.style.display = 'none';
+                testDiv.textContent = code;
+                document.body.appendChild(testDiv);
+
+                // Try to render
+                mermaid.run({ nodes: [testDiv] })
+                    .then(() => {
+                        document.body.removeChild(testDiv);
+                        resolve({
+                            output: code,
+                            error: null,
+                            rendered: true
+                        });
+                    })
+                    .catch((error) => {
+                        document.body.removeChild(testDiv);
+                        resolve({
+                            output: code,
+                            error: error.message || 'Render failed',
+                            rendered: false
+                        });
+                    });
+            } catch (error) {
+                resolve({
+                    output: code,
+                    error: error.message || 'Test setup failed',
+                    rendered: false
+                });
+            }
+        });
+    }
+
+    // =========================================================================
     // EXPORT
     // =========================================================================
-    
+
     AXIOM.api = {
         sendFeedback,
         callQuickFix,
@@ -402,7 +543,9 @@
         uploadFile,
         resetSession,
         sendChatMessage,
-        getDifficultyInfo
+        getDifficultyInfo,
+        ghostCaptureAndTest,
+        testMermaidRendering
     };
     
     console.log('âœ… AXIOM API loaded');

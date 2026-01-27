@@ -367,19 +367,8 @@ OUTPUT ONLY THE MODIFIED MERMAID CODE. No explanation, no markdown blocks."""
             
             duration_ms = int((time.time() - start_time) * 1000)
             logger.info(f"[REPAIR] LLM fallback response received in {duration_ms}ms")
-            
-            cache_manager.log_repair(
-                repair_method="LLM_FALLBACK",
-                broken_code=bad_code,
-                error_msg="FALLBACK_REQUEST",
-                fixed_code=ai_fix,
-                success=True,
-                session_id=session_id,
-                duration_ms=duration_ms
-            )
-            
-            if original_prompt:
-                cache_manager.mark_repair_resolved(session_id, original_prompt, step_index, success=True)
+
+            # NOTE: Don't log success yet - client will report actual result via /repair-tier-result
             
             return jsonify({
                 "fixed_code": ai_fix, 
@@ -457,17 +446,8 @@ OUTPUT ONLY THE FIXED MERMAID CODE. No explanation, no markdown code blocks."""
         
         duration_ms = int((time.time() - start_time) * 1000)
         logger.info(f"[REPAIR] LLM response received in {duration_ms}ms, sanitized={was_modified}")
-        
-        # Log the repair attempt
-        cache_manager.log_repair(
-            repair_method=f"LLM_GEMINI_ATTEMPT_{attempt_number}",
-            broken_code=bad_code,
-            error_msg=error_msg,
-            fixed_code=ai_fix_sanitized,
-            success=True,
-            session_id=session_id,
-            duration_ms=duration_ms
-        )
+
+        # NOTE: Don't log success yet - client will report actual result via /repair-tier-result
         
         return jsonify({
             "fixed_code": ai_fix_sanitized, 

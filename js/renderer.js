@@ -182,6 +182,12 @@
             console.log(`  Newline count: ${(rawGraph.match(/\n/g) || []).length}`);
             console.log(`  Preview:`, rawGraph.substring(0, 150));
 
+            // 🔍 GHOST: Automatically capture and test in background
+            if (AXIOM.api && AXIOM.api.ghostCaptureAndTest) {
+                console.log(`🔍 [GHOST] Triggering automatic capture for step ${stepIndex}`);
+                AXIOM.api.ghostCaptureAndTest(rawGraph, simId, stepIndex, null);
+            }
+
             const preElement = codeBlock.parentElement;
             const sanitizedGraph = AXIOM.sanitizer.sanitizeMermaidString(rawGraph);
 

@@ -9,7 +9,7 @@ import json
 import logging
 import threading
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from enum import Enum
@@ -608,6 +608,9 @@ class CacheManager:
         step_index: int
     ) -> None:
         """Mark that a step is being repaired (prevents caching)."""
+        # Opportunistic cleanup: clear stale pending repairs before adding new one
+        self.cleanup_stale_pending_repairs(max_age_minutes=15)
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -618,7 +621,7 @@ class CacheManager:
                     created_at = excluded.created_at,
                     resolved_at = NULL
             """, (session_id, prompt_key.strip(), step_index, datetime.now()))
-            logger.debug(f"ðŸ”§ Repair marked pending: session={session_id[:16]}..., step={step_index}")
+            logger.debug(f"[REPAIR] Marked pending: session={session_id[:16]}..., step={step_index}")
     
     def mark_repair_resolved(
         self,
@@ -666,6 +669,9 @@ class CacheManager:
     
     def has_pending_repair(self, session_id: str, prompt_key: str) -> bool:
         """Check if there are any pending repairs for this session/prompt."""
+        # Opportunistic cleanup: clear stale pending repairs before checking
+        self.cleanup_stale_pending_repairs(max_age_minutes=15)
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -686,7 +692,39 @@ class CacheManager:
                 ORDER BY created_at
             """, (session_id,))
             return [dict(row) for row in cursor.fetchall()]
-    
+
+    def cleanup_stale_pending_repairs(self, max_age_minutes: int = 15) -> int:
+        """
+        Clear pending repairs older than max_age_minutes.
+
+        Rationale: If a repair has been "pending" for >15 minutes, either:
+        1. The session died/crashed before calling /confirm-complete
+        2. The repair genuinely failed but client never reported it
+        3. The user abandoned the session
+
+        In all cases, we should clear the pending status to avoid blocking cache.
+
+        Args:
+            max_age_minutes: Age threshold in minutes (default: 15)
+
+        Returns:
+            Number of stale repairs cleaned up
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cutoff = datetime.now() - timedelta(minutes=max_age_minutes)
+
+            cursor.execute("""
+                UPDATE pending_repairs
+                SET status = 'timeout', resolved_at = ?
+                WHERE status = 'pending' AND created_at < ?
+            """, (datetime.now(), cutoff))
+
+            cleaned = cursor.rowcount
+            if cleaned > 0:
+                logger.info(f"🧹 Cleaned up {cleaned} stale pending repair(s) older than {max_age_minutes} minutes")
+            return cleaned
+
     # =========================================================================
     # REPAIR LOGGING
     # =========================================================================

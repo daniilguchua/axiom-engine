@@ -430,16 +430,39 @@
     // Quick presets menu
     const cardSim = document.getElementById('card-sim');
     const presetMenu = document.getElementById('quick-presets');
+    const presetsBackdrop = document.getElementById('presets-backdrop');
+    const closePresets = document.getElementById('close-presets');
+
+    function togglePresets(show) {
+        if (show) {
+            presetMenu.classList.add('active');
+            presetsBackdrop.classList.add('active');
+            if (cardSim) cardSim.style.borderColor = '#00f3ff';
+        } else {
+            presetMenu.classList.remove('active');
+            presetsBackdrop.classList.remove('active');
+            if (cardSim) cardSim.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        }
+    }
+
     if (cardSim && presetMenu) {
         cardSim.addEventListener('click', () => {
             const isActive = presetMenu.classList.contains('active');
-            if (isActive) {
-                presetMenu.classList.remove('active');
-                cardSim.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-            } else {
-                presetMenu.classList.add('active');
-                cardSim.style.borderColor = '#00f3ff';
-            }
+            togglePresets(!isActive);
+        });
+    }
+
+    // Close button
+    if (closePresets) {
+        closePresets.addEventListener('click', () => {
+            togglePresets(false);
+        });
+    }
+
+    // Click backdrop to close
+    if (presetsBackdrop) {
+        presetsBackdrop.addEventListener('click', () => {
+            togglePresets(false);
         });
     }
 
@@ -447,7 +470,7 @@
         btn.addEventListener('click', (e) => {
             const prompt = e.target.getAttribute('data-prompt');
             if (lobbyInput) lobbyInput.value = prompt;
-            presetMenu.classList.remove('active');
+            togglePresets(false);
             AXIOM.ui.handleLobbyInit();
         });
     });

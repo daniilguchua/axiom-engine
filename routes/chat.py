@@ -13,8 +13,12 @@ from core.config import get_configured_api_key, get_session_manager, get_cache_m
 from core.decorators import validate_session, rate_limit
 from core.prompts import get_system_prompt, DIFFICULTY_PROMPTS
 from core.utils import InputValidator
+from core.repair_tester import RepairTester
 
 logger = logging.getLogger(__name__)
+
+# Initialize repair tester for raw output capture
+repair_tester = RepairTester()
 
 chat_bp = Blueprint('chat', __name__)
 
@@ -279,7 +283,7 @@ Match the {difficulty.upper()} mode style in your response.
         }
         
         # Use latest model as requested by user
-        model = genai.GenerativeModel('gemini-3-pro-preview', generation_config=config)
+        model = genai.GenerativeModel('gemini-2.5-pro', generation_config=config)
         
         full_response = ""
         
@@ -356,16 +360,28 @@ Match the {difficulty.upper()} mode style in your response.
                     new_steps = data_obj
                 
                 if new_steps:
+                    # GHOST DEBUG: Capture raw mermaid for testing (non-blocking)
+                    try:
+                        for step_idx, step in enumerate(new_steps):
+                            if 'mermaid' in step:
+                                # Fire-and-forget: log raw mermaid for debugging
+                                # This happens BEFORE any sanitization
+                                logger.debug(f"[GHOST] Captured raw mermaid from step {step_idx} ({len(step['mermaid'])} chars)")
+                                # Note: Actual testing happens client-side via debug.html
+                    except Exception as debug_err:
+                        # Don't let debug capture break the main flow
+                        logger.warning(f"[GHOST] Debug capture failed: {debug_err}")
+
                     if mode == "NEW_SIMULATION":
                         user_db["current_sim_data"] = new_steps
                     else:
                         user_db["current_sim_data"].extend(new_steps)
-                    
+
                     user_db["current_step_index"] = len(user_db["current_sim_data"]) - 1
-                    
+
                     last_step = user_db["current_sim_data"][-1]
                     is_final = last_step.get("is_final", False)
-                    
+
                     if is_final:
                         logger.info(f"⏳ Simulation complete, awaiting client verification...")
                         user_db["awaiting_verification"] = True

@@ -13,6 +13,45 @@
     function setupZoomPan(wrapper, graphDiv) {
         let scale = 1, panning = false, pointX = 0, pointY = 0, start = { x: 0, y: 0 };
         
+        // Center the graph initially after a brief delay for SVG to settle
+        requestAnimationFrame(() => {
+            const svg = graphDiv.querySelector('svg');
+            if (svg) {
+                const wrapperRect = wrapper.getBoundingClientRect();
+                
+                // Get SVG dimensions
+                let svgWidth, svgHeight;
+                try {
+                    const bbox = svg.getBBox();
+                    svgWidth = bbox.width || svg.clientWidth || 800;
+                    svgHeight = bbox.height || svg.clientHeight || 400;
+                } catch(e) {
+                    svgWidth = svg.clientWidth || 800;
+                    svgHeight = svg.clientHeight || 400;
+                }
+                
+                // Calculate scale to fit with padding
+                const padding = 80;
+                const availWidth = wrapperRect.width - padding;
+                const availHeight = wrapperRect.height - padding;
+                
+                const scaleX = availWidth / svgWidth;
+                const scaleY = availHeight / svgHeight;
+                scale = Math.min(scaleX, scaleY, 1.5); // Don't upscale too much
+                scale = Math.max(scale, 0.3); // Don't downscale too much
+                
+                // Calculate centered position
+                const scaledWidth = svgWidth * scale;
+                const scaledHeight = svgHeight * scale;
+                pointX = (wrapperRect.width - scaledWidth) / 2;
+                pointY = (wrapperRect.height - scaledHeight) / 2;
+                
+                // Apply transform
+                graphDiv.style.transformOrigin = '0 0';
+                graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+            }
+        });
+        
         wrapper.addEventListener('wheel', (e) => {
             e.preventDefault();
             const rect = wrapper.getBoundingClientRect();
@@ -22,7 +61,7 @@
             const ys = (mouseY - pointY) / scale;
             const delta = -e.deltaY;
             (delta > 0) ? (scale *= 1.1) : (scale /= 1.1);
-            scale = Math.min(Math.max(1, scale), 5);
+            scale = Math.min(Math.max(0.2, scale), 5);
             pointX = mouseX - xs * scale;
             pointY = mouseY - ys * scale;
             graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
@@ -207,5 +246,5 @@
         setupCardTilt
     };
     
-    console.log('✅ AXIOM Interactions loaded');
+    console.log('âœ… AXIOM Interactions loaded');
 })();
