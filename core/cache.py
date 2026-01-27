@@ -74,7 +74,7 @@ class CacheManager:
         self._local = threading.local()
         self._pool_lock = threading.Lock()
         self._init_db()
-        logger.info(f"📂 CacheManager connected to: {DB_PATH}")
+        logger.info(f"ðŸ“‚ CacheManager connected to: {DB_PATH}")
     
     @contextmanager
     def _get_connection(self):
@@ -105,7 +105,7 @@ class CacheManager:
             cursor = conn.cursor()
             
             cursor.execute("PRAGMA journal_mode=WAL")
-            logger.info(f"📂 Database journal mode: {cursor.fetchone()[0]}")
+            logger.info(f"ðŸ“‚ Database journal mode: {cursor.fetchone()[0]}")
         
             # Check if simulation_cache table exists and needs migration
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='simulation_cache'")
@@ -131,7 +131,7 @@ class CacheManager:
                     if col_name not in existing_columns:
                         try:
                             cursor.execute(f"ALTER TABLE simulation_cache ADD COLUMN {col_name} {col_type}")
-                            logger.info(f"📦 Migrated: Added column '{col_name}' to simulation_cache")
+                            logger.info(f"ðŸ“¦ Migrated: Added column '{col_name}' to simulation_cache")
                         except sqlite3.OperationalError as e:
                             logger.warning(f"Migration warning for {col_name}: {e}")
             else:
@@ -153,7 +153,7 @@ class CacheManager:
                     )
                 ''')
             
-            # Repair logs with success tracking
+            # Repair logs with success tracking (ENHANCED with tier tracking)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS repair_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -166,6 +166,41 @@ class CacheManager:
                     was_successful BOOLEAN,
                     repair_duration_ms INTEGER,
                     created_at TIMESTAMP
+                )
+            ''')
+            
+            # NEW: Granular repair attempt tracking
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS repair_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT,
+                    sim_id TEXT,
+                    step_index INTEGER,
+                    tier INTEGER,
+                    tier_name TEXT,
+                    attempt_number INTEGER,
+                    input_code TEXT,
+                    output_code TEXT,
+                    error_before TEXT,
+                    error_after TEXT,
+                    was_successful BOOLEAN,
+                    duration_ms INTEGER,
+                    created_at TIMESTAMP
+                )
+            ''')
+            
+            # NEW: Repair summary stats (aggregated view)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS repair_stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT,
+                    tier1_python_success INTEGER DEFAULT 0,
+                    tier2_js_success INTEGER DEFAULT 0,
+                    tier3_llm_success INTEGER DEFAULT 0,
+                    total_failures INTEGER DEFAULT 0,
+                    total_attempts INTEGER DEFAULT 0,
+                    avg_duration_ms REAL,
+                    updated_at TIMESTAMP
                 )
             ''')
             
@@ -192,6 +227,28 @@ class CacheManager:
                     source_type TEXT,
                     was_repaired BOOLEAN DEFAULT 0,
                     quality_score REAL,
+                    created_at TIMESTAMP
+                )
+            ''')
+
+            # NEW: Raw mermaid tracking (captures LLM output before sanitization)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS raw_mermaid_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT,
+                    sim_id TEXT,
+                    step_index INTEGER,
+                    raw_mermaid_json TEXT,
+                    raw_mermaid_code TEXT,
+                    has_newlines BOOLEAN,
+                    newline_count INTEGER,
+                    escaped_newline_count INTEGER,
+                    char_length INTEGER,
+                    initial_render_success BOOLEAN,
+                    initial_error_msg TEXT,
+                    required_repair BOOLEAN,
+                    repair_tier TEXT,
+                    final_success BOOLEAN,
                     created_at TIMESTAMP
                 )
             ''')
@@ -230,6 +287,8 @@ class CacheManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cache_difficulty ON simulation_cache(difficulty)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_pending_session ON pending_repairs(session_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_broken_hash ON broken_simulations(prompt_hash)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_raw_mermaid_session ON raw_mermaid_logs(session_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_raw_mermaid_success ON raw_mermaid_logs(initial_render_success)')
             
             conn.commit()
     
@@ -258,7 +317,7 @@ class CacheManager:
         """
 
         if self._is_simulation_broken(user_prompt):
-            logger.warning(f"⛔ Cache blocked: Prompt has broken simulation record")
+            logger.warning(f"â›” Cache blocked: Prompt has broken simulation record")
             return None
         
         query_vec = get_text_embedding(user_prompt)
@@ -312,7 +371,7 @@ class CacheManager:
                 continue
         
         if best_score >= self.SIMILARITY_THRESHOLD:
-            logger.info(f"⚡ CACHE HIT ({best_score:.2f}, {difficulty}): '{user_prompt[:40]}...' matched '{best_key[:40]}...'")
+            logger.info(f"âš¡ CACHE HIT ({best_score:.2f}, {difficulty}): '{user_prompt[:40]}...' matched '{best_key[:40]}...'")
             
             # Update access metrics
             self._update_access_metrics(best_key)
@@ -354,7 +413,7 @@ class CacheManager:
             self.clear_broken_status(clean_key)
         # CHECK 1: Is this simulation marked as broken?
         if self._is_simulation_broken(clean_key):
-            logger.warning(f"⛔ CACHE BLOCKED: Simulation marked as broken for '{clean_key[:40]}...'")
+            logger.warning(f"â›” CACHE BLOCKED: Simulation marked as broken for '{clean_key[:40]}...'")
             return False
         
         # CHECK 2: Pending repairs are now cleared by /confirm-complete before calling save
@@ -363,7 +422,7 @@ class CacheManager:
         # CHECK 3: Validate the simulation data
         steps = playlist_data.get('steps', [])
         if not steps:
-            logger.warning(f"⏳ CACHE SKIP: No steps in simulation for '{clean_key[:40]}...'")
+            logger.warning(f"â³ CACHE SKIP: No steps in simulation for '{clean_key[:40]}...'")
             return False
         
         last_step = steps[-1]
@@ -373,7 +432,7 @@ class CacheManager:
             is_final_complete = last_step.get('is_final', False)
         
         if not is_final_complete:
-            logger.info(f"⏳ CACHE SKIP: Simulation not complete for '{clean_key[:40]}...'")
+            logger.info(f"â³ CACHE SKIP: Simulation not complete for '{clean_key[:40]}...'")
             return False
         
         # FIX: CHECK 5: Require client verification for new entries
@@ -388,7 +447,7 @@ class CacheManager:
                 )
                 row = cursor.fetchone()
                 if not row:
-                    logger.info(f"⏳ CACHE SKIP: Client verification required for new entry")
+                    logger.info(f"â³ CACHE SKIP: Client verification required for new entry")
                     return False
                 # Existing entry, allow update
         
@@ -429,7 +488,7 @@ class CacheManager:
                     is_final_complete, client_verified, difficulty, datetime.now(), datetime.now()
                 ))
                 conn.commit()
-                logger.info(f"💾 CACHED: '{clean_key[:40]}...' ({step_count} steps, difficulty={difficulty}, verified={client_verified})")
+                logger.info(f"ðŸ’¾ CACHED: '{clean_key[:40]}...' ({step_count} steps, difficulty={difficulty}, verified={client_verified})")
                 return True
             except sqlite3.Error as e:
                 logger.error(f"Cache save failed: {e}")
@@ -477,7 +536,7 @@ class CacheManager:
             # Expired - clean it up
                 cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ?", (prompt_hash,))
                 conn.commit()
-                logger.info(f"🕐 Broken status expired for prompt hash {prompt_hash[:16]}...")
+                logger.info(f"ðŸ• Broken status expired for prompt hash {prompt_hash[:16]}...")
                 return False
         
             return True
@@ -520,7 +579,7 @@ class CacheManager:
                 """, (datetime.now(), session_id, clean_key))
             
                 conn.commit()
-                logger.warning(f"🚫 Simulation marked broken (session {session_id[:16]}...): '{clean_key[:40]}...' at step {step_index}")
+                logger.warning(f"ðŸš« Simulation marked broken (session {session_id[:16]}...): '{clean_key[:40]}...' at step {step_index}")
             except sqlite3.Error as e:
                 logger.error(f"Failed to mark simulation broken: {e}")
     
@@ -535,7 +594,7 @@ class CacheManager:
             cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ?", (prompt_hash,))
             deleted = cursor.rowcount > 0
             if deleted:
-                logger.info(f"✅ Broken status cleared for: '{prompt[:40]}...'")
+                logger.info(f"âœ… Broken status cleared for: '{prompt[:40]}...'")
             return deleted
     
     # =========================================================================
@@ -559,7 +618,7 @@ class CacheManager:
                     created_at = excluded.created_at,
                     resolved_at = NULL
             """, (session_id, prompt_key.strip(), step_index, datetime.now()))
-            logger.debug(f"🔧 Repair marked pending: session={session_id[:16]}..., step={step_index}")
+            logger.debug(f"ðŸ”§ Repair marked pending: session={session_id[:16]}..., step={step_index}")
     
     def mark_repair_resolved(
         self,
@@ -577,7 +636,7 @@ class CacheManager:
                 SET status = ?, resolved_at = ?
                 WHERE session_id = ? AND prompt_key = ? AND step_index = ?
             """, (status, datetime.now(), session_id, prompt_key.strip(), step_index))
-            logger.debug(f"✅ Repair resolved: session={session_id[:16]}..., step={step_index}, success={success}")
+            logger.debug(f"âœ… Repair resolved: session={session_id[:16]}..., step={step_index}, success={success}")
     
     def clear_pending_repairs(
         self,
@@ -602,7 +661,7 @@ class CacheManager:
             """, (datetime.now(), session_id, prompt_key.strip()))
             cleared = cursor.rowcount
             if cleared > 0:
-                logger.info(f"✅ Cleared {cleared} pending repair(s) for '{prompt_key[:40]}...'")
+                logger.info(f"âœ… Cleared {cleared} pending repair(s) for '{prompt_key[:40]}...'")
             return cleared
     
     def has_pending_repair(self, session_id: str, prompt_key: str) -> bool:
@@ -642,7 +701,7 @@ class CacheManager:
         session_id: Optional[str] = None,
         duration_ms: Optional[int] = None
     ) -> None:
-        """Log a repair attempt for analysis."""
+        """Log a repair attempt for analysis (legacy method)."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             try:
@@ -655,11 +714,309 @@ class CacheManager:
                     session_id, repair_method, broken_code, error_msg,
                     fixed_code, success, duration_ms, datetime.now()
                 ))
-                logger.info(f"🔧 Repair logged: method={repair_method}, success={success}")
+                logger.info(f"[REPAIR] Logged: method={repair_method}, success={success}")
             except sqlite3.Error as e:
                 logger.error(f"Repair log failed: {e}")
     
+    def log_repair_attempt(
+        self,
+        session_id: str,
+        sim_id: str,
+        step_index: int,
+        tier: int,
+        tier_name: str,
+        attempt_number: int,
+        input_code: str,
+        output_code: str,
+        error_before: str,
+        error_after: Optional[str],
+        was_successful: bool,
+        duration_ms: int
+    ) -> None:
+        """
+        Log a granular repair attempt with tier tracking.
+        
+        Tiers:
+        - 1: Python sanitizer only (TIER1_PYTHON)
+        - 2: Python + JS sanitizer (TIER2_PYTHON_JS)  
+        - 3: LLM repair + Python sanitizer (TIER3_LLM_PYTHON)
+        - 4: LLM repair + Python + JS sanitizer (TIER3_LLM_PYTHON_JS)
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    INSERT INTO repair_attempts 
+                    (session_id, sim_id, step_index, tier, tier_name, attempt_number,
+                     input_code, output_code, error_before, error_after, 
+                     was_successful, duration_ms, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    session_id, sim_id, step_index, tier, tier_name, attempt_number,
+                    input_code[:5000] if input_code else None, 
+                    output_code[:5000] if output_code else None, 
+                    error_before[:1000] if error_before else None, 
+                    error_after[:1000] if error_after else None,
+                    was_successful, duration_ms, datetime.now()
+                ))
+                
+                # Update daily stats
+                self._update_repair_stats(tier, was_successful, duration_ms)
+                
+                status = "SUCCESS" if was_successful else "FAILED"
+                logger.info(f"[REPAIR] {status}: tier={tier_name}, step={step_index}, duration={duration_ms}ms")
+            except sqlite3.Error as e:
+                logger.error(f"Repair attempt log failed: {e}")
+    
+    def _update_repair_stats(self, tier: int, success: bool, duration_ms: int) -> None:
+        """Update daily aggregated repair stats."""
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get or create today's row
+            cursor.execute("SELECT id FROM repair_stats WHERE date = ?", (today,))
+            row = cursor.fetchone()
+            
+            if not row:
+                cursor.execute("""
+                    INSERT INTO repair_stats (date, updated_at)
+                    VALUES (?, ?)
+                """, (today, datetime.now()))
+            
+            # Update the appropriate counter
+            if success:
+                if tier == 1:
+                    cursor.execute("""
+                        UPDATE repair_stats 
+                        SET tier1_python_success = tier1_python_success + 1,
+                            total_attempts = total_attempts + 1,
+                            updated_at = ?
+                        WHERE date = ?
+                    """, (datetime.now(), today))
+                elif tier == 2:
+                    cursor.execute("""
+                        UPDATE repair_stats 
+                        SET tier2_js_success = tier2_js_success + 1,
+                            total_attempts = total_attempts + 1,
+                            updated_at = ?
+                        WHERE date = ?
+                    """, (datetime.now(), today))
+                elif tier in (3, 4):
+                    cursor.execute("""
+                        UPDATE repair_stats 
+                        SET tier3_llm_success = tier3_llm_success + 1,
+                            total_attempts = total_attempts + 1,
+                            updated_at = ?
+                        WHERE date = ?
+                    """, (datetime.now(), today))
+            else:
+                cursor.execute("""
+                    UPDATE repair_stats 
+                    SET total_failures = total_failures + 1,
+                        total_attempts = total_attempts + 1,
+                        updated_at = ?
+                    WHERE date = ?
+                """, (datetime.now(), today))
+    
+    def get_repair_stats(self, days: int = 7) -> Dict[str, Any]:
+        """Get repair statistics for the last N days."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    SUM(tier1_python_success) as tier1,
+                    SUM(tier2_js_success) as tier2,
+                    SUM(tier3_llm_success) as tier3,
+                    SUM(total_failures) as failures,
+                    SUM(total_attempts) as total
+                FROM repair_stats
+                WHERE date >= date('now', ?)
+            """, (f'-{days} days',))
+            
+            row = cursor.fetchone()
+            
+            if not row or not row[4]:
+                return {
+                    "tier1_python_fixes": 0,
+                    "tier2_js_fixes": 0,
+                    "tier3_llm_fixes": 0,
+                    "total_failures": 0,
+                    "total_attempts": 0,
+                    "success_rate": 0,
+                    "tier1_percentage": 0,
+                    "tier2_percentage": 0,
+                    "tier3_percentage": 0,
+                    "days": days
+                }
+            
+            total = row[4] or 1
+            successes = (row[0] or 0) + (row[1] or 0) + (row[2] or 0)
+            
+            return {
+                "tier1_python_fixes": row[0] or 0,
+                "tier2_js_fixes": row[1] or 0,
+                "tier3_llm_fixes": row[2] or 0,
+                "total_failures": row[3] or 0,
+                "total_attempts": total,
+                "success_rate": round(successes / total * 100, 1) if total > 0 else 0,
+                "tier1_percentage": round((row[0] or 0) / total * 100, 1) if total > 0 else 0,
+                "tier2_percentage": round((row[1] or 0) / total * 100, 1) if total > 0 else 0,
+                "tier3_percentage": round((row[2] or 0) / total * 100, 1) if total > 0 else 0,
+                "days": days
+            }
+    
+    def get_recent_repair_attempts(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Get recent repair attempts for debugging."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT tier_name, step_index, was_successful, duration_ms,
+                       error_before, created_at
+                FROM repair_attempts
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (limit,))
+
+            return [
+                {
+                    "tier": row[0],
+                    "step": row[1],
+                    "success": bool(row[2]),
+                    "duration_ms": row[3],
+                    "error": row[4][:100] if row[4] else None,
+                    "time": str(row[5])
+                }
+                for row in cursor.fetchall()
+            ]
+
     # =========================================================================
+    # RAW MERMAID LOGGING (For debugging LLM output)
+    # =========================================================================
+
+    def log_raw_mermaid(
+        self,
+        session_id: str,
+        sim_id: str,
+        step_index: int,
+        raw_mermaid_code: str,
+        initial_render_success: bool = False,
+        initial_error_msg: Optional[str] = None,
+        required_repair: bool = False,
+        repair_tier: Optional[str] = None,
+        final_success: bool = False
+    ) -> None:
+        """
+        Log raw mermaid code from LLM for analysis.
+
+        This captures the mermaid field BEFORE any sanitization or repair,
+        allowing us to diagnose where errors originate.
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                # Analyze the raw code
+                has_newlines = '\n' in raw_mermaid_code
+                newline_count = raw_mermaid_code.count('\n')
+                escaped_newline_count = raw_mermaid_code.count('\\n')
+                char_length = len(raw_mermaid_code)
+
+                cursor.execute("""
+                    INSERT INTO raw_mermaid_logs
+                    (session_id, sim_id, step_index, raw_mermaid_code,
+                     has_newlines, newline_count, escaped_newline_count, char_length,
+                     initial_render_success, initial_error_msg, required_repair,
+                     repair_tier, final_success, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    session_id, sim_id, step_index, raw_mermaid_code,
+                    has_newlines, newline_count, escaped_newline_count, char_length,
+                    initial_render_success, initial_error_msg, required_repair,
+                    repair_tier, final_success, datetime.now()
+                ))
+
+                logger.info(f"📝 Logged raw mermaid: step={step_index}, newlines={newline_count}, success={initial_render_success}")
+            except sqlite3.Error as e:
+                logger.error(f"Raw mermaid log failed: {e}")
+
+    def get_raw_mermaid_stats(self, days: int = 7) -> Dict[str, Any]:
+        """Get statistics on raw mermaid code from LLM."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Get overall stats
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN initial_render_success = 1 THEN 1 ELSE 0 END) as immediate_success,
+                    SUM(CASE WHEN required_repair = 1 THEN 1 ELSE 0 END) as needed_repair,
+                    SUM(CASE WHEN final_success = 1 THEN 1 ELSE 0 END) as final_success,
+                    SUM(CASE WHEN has_newlines = 0 THEN 1 ELSE 0 END) as missing_newlines,
+                    AVG(newline_count) as avg_newlines,
+                    AVG(char_length) as avg_length
+                FROM raw_mermaid_logs
+                WHERE created_at >= date('now', ?)
+            """, (f'-{days} days',))
+
+            row = cursor.fetchone()
+
+            if not row or not row[0]:
+                return {
+                    "total": 0,
+                    "immediate_success_rate": 0,
+                    "repair_rate": 0,
+                    "final_success_rate": 0,
+                    "missing_newlines_rate": 0,
+                    "avg_newlines": 0,
+                    "avg_length": 0
+                }
+
+            total = row[0]
+
+            return {
+                "total": total,
+                "immediate_success": row[1],
+                "needed_repair": row[2],
+                "final_success": row[3],
+                "missing_newlines": row[4],
+                "immediate_success_rate": round((row[1] or 0) / total * 100, 1),
+                "repair_rate": round((row[2] or 0) / total * 100, 1),
+                "final_success_rate": round((row[3] or 0) / total * 100, 1),
+                "missing_newlines_rate": round((row[4] or 0) / total * 100, 1),
+                "avg_newlines": round(row[5] or 0, 1),
+                "avg_length": round(row[6] or 0, 0),
+                "days": days
+            }
+
+    def get_failed_raw_mermaid(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent failed mermaid codes for debugging."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT step_index, raw_mermaid_code, initial_error_msg,
+                       has_newlines, newline_count, repair_tier, final_success, created_at
+                FROM raw_mermaid_logs
+                WHERE initial_render_success = 0
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (limit,))
+
+            return [
+                {
+                    "step": row[0],
+                    "code": row[1][:300] + "..." if len(row[1]) > 300 else row[1],
+                    "error": row[2],
+                    "has_newlines": bool(row[3]),
+                    "newline_count": row[4],
+                    "repair_tier": row[5],
+                    "final_success": bool(row[6]),
+                    "time": str(row[7])
+                }
+                for row in cursor.fetchall()
+            ]
+
+        # =========================================================================
     # FEEDBACK LOGGING
     # =========================================================================
     
@@ -732,7 +1089,7 @@ class CacheManager:
                 except:
                     pass  # Non-critical
             
-                logger.info(f"👍 Feedback logged: rating={rating} for '{prompt[:30]}...'")
+                logger.info(f"ðŸ‘ Feedback logged: rating={rating} for '{prompt[:30]}...'")
         except sqlite3.Error as e:
         # Log but don't raise - this is non-critical
             logger.warning(f"Feedback log failed (non-critical): {e}")
@@ -812,5 +1169,5 @@ class CacheManager:
             with open(output_path, 'w') as f:
                 json.dump(data, f, indent=2)
             
-            logger.info(f"📤 Exported {len(data)} training samples to {output_path}")
+            logger.info(f"ðŸ“¤ Exported {len(data)} training samples to {output_path}")
             return len(data)

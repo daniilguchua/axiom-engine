@@ -482,6 +482,10 @@ function animate() {
     const mouseStrength = NEURAL_CONFIG.physics.mouseStrength;
     const drift = NEURAL_CONFIG.physics.drift;
     
+    // Processing wave effect
+    const waveTime = state.time * 3;
+    const processingIntensity = uiState.processingIntensity;
+    
     for (let i = 0; i < particleCount; i++) {
         const ix = i * 3;
         const iy = i * 3 + 1;
@@ -515,9 +519,34 @@ function animate() {
             }
         }
         
-        // Add ambient drift
-        fx += Math.sin(state.time + i * 0.01) * drift * (isBusy ? 2 : 1);
-        fy += Math.cos(state.time * 0.7 + i * 0.02) * drift * (isBusy ? 2 : 1);
+        // Card hover clustering effect
+        if (uiState.cardHover) {
+            const hx = uiState.hoverPosition.x;
+            const hy = uiState.hoverPosition.y;
+            const dx = hx - x;
+            const dy = hy - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < 200 && dist > 10) {
+                // Gentle attraction toward hover point
+                const force = (1 - dist / 200) * 0.02;
+                fx += dx * force;
+                fy += dy * force;
+            }
+        }
+        
+        // Processing wave pulse effect
+        if (processingIntensity > 0) {
+            const distFromCenter = Math.sqrt(x * x + y * y);
+            const wave = Math.sin(distFromCenter * 0.05 - waveTime) * processingIntensity;
+            fx += (x / (distFromCenter + 1)) * wave * 2;
+            fy += (y / (distFromCenter + 1)) * wave * 2;
+        }
+        
+        // Add ambient drift (increased during processing)
+        const driftMultiplier = isBusy ? 2.5 : 1;
+        fx += Math.sin(state.time + i * 0.01) * drift * driftMultiplier;
+        fy += Math.cos(state.time * 0.7 + i * 0.02) * drift * driftMultiplier;
         fz += Math.sin(state.time * 0.5 + i * 0.015) * drift * 0.5;
         
         // Update velocity with higher damping for smoother motion
@@ -591,6 +620,14 @@ function easeInOutCubic(t) {
 // PUBLIC API
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Track UI interaction state
+let uiState = {
+    cardHover: false,
+    hoverPosition: { x: 0, y: 0 },
+    processingIntensity: 0,
+    celebrationActive: false
+};
+
 window.neuralCanvas = {
     /**
      * Reset to scattered idle state
@@ -632,9 +669,66 @@ window.neuralCanvas = {
      */
     pulse() {
         material.size *= 1.5;
+        material.opacity = Math.min(1, material.opacity * 1.3);
         setTimeout(() => {
             material.size /= 1.5;
         }, 300);
+    },
+    
+    /**
+     * Trigger wave pulse from center (for processing states)
+     */
+    wavePulse() {
+        uiState.processingIntensity = 1;
+        setTimeout(() => {
+            uiState.processingIntensity = 0;
+        }, 800);
+    },
+    
+    /**
+     * Celebration effect - particles scatter outward then settle
+     */
+    celebrate() {
+        uiState.celebrationActive = true;
+        
+        // Push particles outward
+        for (let i = 0; i < particleCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const force = 50 + Math.random() * 100;
+            velocities[i * 3] += Math.cos(angle) * force * 0.1;
+            velocities[i * 3 + 1] += Math.sin(angle) * force * 0.1;
+        }
+        
+        // Brighten
+        material.opacity = Math.min(1, material.opacity * 1.5);
+        
+        setTimeout(() => {
+            uiState.celebrationActive = false;
+        }, 1500);
+    },
+    
+    /**
+     * Notify of card hover (for particle clustering)
+     */
+    onCardHover(x, y) {
+        uiState.cardHover = true;
+        // Convert screen coordinates to 3D space
+        uiState.hoverPosition.x = (x / window.innerWidth - 0.5) * 400;
+        uiState.hoverPosition.y = -(y / window.innerHeight - 0.5) * 400;
+    },
+    
+    /**
+     * Notify of card hover end
+     */
+    onCardLeave() {
+        uiState.cardHover = false;
+    },
+    
+    /**
+     * Set processing mode intensity (0-1)
+     */
+    setProcessingMode(intensity) {
+        uiState.processingIntensity = intensity;
     },
     
     /**
@@ -648,7 +742,7 @@ window.neuralCanvas = {
      * Get current state for debugging
      */
     getState() {
-        return { ...state };
+        return { ...state, ui: uiState };
     }
 };
 

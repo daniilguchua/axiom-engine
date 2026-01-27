@@ -1,6 +1,11 @@
 # routes/repair.py
 """
-Mermaid diagram repair endpoints.
+Mermaid diagram repair endpoints with TIERED REPAIR SYSTEM.
+
+Tier 1: Python sanitizer only (fast, free)
+Tier 2: Python + JS sanitizer (fast, free) - client applies JS
+Tier 3: LLM repair + Python sanitizer (slow, costs $)
+Tier 4: LLM repair + Python + JS sanitizer (slow, costs $)
 """
 
 import logging
@@ -11,6 +16,7 @@ import google.generativeai as genai
 
 from core.config import get_configured_api_key, get_session_manager, get_cache_manager
 from core.decorators import validate_session
+from core.utils import sanitize_mermaid_code  # NOW USING THE PYTHON SANITIZER!
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +34,134 @@ def _require_api_key(f):
             }), 503
         return f(*args, **kwargs)
     return decorated
+
+
+# =============================================================================
+# TIER 1: QUICK-FIX (Python sanitizer only - FAST & FREE)
+# =============================================================================
+
+@repair_bp.route('/quick-fix', methods=['POST'])
+@validate_session
+def quick_fix():
+    """
+    TIER 1: Apply Python sanitizer only.
+    
+    This is the FIRST attempt at repair - fast and free.
+    Client should try rendering after this before escalating to LLM.
+    
+    Returns:
+        {
+            "fixed_code": "...",
+            "tier": 1,
+            "tier_name": "TIER1_PYTHON",
+            "changed": true/false,
+            "duration_ms": 5
+        }
+    """
+    data = request.get_json()
+    bad_code = data.get("code", "")
+    error_msg = data.get("error", "")
+    step_index = data.get("step_index", 0)
+    sim_id = data.get("sim_id", "")
+    
+    if not bad_code:
+        return jsonify({"error": "No code provided"}), 400
+    
+    session_id = g.session_id
+    start_time = time.time()
+    
+    cache_manager = get_cache_manager()
+    
+    # Apply Python sanitizer
+    fixed_code = sanitize_mermaid_code(bad_code)
+    
+    duration_ms = int((time.time() - start_time) * 1000)
+    changed = fixed_code != bad_code
+    
+    logger.info(f"[QUICK-FIX] Tier 1 Python: step={step_index}, changed={changed}, duration={duration_ms}ms")
+    
+    # Log the attempt (will be marked success/fail when client reports back)
+    # We log this as "pending" - client will call /repair-tier-result to confirm
+    
+    return jsonify({
+        "fixed_code": fixed_code,
+        "tier": 1,
+        "tier_name": "TIER1_PYTHON",
+        "changed": changed,
+        "duration_ms": duration_ms
+    })
+
+
+@repair_bp.route('/repair-tier-result', methods=['POST'])
+@validate_session
+def repair_tier_result():
+    """
+    Client reports the result of a repair tier attempt.
+    
+    Called after client tries to render the fixed code.
+    This logs the granular repair attempt to the database.
+    """
+    data = request.get_json()
+    session_id = g.session_id
+    
+    sim_id = data.get("sim_id", "")
+    step_index = data.get("step_index", 0)
+    tier = data.get("tier", 1)
+    tier_name = data.get("tier_name", "UNKNOWN")
+    attempt_number = data.get("attempt_number", 1)
+    input_code = data.get("input_code", "")
+    output_code = data.get("output_code", "")
+    error_before = data.get("error_before", "")
+    error_after = data.get("error_after")
+    was_successful = data.get("was_successful", False)
+    duration_ms = data.get("duration_ms", 0)
+    
+    cache_manager = get_cache_manager()
+    
+    # Log the granular attempt
+    cache_manager.log_repair_attempt(
+        session_id=session_id,
+        sim_id=sim_id,
+        step_index=step_index,
+        tier=tier,
+        tier_name=tier_name,
+        attempt_number=attempt_number,
+        input_code=input_code,
+        output_code=output_code,
+        error_before=error_before,
+        error_after=error_after,
+        was_successful=was_successful,
+        duration_ms=duration_ms
+    )
+    
+    return jsonify({"status": "logged", "tier": tier_name, "success": was_successful})
+
+
+@repair_bp.route('/repair-stats', methods=['GET'])
+def repair_stats():
+    """
+    Get repair statistics showing which tiers are fixing what.
+    
+    Returns breakdown like:
+    {
+        "tier1_python_fixes": 847,     // 62%
+        "tier2_js_fixes": 341,         // 25%  
+        "tier3_llm_fixes": 178,        // 13%
+        "total_failures": 12,
+        "success_rate": 99.1,
+        ...
+    }
+    """
+    days = request.args.get('days', 7, type=int)
+    
+    cache_manager = get_cache_manager()
+    stats = cache_manager.get_repair_stats(days=days)
+    recent = cache_manager.get_recent_repair_attempts(limit=10)
+    
+    return jsonify({
+        "stats": stats,
+        "recent_attempts": recent
+    })
 
 
 @repair_bp.route('/confirm-complete', methods=['POST'])
@@ -56,7 +190,7 @@ def confirm_complete():
     
     # CRITICAL: Use client's steps if provided (they contain repaired mermaid)
     if client_steps and len(client_steps) == step_count:
-        logger.info(f"📥 Using client-provided steps (may contain repairs)")
+        logger.info(f"ðŸ“¥ Using client-provided steps (may contain repairs)")
         user_db["current_sim_data"] = client_steps
     elif len(user_db["current_sim_data"]) != step_count:
         return jsonify({
@@ -86,7 +220,7 @@ def confirm_complete():
     # Check for any pending repairs
     cleared_count = cache_manager.clear_pending_repairs(session_id, original_prompt)
     if cleared_count > 0:
-        logger.info(f"✅ Cleared {cleared_count} pending repairs (client verified)")
+        logger.info(f"âœ… Cleared {cleared_count} pending repairs (client verified)")
     
     # Clear any old "broken" flags since client successfully rendered all steps
     cache_manager.clear_broken_status(original_prompt)
@@ -108,7 +242,7 @@ def confirm_complete():
     
     if success:
         user_db["simulation_verified"] = True
-        logger.info(f"✅ Simulation verified & cached: '{original_prompt[:40]}...' (difficulty={original_difficulty})")
+        logger.info(f"âœ… Simulation verified & cached: '{original_prompt[:40]}...' (difficulty={original_difficulty})")
         return jsonify({"status": "cached", "prompt": original_prompt[:50], "difficulty": original_difficulty}), 200
     else:
         return jsonify({"status": "cache_failed"}), 500
@@ -145,7 +279,7 @@ def repair_failed():
         step_index=step_index
     )
     
-    logger.warning(f"❌ Simulation marked broken at step {step_index}: '{original_prompt[:40]}...'")
+    logger.warning(f"âŒ Simulation marked broken at step {step_index}: '{original_prompt[:40]}...'")
     
     return jsonify({"status": "marked_broken"}), 200
 
@@ -155,16 +289,17 @@ def repair_failed():
 @validate_session
 def repair():
     """
-    Repair broken Mermaid code using LLM.
+    TIER 3: LLM-based repair (called after Tier 1 & 2 fail).
     
-    IMPORTANT: This endpoint is called AFTER the client's sanitizer failed.
-    We go straight to the LLM - no regex shortcuts here.
+    IMPORTANT: This endpoint SANITIZES the LLM output before returning.
+    The client should still try rendering, then try JS sanitizer if needed.
     """
     data = request.get_json()
     bad_code = data.get("code", "")
     error_msg = data.get("error", "")
     step_index = data.get("step_index", 0)
     context = data.get("context", "")
+    sim_id = data.get("sim_id", "")
     is_fallback = data.get("is_fallback", False)
     attempt_number = data.get("attempt_number", 1)
     previous_working = data.get("previous_working")
@@ -178,7 +313,7 @@ def repair():
     session_manager = get_session_manager()
     cache_manager = get_cache_manager()
     
-    logger.info(f"🔧 Repair request: attempt={attempt_number}, step={step_index}, fallback={is_fallback}")
+    logger.info(f"[REPAIR] LLM Tier 3: attempt={attempt_number}, step={step_index}, fallback={is_fallback}")
     
     # Get the original prompt for cache tracking
     user_db = session_manager.get_session(session_id)
@@ -199,7 +334,7 @@ def repair():
         # =====================================================================
         
         if is_fallback and previous_working:
-            logger.info(f"🔄 Fallback repair: modifying previous working graph")
+            logger.info(f"[REPAIR] Fallback mode: modifying previous working graph")
             
             fallback_prompt = f"""You have a working Mermaid diagram and need to create a variation for the next step.
 
@@ -219,7 +354,6 @@ INSTRUCTIONS:
 
 OUTPUT ONLY THE MODIFIED MERMAID CODE. No explanation, no markdown blocks."""
             
-            logger.info(f"📡 Calling LLM for fallback repair...")
             model = genai.GenerativeModel('models/gemini-2.5-flash')
             response = model.generate_content(fallback_prompt)
 
@@ -228,9 +362,11 @@ OUTPUT ONLY THE MODIFIED MERMAID CODE. No explanation, no markdown blocks."""
             else:
                 ai_fix = response.text.strip()
             
+            # CRITICAL: Sanitize LLM output!
+            ai_fix = sanitize_mermaid_code(ai_fix)
             
             duration_ms = int((time.time() - start_time) * 1000)
-            logger.info(f"✅ LLM fallback response received in {duration_ms}ms")
+            logger.info(f"[REPAIR] LLM fallback response received in {duration_ms}ms")
             
             cache_manager.log_repair(
                 repair_method="LLM_FALLBACK",
@@ -245,15 +381,20 @@ OUTPUT ONLY THE MODIFIED MERMAID CODE. No explanation, no markdown blocks."""
             if original_prompt:
                 cache_manager.mark_repair_resolved(session_id, original_prompt, step_index, success=True)
             
-            return jsonify({"fixed_code": ai_fix, "method": "fallback"})
+            return jsonify({
+                "fixed_code": ai_fix, 
+                "method": "fallback",
+                "tier": 3,
+                "tier_name": "TIER3_LLM_PYTHON",
+                "sanitized": True,
+                "duration_ms": duration_ms
+            })
         
         # =====================================================================
-        # STANDARD LLM REPAIR (No regex shortcut - client already tried that)
+        # STANDARD LLM REPAIR
         # =====================================================================
         
-        # Build repair prompt based on attempt number
         if attempt_number >= 2 and previous_working:
-            # On later attempts, give the LLM the previous working code as reference
             repair_prompt = f"""Fix this Mermaid diagram. The error was: {error_msg}
 
 BROKEN CODE:
@@ -272,6 +413,7 @@ Common issues to check:
 - Missing semicolons after classDef
 - Malformed arrow syntax
 - Unbalanced brackets
+- Subgraph IDs must be SHORT (2-6 chars) with labels: subgraph IN["Input Layer"]
 
 OUTPUT ONLY THE FIXED MERMAID CODE. No explanation, no markdown blocks."""
         else:
@@ -290,15 +432,13 @@ Common Mermaid syntax issues to fix:
 - Malformed arrow syntax (should be --> or ==>)
 - Unbalanced brackets or parentheses
 - Invalid node IDs (no spaces, start with letter)
+- Subgraph IDs must be SHORT (2-6 chars) with display labels: subgraph IN["Input Layer"]
 
 OUTPUT ONLY THE FIXED MERMAID CODE. No explanation, no markdown code blocks."""
         
-        if attempt_number >= 3:
-            model_name = 'models/gemini-2.5-pro'
-        else:
-            model_name = 'models/gemini-2.5-flash'
+        model_name = 'models/gemini-2.5-pro' if attempt_number >= 3 else 'models/gemini-2.5-flash'
     
-        logger.info(f"📡 Calling LLM for repair attempt {attempt_number}...")
+        logger.info(f"[REPAIR] Calling LLM ({model_name}) for attempt {attempt_number}...")
         
         model = genai.GenerativeModel(model_name)
         response = model.generate_content(repair_prompt)
@@ -310,34 +450,37 @@ OUTPUT ONLY THE FIXED MERMAID CODE. No explanation, no markdown code blocks."""
             ai_fix = raw.split("```")[1].split("```")[0].strip()
         else:
             ai_fix = raw.strip()
-                
+        
+        # CRITICAL: Sanitize LLM output with Python sanitizer!
+        ai_fix_sanitized = sanitize_mermaid_code(ai_fix)
+        was_modified = ai_fix_sanitized != ai_fix
         
         duration_ms = int((time.time() - start_time) * 1000)
-        logger.info(f"✅ LLM repair response received in {duration_ms}ms")
+        logger.info(f"[REPAIR] LLM response received in {duration_ms}ms, sanitized={was_modified}")
         
         # Log the repair attempt
         cache_manager.log_repair(
             repair_method=f"LLM_GEMINI_ATTEMPT_{attempt_number}",
             broken_code=bad_code,
             error_msg=error_msg,
-            fixed_code=ai_fix,
-            success=True,  # We got a response; client will verify if it actually works
+            fixed_code=ai_fix_sanitized,
+            success=True,
             session_id=session_id,
             duration_ms=duration_ms
         )
         
-        # Don't mark as resolved yet - client needs to verify the fix works
-        # The client will call /repair again if it fails, or validation will clear it
-        
         return jsonify({
-            "fixed_code": ai_fix, 
+            "fixed_code": ai_fix_sanitized, 
             "method": "llm",
+            "tier": 3,
+            "tier_name": "TIER3_LLM_PYTHON",
             "attempt": attempt_number,
+            "sanitized": was_modified,
             "duration_ms": duration_ms
         })
         
     except Exception as e:
-        logger.exception(f"Repair failed: {e}")
+        logger.exception(f"[REPAIR] Failed: {e}")
         
         duration_ms = int((time.time() - start_time) * 1000)
         
@@ -372,6 +515,6 @@ def repair_success():
     
     if original_prompt:
         cache_manager.mark_repair_resolved(session_id, original_prompt, step_index, success=True)
-        logger.info(f"✅ Repair verified by client: step {step_index}")
+        logger.info(f"âœ… Repair verified by client: step {step_index}")
     
     return jsonify({"status": "acknowledged"}), 200

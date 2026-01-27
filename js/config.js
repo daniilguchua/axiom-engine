@@ -74,6 +74,15 @@ AXIOM.RepairConfig = {
 
 AXIOM.RepairPhase = {
     DIAGNOSING: 'DIAGNOSING',
+    // Tier 1: Python sanitizer only (fast, free)
+    TIER1_PYTHON: 'TIER1_PYTHON',
+    // Tier 2: Python + JS sanitizer (fast, free)
+    TIER2_PYTHON_JS: 'TIER2_PYTHON_JS',
+    // Tier 3: LLM repair + Python sanitizer (slow, costs $)
+    TIER3_LLM: 'TIER3_LLM',
+    // Tier 4: LLM + Python + JS sanitizer
+    TIER4_LLM_JS: 'TIER4_LLM_JS',
+    // Legacy phases (kept for compatibility)
     CONTACTING_LLM: 'CONTACTING_LLM',
     APPLYING_FIX: 'APPLYING_FIX',
     VERIFYING: 'VERIFYING',
@@ -177,4 +186,4 @@ AXIOM.delay = function(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 };
 
-console.log('✅ AXIOM Config loaded');
+console.log('âœ… AXIOM Config loaded');

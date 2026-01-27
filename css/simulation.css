@@ -1,0 +1,589 @@
+/* =========================================
+   AXIOM ENGINE — Simulation Content Styles
+   Transform bland text into engaging learning
+   ========================================= */
+
+/* =========================================
+   1. STEP TITLE - THE BIG MOMENT
+   ========================================= */
+
+.simulation-header h1 {
+    /* Remove the old boring style */
+    border-left: none !important;
+    padding-left: 0 !important;
+    
+    /* Make it a proper hero */
+    font-family: var(--font-header);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 28px 0;
+    padding: 24px 28px;
+    
+    /* Gradient background with glow */
+    background: linear-gradient(135deg, 
+        rgba(139, 92, 246, 0.15) 0%, 
+        rgba(96, 165, 250, 0.08) 50%,
+        transparent 100%);
+    
+    /* Top accent bar */
+    border-top: 3px solid;
+    border-image: linear-gradient(90deg, var(--accent), var(--graph-process), transparent) 1;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    
+    /* Subtle depth */
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    
+    /* Step number effect via first word styling handled by structure */
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+}
+
+/* =========================================
+   2. SECTION HEADERS - CLEAN DIVIDERS
+   ========================================= */
+
+.simulation-header h2 {
+    border-left: none !important;
+    padding-left: 0 !important;
+    
+    font-family: var(--font-header);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 36px 0 16px 0;
+    padding: 0 0 12px 0;
+    
+    /* Subtle underline instead of left border */
+    border-bottom: 1px solid var(--border-subtle);
+    
+    /* Icon bullet */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.simulation-header h2::before {
+    content: '◈';
+    color: var(--accent);
+    font-size: 14px;
+}
+
+/* Different h2 styles based on content patterns */
+.simulation-header h2:has(+ table),
+.simulation-header h2:has(+ .data) {
+    color: var(--graph-data);
+}
+
+.simulation-header h2:has(+ table)::before,
+.simulation-header h2:has(+ .data)::before {
+    content: '◫';
+    color: var(--graph-data);
+}
+
+/* =========================================
+   3. SUBSECTION HEADERS
+   ========================================= */
+
+.simulation-header h3 {
+    border-left: none !important;
+    padding-left: 0 !important;
+    
+    font-family: var(--font-header);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--graph-process);
+    margin: 24px 0 12px 0;
+    padding: 0;
+    letter-spacing: 0.01em;
+}
+
+/* =========================================
+   4. PARAGRAPHS - READABLE & CLEAN
+   ========================================= */
+
+.simulation-header p {
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.8;
+    margin-bottom: 16px;
+}
+
+.simulation-header strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.simulation-header em {
+    color: var(--graph-memory);
+    font-style: normal;
+    font-weight: 500;
+}
+
+/* =========================================
+   5. INLINE CODE - SEMANTIC VARIABLES
+   ========================================= */
+
+.simulation-header code {
+    padding: 4px 10px;
+    margin: 0 3px;
+    background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-base) 100%);
+    border: 1px solid var(--border-muted);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    font-weight: 600;
+    color: var(--graph-process);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.simulation-header code:hover {
+    border-color: var(--accent);
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
+    transform: translateY(-1px);
+}
+
+/* Auto-detect values (contains =) */
+.simulation-header code:has(=),
+.simulation-header p code:contains("=") {
+    color: var(--graph-data);
+    border-color: rgba(52, 211, 153, 0.4);
+}
+
+/* =========================================
+   6. BLOCKQUOTES - INSIGHT BOXES
+   ========================================= */
+
+.simulation-header blockquote {
+    margin: 28px 0;
+    padding: 24px 28px;
+    background: linear-gradient(135deg, 
+        rgba(96, 165, 250, 0.1) 0%, 
+        rgba(139, 92, 246, 0.05) 100%);
+    border: 1px solid rgba(96, 165, 250, 0.25);
+    border-left: 4px solid var(--graph-process);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    position: relative;
+    
+    /* Glow effect */
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* Floating label */
+.simulation-header blockquote::before {
+    content: '💡 INSIGHT';
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: var(--bg-surface);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--graph-process);
+    letter-spacing: 0.08em;
+    border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.simulation-header blockquote p {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.simulation-header blockquote p:not(:last-child) {
+    margin-bottom: 12px;
+}
+
+.simulation-header blockquote strong {
+    color: var(--graph-process);
+}
+
+/* Blockquote with headers = Key Concept */
+.simulation-header blockquote:has(h2),
+.simulation-header blockquote:has(h3) {
+    background: linear-gradient(135deg, 
+        rgba(52, 211, 153, 0.1) 0%, 
+        transparent 100%);
+    border-color: rgba(52, 211, 153, 0.25);
+    border-left-color: var(--graph-data);
+}
+
+.simulation-header blockquote:has(h2)::before,
+.simulation-header blockquote:has(h3)::before {
+    content: '🎯 KEY CONCEPT';
+    color: var(--graph-data);
+    border-color: rgba(52, 211, 153, 0.3);
+}
+
+.simulation-header blockquote h2,
+.simulation-header blockquote h3 {
+    margin-top: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    color: var(--graph-data) !important;
+}
+
+.simulation-header blockquote h2::before,
+.simulation-header blockquote h3::before {
+    display: none;
+}
+
+/* =========================================
+   7. LISTS - STRUCTURED & SCANNABLE
+   ========================================= */
+
+.simulation-header ul,
+.simulation-header ol {
+    margin: 20px 0 24px 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Unordered list items */
+.simulation-header ul > li {
+    position: relative;
+    padding: 14px 18px 14px 20px;
+    margin-bottom: 8px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+    transition: all 0.2s ease;
+}
+
+.simulation-header ul > li:hover {
+    border-left-color: var(--graph-process);
+    background: var(--bg-elevated);
+    transform: translateX(4px);
+}
+
+/* Ordered list - numbered steps */
+.simulation-header ol {
+    counter-reset: step-counter;
+}
+
+.simulation-header ol > li {
+    position: relative;
+    padding: 16px 18px 16px 56px;
+    margin-bottom: 12px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+    counter-increment: step-counter;
+    transition: all 0.2s ease;
+}
+
+.simulation-header ol > li::before {
+    content: counter(step-counter);
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--graph-process));
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.simulation-header ol > li:hover {
+    background: var(--bg-elevated);
+    border-color: var(--accent);
+}
+
+/* =========================================
+   8. TABLES - DATA DISPLAYS
+   ========================================= */
+
+.simulation-header table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 24px 0;
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.simulation-header thead {
+    background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+}
+
+.simulation-header th {
+    padding: 16px 20px;
+    border-bottom: 2px solid var(--accent);
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.simulation-header td {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 14px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    transition: all 0.15s ease;
+}
+
+.simulation-header tr:last-child td {
+    border-bottom: none;
+}
+
+.simulation-header tbody tr:hover td {
+    background: var(--accent-muted);
+    color: var(--text-primary);
+}
+
+/* Table code elements */
+.simulation-header td code {
+    padding: 2px 6px;
+    font-size: 0.9em;
+}
+
+/* =========================================
+   9. HORIZONTAL RULES - SECTION BREAKS
+   ========================================= */
+
+.simulation-header hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        var(--border-muted) 20%, 
+        var(--accent) 50%, 
+        var(--border-muted) 80%, 
+        transparent 100%);
+    margin: 36px 0;
+    opacity: 0.6;
+}
+
+/* =========================================
+   10. SPECIAL PATTERNS - AUTO-DETECTED
+   ========================================= */
+
+/* Paragraphs starting with bold = callout */
+.simulation-header p > strong:first-child {
+    display: inline-block;
+    background: var(--accent-muted);
+    padding: 2px 10px;
+    border-radius: 4px;
+    margin-right: 8px;
+    font-size: 0.9em;
+}
+
+/* "Interview Tip" / "Exam Note" patterns */
+.simulation-header p:has(strong:first-child:contains("Interview")),
+.simulation-header p:has(strong:first-child:contains("Tip")),
+.simulation-header p:has(strong:first-child:contains("Note")),
+.simulation-header p:has(strong:first-child:contains("Warning")) {
+    padding: 14px 18px;
+    background: rgba(251, 191, 36, 0.08);
+    border-left: 3px solid var(--graph-memory);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    margin: 20px 0;
+}
+
+/* =========================================
+   11. DATA TABLE SECTION (Below Graph)
+   ========================================= */
+
+.simulation-data {
+    margin-top: 24px;
+    padding: 20px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+}
+
+.simulation-data h3 {
+    font-family: var(--font-header);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 16px 0;
+    padding: 10px 14px;
+    background: var(--bg-elevated);
+    border-left: 3px solid var(--graph-data);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.simulation-data h3:not(:first-child) {
+    margin-top: 28px;
+}
+
+.simulation-data table {
+    margin: 0 0 20px 0;
+    box-shadow: none;
+    border: 1px solid var(--border-subtle);
+}
+
+.simulation-data th {
+    padding: 12px 16px;
+    font-size: 10px;
+    border-bottom: 1px solid var(--accent);
+}
+
+.simulation-data td {
+    padding: 12px 16px;
+    font-size: 13px;
+}
+
+/* Active row - THE key highlight */
+.simulation-data .active-row td,
+.simulation-data tr.active-row td,
+tr.active-row td {
+    background: linear-gradient(90deg, 
+        var(--accent-muted) 0%, 
+        transparent 100%) !important;
+    color: var(--accent) !important;
+    font-weight: 600;
+    position: relative;
+}
+
+.simulation-data .active-row td:first-child,
+.simulation-data tr.active-row td:first-child,
+tr.active-row td:first-child {
+    border-left: 3px solid var(--accent);
+}
+
+/* =========================================
+   12. FORMULA BLOCKS
+   ========================================= */
+
+/* Single code block on its own line = formula */
+.simulation-header p > code:only-child {
+    display: block;
+    padding: 18px 24px;
+    margin: 20px 0;
+    background: linear-gradient(135deg, var(--bg-base) 0%, var(--bg-elevated) 100%);
+    border: 1px solid var(--border-muted);
+    border-left: 4px solid var(--graph-data);
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    text-align: center;
+    white-space: pre-wrap;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* =========================================
+   13. ANIMATIONS
+   ========================================= */
+
+/* Staggered fade-in for content */
+.simulation-header > * {
+    animation: content-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.simulation-header > *:nth-child(1) { animation-delay: 0.05s; }
+.simulation-header > *:nth-child(2) { animation-delay: 0.1s; }
+.simulation-header > *:nth-child(3) { animation-delay: 0.15s; }
+.simulation-header > *:nth-child(4) { animation-delay: 0.2s; }
+.simulation-header > *:nth-child(5) { animation-delay: 0.25s; }
+.simulation-header > *:nth-child(6) { animation-delay: 0.3s; }
+.simulation-header > *:nth-child(7) { animation-delay: 0.35s; }
+.simulation-header > *:nth-child(8) { animation-delay: 0.4s; }
+.simulation-header > *:nth-child(9) { animation-delay: 0.45s; }
+.simulation-header > *:nth-child(10) { animation-delay: 0.5s; }
+
+@keyframes content-enter {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Hover micro-interactions */
+.simulation-header blockquote {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.simulation-header blockquote:hover {
+    transform: translateX(6px);
+    box-shadow: 
+        0 8px 30px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(96, 165, 250, 0.2);
+}
+
+/* =========================================
+   14. SIMULATION HEADER CONTAINER
+   ========================================= */
+
+.simulation-header {
+    /* Override the old basic styling */
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-left: none !important;
+    border-radius: 0 !important;
+}
+
+/* =========================================
+   15. RESPONSIVE
+   ========================================= */
+
+@media (max-width: 768px) {
+    .simulation-header h1 {
+        font-size: 20px;
+        padding: 18px 20px;
+    }
+    
+    .simulation-header h2 {
+        font-size: 15px;
+    }
+    
+    .simulation-header ol > li {
+        padding-left: 48px;
+    }
+    
+    .simulation-header ol > li::before {
+        width: 24px;
+        height: 24px;
+        font-size: 11px;
+        left: 12px;
+    }
+    
+    .simulation-header th,
+    .simulation-header td {
+        padding: 10px 14px;
+    }
+    
+    .simulation-header blockquote {
+        padding: 18px 20px;
+    }
+}

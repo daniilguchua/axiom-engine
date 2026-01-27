@@ -64,20 +64,37 @@
     // =========================================================================
     
     async function attemptRender(graphDiv, wrapper) {
+        console.log(`🎨 [attemptRender] Starting render attempt...`);
+        const code = graphDiv.textContent;
+        console.log(`  Code length: ${code.length}`);
+        console.log(`  Newlines: ${(code.match(/\n/g) || []).length}`);
+
         try {
             await new Promise(r => setTimeout(r, 50));
-            
+
+            console.log(`⏳ Calling mermaid.run()...`);
+            const startTime = Date.now();
+
             // Race between render and timeout
             const result = await Promise.race([
-                mermaid.run({ nodes: [graphDiv] }).then(() => ({ success: true })),
+                mermaid.run({ nodes: [graphDiv] }).then(() => {
+                    console.log(`✅ mermaid.run() succeeded in ${Date.now() - startTime}ms`);
+                    return { success: true };
+                }),
                 new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Render timeout')), RepairConfig.RENDER_TIMEOUT_MS)
+                    setTimeout(() => {
+                        console.error(`⏰ Render timeout after ${RepairConfig.RENDER_TIMEOUT_MS}ms`);
+                        reject(new Error('Render timeout'));
+                    }, RepairConfig.RENDER_TIMEOUT_MS)
                 )
             ]);
-            
+
             return result;
         } catch (error) {
-            return { success: false, error: error.message || 'Unknown render error' };
+            const errorMsg = error.message || 'Unknown render error';
+            console.error(`❌ [attemptRender] Render failed:`, errorMsg);
+            console.log(`🔍 Failed code:`, code.substring(0, 200));
+            return { success: false, error: errorMsg };
         }
     }
     
@@ -86,33 +103,43 @@
     // =========================================================================
     
     function onRenderSuccess(wrapper, graphDiv, code, simId, stepIndex, wasRepaired = false) {
+        console.log(`🎉 [onRenderSuccess] Render successful!`);
+        console.log(`  SimId: ${simId}`);
+        console.log(`  Step: ${stepIndex}`);
+        console.log(`  Was repaired: ${wasRepaired}`);
+
         // Track validation
         if (simId && stepIndex !== null) {
             const key = `${simId}_${stepIndex}`;
             AXIOM.simulation.validatedSteps.add(key);
             AXIOM.simulation.lastWorkingMermaid[simId] = code;
-            
+
             console.log(`✅ [VALIDATE] Step ${stepIndex} validated for ${simId}`);
-            
+            console.log(`  Storing working Mermaid for future reference`);
+
             const playlist = AXIOM.simulation.store[simId];
             if (playlist && playlist[stepIndex]?.is_final) {
+                console.log(`🏁 Final step detected, confirming simulation complete`);
                 AXIOM.api.confirmSimulationComplete(simId);
             }
         }
-        
+
         // Log for ML training
         AXIOM.api.logGraphToServer(code, simId, stepIndex, wasRepaired);
-        
+
         // Attach interactions
         setTimeout(() => {
             const svg = graphDiv.querySelector('svg');
             if (svg) {
+                console.log(`🎨 Attaching interactions to SVG`);
                 svg.style.width = "100%";
                 svg.style.height = "100%";
                 svg.style.maxWidth = "none";
                 AXIOM.interactions.setupZoomPan(wrapper, graphDiv);
                 AXIOM.interactions.setupNodeClicks(svg, wrapper);
                 AXIOM.interactions.attachNodePhysics(wrapper);
+            } else {
+                console.warn(`⚠️ No SVG found in graphDiv after render`);
             }
         }, 200);
     }
@@ -122,40 +149,72 @@
     // =========================================================================
     
     async function fixMermaid(container, simId = null, stepIndex = null) {
-        console.log(`🔧 [fixMermaid] Called with simId=${simId}, stepIndex=${stepIndex}`);
-        
+        console.group(`🔧 [RENDERER] fixMermaid() - simId=${simId}, step=${stepIndex}`);
+
+        if (!container) {
+            console.error("❌ No container provided to fixMermaid");
+            console.groupEnd();
+            return;
+        }
+
         const codes = container.querySelectorAll('pre code');
-        
+        console.log(`📦 Found ${codes.length} code blocks in container`);
+
+        let blockIndex = 0;
         for (const codeBlock of codes) {
+            console.log(`\n🔍 Checking code block ${++blockIndex}/${codes.length}`);
+
             const rawGraph = codeBlock.textContent;
             const isMermaid = codeBlock.classList.contains('language-mermaid') ||
                 rawGraph.includes('graph TD') || rawGraph.includes('graph LR') ||
+                rawGraph.includes('flowchart') ||
                 rawGraph.includes('sequenceDiagram');
 
-            if (!isMermaid) continue;
+            console.log(`  Is Mermaid: ${isMermaid}`);
+            if (!isMermaid) {
+                console.log(`  ⏭️  Skipping non-Mermaid block`);
+                continue;
+            }
+
+            console.log(`📊 RAW MERMAID (before sanitizer):`);
+            console.log(`  Length: ${rawGraph.length}`);
+            console.log(`  Has newlines: ${rawGraph.includes('\n')}`);
+            console.log(`  Newline count: ${(rawGraph.match(/\n/g) || []).length}`);
+            console.log(`  Preview:`, rawGraph.substring(0, 150));
 
             const preElement = codeBlock.parentElement;
             const sanitizedGraph = AXIOM.sanitizer.sanitizeMermaidString(rawGraph);
+
+            console.log(`📊 SANITIZED MERMAID (after sanitizer):`);
+            console.log(`  Length: ${sanitizedGraph.length}`);
+            console.log(`  Has newlines: ${sanitizedGraph.includes('\n')}`);
+            console.log(`  Newline count: ${(sanitizedGraph.match(/\n/g) || []).length}`);
+            console.log(`  Preview:`, sanitizedGraph.substring(0, 150));
             
             // Create the wrapper structure
+            console.log(`\n🎨 Creating wrapper and attempting render...`);
             const wrapper = createGraphWrapper(simId, stepIndex);
             const graphDiv = createGraphDiv(sanitizedGraph);
-            
+
             wrapper.appendChild(createOverlay());
             wrapper.appendChild(graphDiv);
             preElement.replaceWith(wrapper);
 
             // Attempt initial render
+            console.log(`⏳ Attempting initial render...`);
             const renderResult = await attemptRender(graphDiv, wrapper);
-            
+
             if (renderResult.success) {
-                console.log(`✅ [fixMermaid] Initial render successful`);
+                console.log(`✅ Initial render SUCCESSFUL`);
                 onRenderSuccess(wrapper, graphDiv, sanitizedGraph, simId, stepIndex, false);
             } else {
-                console.log(`❌ [fixMermaid] Initial render failed: ${renderResult.error}`);
+                console.error(`❌ Initial render FAILED: ${renderResult.error}`);
+                console.log(`🔧 Triggering repair system...`);
                 await AXIOM.repairSystem.startRepairProcess(wrapper, sanitizedGraph, renderResult.error, simId, stepIndex);
             }
         }
+
+        console.groupEnd();
     }
     
     // =========================================================================

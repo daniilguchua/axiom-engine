@@ -16,8 +16,8 @@
         // 1. Visual Feedback (Instant)
         const parent = btnElement.parentElement;
         parent.innerHTML = rating === 1 ? 
-            `<span style="color:#00ff9f; font-weight:bold; font-size:1.2rem;">✓</span>` : 
-            `<span style="color:#ff003c; font-weight:bold; font-size:1.2rem;">✕</span>`;
+            `<span style="color:#00ff9f; font-weight:bold; font-size:1.2rem;">âœ“</span>` : 
+            `<span style="color:#ff003c; font-weight:bold; font-size:1.2rem;">âœ•</span>`;
 
         // 2. Send to Server
         try {
@@ -39,7 +39,80 @@
     // REPAIR SERVER COMMUNICATION
     // =========================================================================
     
-    async function callRepairServer(code, error, context, stepIndex, attemptNumber, previousWorking) {
+    /**
+     * TIER 1: Call Python-only quick-fix endpoint (fast, free)
+     */
+    async function callQuickFix(code, error, stepIndex, simId) {
+        const startTime = Date.now();
+        
+        try {
+            const response = await fetch(`${API_URL}/quick-fix`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: AbortSignal.timeout(10000),  // 10 second timeout (fast!)
+                body: JSON.stringify({
+                    code: code,
+                    error: error,
+                    step_index: stepIndex,
+                    sim_id: simId,
+                    session_id: AXIOM.currentSessionId
+                })
+            });
+            
+            if (!response.ok) {
+                return { success: false, error: `Server error ${response.status}` };
+            }
+            
+            const data = await response.json();
+            
+            return {
+                success: true,
+                fixedCode: data.fixed_code,
+                tier: data.tier,
+                tierName: data.tier_name,
+                changed: data.changed,
+                durationMs: data.duration_ms
+            };
+            
+        } catch (error) {
+            console.error(`[QUICK-FIX] Failed:`, error);
+            return { success: false, error: error.message };
+        }
+    }
+    
+    /**
+     * Report the result of a repair tier attempt to the server for tracking
+     */
+    async function reportTierResult(params) {
+        try {
+            await fetch(`${API_URL}/repair-tier-result`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: AXIOM.currentSessionId,
+                    sim_id: params.simId || '',
+                    step_index: params.stepIndex || 0,
+                    tier: params.tier,
+                    tier_name: params.tierName,
+                    attempt_number: params.attemptNumber || 1,
+                    input_code: params.inputCode || '',
+                    output_code: params.outputCode || '',
+                    error_before: params.errorBefore || '',
+                    error_after: params.errorAfter || null,
+                    was_successful: params.wasSuccessful,
+                    duration_ms: params.durationMs || 0
+                })
+            });
+        } catch (e) {
+            console.warn('[REPAIR] Failed to report tier result:', e);
+        }
+    }
+    
+    /**
+     * TIER 3: Call LLM repair endpoint (slow, costs $)
+     * Now returns tier info and sanitized flag
+     */
+    async function callRepairServer(code, error, context, stepIndex, attemptNumber, previousWorking, simId) {
         const startTime = Date.now();
         
         // First, verify the server is reachable
@@ -52,13 +125,13 @@
                 return { success: false, error: 'Server health check failed' };
             }
         } catch (e) {
-            console.error(`📡 [REPAIR] Server unreachable:`, e);
+            console.error(`ðŸ“¡ [REPAIR] Server unreachable:`, e);
             return { success: false, error: `Server unreachable: ${e.message}` };
         }
         
         // Now make the actual repair request
         try {
-            console.log(`📡 [REPAIR] Sending repair request...`);
+            console.log(`ðŸ“¡ [REPAIR] Sending repair request...`);
             
             const response = await fetch(`${API_URL}/repair`, {
                 method: 'POST',
@@ -71,12 +144,13 @@
                     step_index: stepIndex,
                     attempt_number: attemptNumber,
                     previous_working: previousWorking,
+                    sim_id: simId || '',
                     session_id: AXIOM.currentSessionId
                 })
             });
             
             const elapsed = Date.now() - startTime;
-            console.log(`📡 [REPAIR] Response received in ${elapsed}ms, status: ${response.status}`);
+            console.log(`ðŸ“¡ [REPAIR] Response received in ${elapsed}ms, status: ${response.status}`);
             
             if (!response.ok) {
                 const errorText = await response.text().catch(() => 'Unknown error');
@@ -97,11 +171,14 @@
                 success: true, 
                 fixedCode: data.fixed_code,
                 method: data.method,
+                tier: data.tier || 3,
+                tierName: data.tier_name || 'TIER3_LLM_PYTHON',
+                sanitized: data.sanitized || false,
                 durationMs: elapsed
             };
             
         } catch (error) {
-            console.error(`📡 [REPAIR] Request failed:`, error);
+            console.error(`ðŸ“¡ [REPAIR] Request failed:`, error);
             return { success: false, error: `Request failed: ${error.message}` };
         }
     }
@@ -123,7 +200,7 @@
             return;
         }
         
-        console.log(`✅ Confirming simulation complete: ${simId} (${playlist.length} steps)`);
+        console.log(`âœ… Confirming simulation complete: ${simId} (${playlist.length} steps)`);
         
         try {
             const response = await fetch(`${API_URL}/confirm-complete`, {
@@ -140,10 +217,10 @@
             const data = await response.json();
             
             if (data.status === 'cached') {
-                console.log(`💾 Simulation cached successfully: ${data.prompt}`);
-                AXIOM.ui.showToast('✓ Simulation saved to cache');
+                console.log(`ðŸ’¾ Simulation cached successfully: ${data.prompt}`);
+                AXIOM.ui.showToast('âœ“ Simulation saved to cache');
             } else if (data.status === 'skipped') {
-                console.log(`⏭️ Cache skipped: ${data.reason}`);
+                console.log(`â­ï¸ Cache skipped: ${data.reason}`);
             } else {
                 console.warn('Cache response:', data);
             }
@@ -247,7 +324,7 @@
     
     async function resetSession() {
         if (AXIOM.currentSessionId) {
-            console.log("💀 TERMINATING SESSION...");
+            console.log("ðŸ’€ TERMINATING SESSION...");
             try {
                 await fetch(`${API_URL}/reset`, {
                     method: 'POST',
@@ -314,6 +391,8 @@
     
     AXIOM.api = {
         sendFeedback,
+        callQuickFix,
+        reportTierResult,
         callRepairServer,
         confirmSimulationComplete,
         reportFailureToServer,
@@ -326,5 +405,5 @@
         getDifficultyInfo
     };
     
-    console.log('✅ AXIOM API loaded');
+    console.log('âœ… AXIOM API loaded');
 })();

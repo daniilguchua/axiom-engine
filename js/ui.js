@@ -50,15 +50,16 @@
                 bottom: '100px',
                 left: '50%',
                 transform: 'translateX(-50%)',
-                background: 'rgba(0, 243, 255, 0.2)',
+                background: 'rgba(139, 92, 246, 0.2)',
                 color: '#fff',
-                border: '1px solid #00f3ff',
-                padding: '10px 20px',
-                borderRadius: '4px',
-                fontFamily: 'monospace',
+                border: '1px solid var(--accent)',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '14px',
                 zIndex: '10000',
-                backdropFilter: 'blur(5px)',
-                boxShadow: '0 0 20px rgba(0,243,255,0.4)',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 0 30px rgba(139, 92, 246, 0.3)',
                 transition: 'all 0.3s ease',
                 opacity: '0'
             });
@@ -71,6 +72,35 @@
             toast.style.opacity = '0';
             toast.style.transform = 'translateX(-50%) translateY(10px)';
         }, 2000);
+    }
+    
+    // =========================================================================
+    // NEURAL CANVAS PROCESSING EFFECTS
+    // =========================================================================
+    
+    function startProcessingEffects() {
+        if (window.neuralCanvas) {
+            window.neuralCanvas.setProcessingMode(1);
+            // Periodic wave pulses during processing
+            window._processingInterval = setInterval(() => {
+                if (window.neuralCanvas) {
+                    window.neuralCanvas.wavePulse();
+                }
+            }, 1500);
+        }
+    }
+    
+    function stopProcessingEffects(success = true) {
+        if (window._processingInterval) {
+            clearInterval(window._processingInterval);
+            window._processingInterval = null;
+        }
+        if (window.neuralCanvas) {
+            window.neuralCanvas.setProcessingMode(0);
+            if (success) {
+                window.neuralCanvas.celebrate();
+            }
+        }
     }
     
     // =========================================================================
@@ -197,7 +227,9 @@
         activateChatMode,
         disconnect,
         handleLobbyInit,
-        toggleGraphTheme
+        toggleGraphTheme,
+        startProcessingEffects,
+        stopProcessingEffects
     };
     
     // Also expose toggleGraphTheme globally for onclick handlers

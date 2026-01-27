@@ -143,6 +143,59 @@
     }
     
     // =========================================================================
+    // CARD 3D TILT EFFECT + NEURAL CANVAS INTEGRATION
+    // =========================================================================
+    
+    function setupCardTilt() {
+        const cards = document.querySelectorAll('.tech-card');
+        
+        cards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                
+                const rotateX = (-y / rect.height) * 10; // Max 10deg rotation
+                const rotateY = (x / rect.width) * 10;
+                
+                card.style.transform = `
+                    perspective(1000px) 
+                    rotateX(${rotateX}deg) 
+                    rotateY(${rotateY}deg)
+                    scale(1.02)
+                `;
+                
+                // Notify neural canvas of hover position
+                if (window.neuralCanvas && window.neuralCanvas.onCardHover) {
+                    window.neuralCanvas.onCardHover(e.clientX, e.clientY);
+                }
+            });
+            
+            card.addEventListener('mouseenter', (e) => {
+                // Notify neural canvas of card hover start
+                if (window.neuralCanvas && window.neuralCanvas.onCardHover) {
+                    window.neuralCanvas.onCardHover(e.clientX, e.clientY);
+                }
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = '';
+                
+                // Notify neural canvas hover ended
+                if (window.neuralCanvas && window.neuralCanvas.onCardLeave) {
+                    window.neuralCanvas.onCardLeave();
+                }
+            });
+        });
+    }
+    
+    // Initialize card tilt when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        // Small delay to ensure cards are rendered after animations
+        setTimeout(setupCardTilt, 700);
+    });
+    
+    // =========================================================================
     // EXPORT
     // =========================================================================
     
@@ -150,7 +203,8 @@
         setupZoomPan,
         setupNodeClicks,
         attachNodePhysics,
-        reattachGraphPhysics
+        reattachGraphPhysics,
+        setupCardTilt
     };
     
     console.log('✅ AXIOM Interactions loaded');

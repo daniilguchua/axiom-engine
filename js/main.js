@@ -107,72 +107,131 @@
             // =====================================================================
             
             if (isJsonResponse) {
+                console.group("📋 [JSON PARSING] Processing simulation response");
                 let parsed = null;
-                
+
                 try {
                     // Step 1: Extract JSON from markdown code blocks if present
                     let cleanJson = fullText.trim();
+                    console.log("📥 STEP 1: Extract from markdown blocks");
+                    console.log(`  Original length: ${fullText.length}`);
+
                     const codeBlockMatch = fullText.match(/```(?:json)?\s*([\s\S]*?)```/);
                     if (codeBlockMatch) {
                         cleanJson = codeBlockMatch[1].trim();
+                        console.log(`  ✓ Extracted from code block, new length: ${cleanJson.length}`);
+                    } else {
+                        console.log(`  ⏭️  No code block found, using raw text`);
                     }
-                    
+
                     // Step 2: Repair common LLM JSON errors
+                    console.log("🔧 STEP 2: Repair common LLM JSON errors");
+                    const beforeRepair = cleanJson;
                     cleanJson = AXIOM.sanitizer.repairLLMJson(cleanJson);
-                    
+                    if (beforeRepair !== cleanJson) {
+                        console.log(`  ✓ JSON repaired (changed: ${beforeRepair.length} → ${cleanJson.length} chars)`);
+                    }
+
+                    // Step 2.5: CRITICAL FIX - ALWAYS escape mermaid newlines (don't wait for parse failure!)
+                    console.log("🔧 STEP 2.5: Escape mermaid field content (ALWAYS)");
+                    let mermaidFieldsFound = 0;
+                    cleanJson = cleanJson.replace(
+                        /"mermaid"\s*:\s*"([\s\S]*?)"(?=\s*,\s*"(?:data_table|step|instruction|is_final))/g,
+                        (match, content) => {
+                            mermaidFieldsFound++;
+                            const hasNewlines = content.includes('\n');
+                            const hasEscapedNewlines = content.includes('\\n');
+
+                            console.log(`  🔍 Mermaid field #${mermaidFieldsFound}:`);
+                            console.log(`     Length: ${content.length}`);
+                            console.log(`     Has literal newlines: ${hasNewlines}`);
+                            console.log(`     Has escaped newlines: ${hasEscapedNewlines}`);
+
+                            const escaped = content
+                                .replace(/\\/g, '\\\\')
+                                .replace(/"/g, '\\"')
+                                .replace(/\n/g, '\\n')   // Convert literal newlines to escaped
+                                .replace(/\r/g, '\\r');  // Also handle carriage returns
+
+                            console.log(`     ✓ After escaping: ${escaped.length} chars`);
+                            return `"mermaid": "${escaped}"`;
+                        }
+                    );
+
+                    if (mermaidFieldsFound === 0) {
+                        console.warn(`  ⚠️ WARNING: No mermaid fields found in JSON!`);
+                    } else {
+                        console.log(`  ✓ Processed ${mermaidFieldsFound} mermaid field(s)`);
+                    }
+
                     // Step 3: Try parsing
+                    console.log("🔍 STEP 3: Attempt JSON.parse()");
                     try {
                         parsed = JSON.parse(cleanJson);
+                        console.log(`  ✅ JSON parsed successfully!`);
                     } catch (parseErr) {
-                        console.warn("Initial JSON parse failed, attempting deeper repair...", parseErr.message);
-                        
-                        cleanJson = cleanJson.replace(
-                            /"mermaid"\s*:\s*"([\s\S]*?)"(?=\s*,\s*"(?:data_table|step|instruction|is_final))/g,
-                            (match, content) => {
-                                const escaped = content
-                                    .replace(/\\/g, '\\\\')
-                                    .replace(/"/g, '\\"')
-                                    .replace(/\n/g, '\\n');
-                                return `"mermaid": "${escaped}"`;
-                            }
-                        );
-                        
-                        parsed = JSON.parse(cleanJson);
+                        console.error("  ❌ JSON parse failed:", parseErr.message);
+                        console.log("  🔍 First 500 chars of failed JSON:", cleanJson.substring(0, 500));
+                        throw parseErr;
                     }
                     
                     // Step 4: Validate structure and extract steps
+                    console.log("📦 STEP 4: Extract steps from parsed JSON");
                     let newSteps = [];
                     if (Array.isArray(parsed)) {
                         newSteps = parsed;
+                        console.log(`  ✓ JSON is array with ${newSteps.length} items`);
                     } else if (parsed && typeof parsed === 'object') {
                         if (Array.isArray(parsed.steps)) {
                             newSteps = parsed.steps;
+                            console.log(`  ✓ Found 'steps' array with ${newSteps.length} items`);
                         } else if (typeof parsed.step !== 'undefined' && parsed.instruction) {
                             newSteps = [parsed];
+                            console.log(`  ✓ Single step object found`);
                         }
                     }
-                    
+
                     // Step 5: Validate we have usable steps
+                    console.log("✅ STEP 5: Validate steps");
                     if (newSteps.length === 0) {
+                        console.error("  ❌ No valid steps found in parsed JSON");
+                        console.log("  🔍 Parsed object:", parsed);
                         throw new Error("No valid steps found in parsed JSON");
                     }
-                    
+
+                    console.log(`  📊 Validating ${newSteps.length} step(s)...`);
+
                     // Validate each step has required fields
                     for (let i = 0; i < newSteps.length; i++) {
                         const step = newSteps[i];
+                        console.log(`    Step ${i}:`);
+
                         if (typeof step.step === 'undefined') {
-                            console.warn(`Step ${i} missing 'step' field, adding it`);
+                            console.warn(`      ⚠️ Missing 'step' field, adding it`);
                             step.step = i;
                         }
                         if (!step.instruction) {
-                            console.warn(`Step ${i} missing 'instruction' field`);
+                            console.warn(`      ⚠️ Missing 'instruction' field, using default`);
                             step.instruction = "Step " + step.step;
                         }
                         if (!step.mermaid) {
-                            console.warn(`Step ${i} missing 'mermaid' field`);
+                            console.error(`      ❌ CRITICAL: Missing 'mermaid' field!`);
+                            console.log(`      🔍 Step object:`, step);
                             throw new Error(`Step ${i} missing required 'mermaid' field`);
                         }
+
+                        // Log mermaid field stats
+                        const mermaidNewlines = (step.mermaid.match(/\n/g) || []).length;
+                        console.log(`      ✓ Mermaid: ${step.mermaid.length} chars, ${mermaidNewlines} newlines`);
+
+                        if (mermaidNewlines === 0) {
+                            console.warn(`      ⚠️ WARNING: Mermaid has NO newlines! Might be malformed.`);
+                            console.log(`      🔍 Preview:`, step.mermaid.substring(0, 100));
+                        }
                     }
+
+                    console.log(`  ✅ All ${newSteps.length} steps validated`);
+                    console.groupEnd();
                     
                     // Step 6: Determine simulation scope
                     let simId = AXIOM.simulation.activeSimId;

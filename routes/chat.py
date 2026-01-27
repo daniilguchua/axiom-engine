@@ -273,12 +273,13 @@ Match the {difficulty.upper()} mode style in your response.
     
     def generate():
         config = {
-            "temperature": 0.2,
+            "temperature": 0.2,  # Lower temperature for more consistent JSON output
             "max_output_tokens": 12000,
             "response_mime_type": "application/json" if expect_json else "text/plain"
         }
         
-        model = genai.GenerativeModel('gemini-2.5-pro', generation_config=config)
+        # Use latest model as requested by user
+        model = genai.GenerativeModel('gemini-3-pro-preview', generation_config=config)
         
         full_response = ""
         
@@ -313,7 +314,14 @@ Match the {difficulty.upper()} mode style in your response.
                 elif "```" in clean_json:
                     parts = clean_json.split("```")
                     if len(parts) >= 3:
-                        clean_json = parts[1]
+                        inner = parts[1].strip()
+                        # Check if inner content starts with a language tag (python, javascript, etc.)
+                        # If so, the AI is outputting code, not JSON
+                        lang_tags = ('python', 'javascript', 'js', 'typescript', 'ts', 'java', 'cpp', 'c++', 'ruby', 'go', 'rust')
+                        if inner.split('\n')[0].strip().lower() in lang_tags:
+                            logger.error(f"❌ AI output is a code block, not JSON: {inner[:100]}")
+                            raise ValueError("AI generated a code block instead of JSON. Please retry.")
+                        clean_json = inner
                 
                 clean_json = clean_json.strip()
                 
@@ -331,7 +339,8 @@ Match the {difficulty.upper()} mode style in your response.
                     'queue', 'def ', 'import ', 'class ', 'if ', 'for ', 'while ', 
                     'pseudocode', 'function', 'const ', 'let ', 'var ', 'return ',
                     '#!/', '#include', 'public ', 'private ', 'void ', 'int ',
-                    '// ', '/* ', 'async ', 'await ', 'console.', 'print('
+                    '// ', '/* ', 'async ', 'await ', 'console.', 'print(',
+                    'python\n', 'javascript\n', 'java\n'  # Markdown language tags
                 )
                 stripped = clean_json.lstrip()
                 if stripped.startswith(code_patterns) or not stripped.startswith('{'):

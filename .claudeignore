@@ -1,0 +1,34 @@
+# Python cache (removes ALL __pycache__ folders everywhere)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+
+# IDE settings
+.vscode/
+.idea/
+
+# Data/cache directories
+faiss_index/
+.axiom_test_cache/
+
+# Secrets
+.env
+*.key
+
+# Logs and databases
+*.log
+*.db
+*.sqlite
+
+# CSS (hiding 3000 lines to reduce noise)
+css/
+*.css
+
+# OS files
+.DS_Store
+Thumbs.db
