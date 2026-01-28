@@ -1,0 +1,96 @@
+/* =========================================
+   AXIOM ENGINE — Message Styles
+   Chat messages and simulation step display
+   ========================================= */
+
+/* =========================================
+   1. MESSAGE CONTAINERS
+   ========================================= */
+.msg {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    padding: 0 24px;
+    animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* User Message */
+.msg.user {
+    justify-content: flex-end;
+}
+
+.msg.user .content {
+    max-width: 70%;
+    padding: 14px 20px;
+    background: var(--accent-muted);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: var(--radius-lg);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* Model Message */
+.msg.model {
+    justify-content: center;
+    width: 100%;
+}
+
+.msg.model .content {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: visible !important;
+    padding: 0;
+}
+
+.msg-header {
+    padding: 12px 24px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.msg-header::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent);
+}
+
+.msg-header span {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.msg-body {
+    padding: 28px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+.msg-body .stream-text.typing::after {
+    content: '▋';
+    color: var(--accent);
+    animation: blink 0.8s infinite;
+}
+
+@keyframes blink { 
+    50% { opacity: 0.3; } 
+}
