@@ -1399,9 +1399,7 @@ input[type="text"]:focus {
     border: none !important;
     margin-top: 0 !important;
     cursor: grab;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    /* Removed flex centering - JS handles positioning */
 }
 
 .mermaid-wrapper:active {
@@ -1413,9 +1411,7 @@ input[type="text"]:focus {
     height: 100%;
     overflow: visible !important;
     transform-origin: 0 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    /* Removed flex centering - JS handles positioning */
 }
 
 .mermaid svg {

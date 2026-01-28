@@ -295,12 +295,21 @@ def sanitize_mermaid_code(mermaid_code: str) -> str:
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?-->)', r';\n\1', code)
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?==>)', r';\n\1', code)
 
+    # 9b. FIX: Subgraph followed by direction needs semicolon
+    # "subgraph NAME["title"]\n    direction TB" → "subgraph NAME["title"];\n    direction TB"
+    code = re.sub(r'(subgraph\s+\w+(?:\s*\[.*?\])?)\s*\n\s*(direction\s+(?:LR|RL|TB|TD|BT))', r'\1;\n    \2', code, flags=re.IGNORECASE)
+
+    # 9c. FIX: Join arrows broken across lines
+    # "A --> \n B" → "A --> B"
+    code = re.sub(r'(-->|==>|---|-\.->)\s*\n\s*(\w)', r'\1 \2', code)
+
     # 10. FIX: Empty arrow labels
     code = code.replace('-- "" -->', '-->')
     code = code.replace('-- "" ---', '---')
 
     # 11. FIX: Orphaned CSS properties
-    code = re.sub(r'stroke-width\s*(?::|;|\s|$)', 'stroke-width:2px;', code, flags=re.IGNORECASE)
+    # Only add default stroke-width if there's NO value after it (avoid creating 2px;2px)
+    code = re.sub(r'stroke-width\s*(?=;|\s*,|\s*$)', 'stroke-width:2px', code, flags=re.IGNORECASE)
     code = re.sub(r'stroke-dasharray\s+(\d+)', r'stroke-dasharray:\1', code, flags=re.IGNORECASE)
 
     # 12. FIX: Ensure proper spacing after graph declaration

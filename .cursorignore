@@ -1,0 +1,27 @@
+# Python & Environment
+venv/
+__pycache__/
+.pytest_cache/
+
+# Data & Indices (High token consumers)
+faiss_index/
+
+# AI Tool Configs
+.claude/
+.claudeignore
+
+# Hidden System/Editor Files
+.vscode/
+.cursor/
+.DS_Store
+.git/
+.env
+
+# Build/Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+
+# Ignore the background animation script
+neural-bg.js

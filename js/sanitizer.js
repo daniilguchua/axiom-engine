@@ -139,7 +139,11 @@
         
         // Ensure subgraph has newline after title
         clean = clean.replace(/(subgraph\s+\w+(?:\s*\[.*?\])?)\s*([A-Za-z])/gi, "$1\n$2");
-        
+
+        // Fix subgraph followed by direction - needs semicolon
+        // "subgraph NAME["title"]\n    direction TB" → "subgraph NAME["title"];\n    direction TB"
+        clean = clean.replace(/(subgraph\s+\w+(?:\s*\[.*?\])?)\s*\n\s*(direction\s+(?:LR|RL|TB|TD|BT))/gi, "$1;\n    $2");
+
         // ═══════════════════════════════════════════════════════════════
         // PHASE 5: FIX ARROWS
         // ═══════════════════════════════════════════════════════════════
@@ -154,7 +158,11 @@
         // Fix malformed circle arrows
         clean = clean.replace(/--o/g, "-->");
         clean = clean.replace(/o--/g, "-->");
-        
+
+        // Join arrows broken across lines
+        // "A --> \n B" → "A --> B"
+        clean = clean.replace(/(-->|==>|---|-\.->)\s*\n\s*(\w)/g, "$1 $2");
+
         // ═══════════════════════════════════════════════════════════════
         // PHASE 6: FIX CLASSDEFS & STYLES
         // ═══════════════════════════════════════════════════════════════

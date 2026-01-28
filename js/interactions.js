@@ -13,21 +13,30 @@
     function setupZoomPan(wrapper, graphDiv) {
         let scale = 1, panning = false, pointX = 0, pointY = 0, start = { x: 0, y: 0 };
         
-        // Center the graph initially after a brief delay for SVG to settle
-        requestAnimationFrame(() => {
+        // Center the graph with proper timing to ensure SVG is fully rendered
+        setTimeout(() => {
             const svg = graphDiv.querySelector('svg');
-            if (svg) {
+            if (!svg) return;
+            
+            // Wait for actual paint to get accurate dimensions
+            requestAnimationFrame(() => {
                 const wrapperRect = wrapper.getBoundingClientRect();
+                const svgRect = svg.getBoundingClientRect();
                 
-                // Get SVG dimensions
-                let svgWidth, svgHeight;
-                try {
-                    const bbox = svg.getBBox();
-                    svgWidth = bbox.width || svg.clientWidth || 800;
-                    svgHeight = bbox.height || svg.clientHeight || 400;
-                } catch(e) {
-                    svgWidth = svg.clientWidth || 800;
-                    svgHeight = svg.clientHeight || 400;
+                // Get actual rendered dimensions (more reliable than getBBox)
+                let svgWidth = svgRect.width || svg.clientWidth || 800;
+                let svgHeight = svgRect.height || svg.clientHeight || 400;
+                
+                // Fallback to getBBox if dimensions are still invalid
+                if (svgWidth < 10 || svgHeight < 10) {
+                    try {
+                        const bbox = svg.getBBox();
+                        svgWidth = bbox.width || 800;
+                        svgHeight = bbox.height || 400;
+                    } catch(e) {
+                        svgWidth = 800;
+                        svgHeight = 400;
+                    }
                 }
                 
                 // Calculate scale to fit with padding
@@ -49,8 +58,8 @@
                 // Apply transform
                 graphDiv.style.transformOrigin = '0 0';
                 graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
-            }
-        });
+            });
+        }, 100); // Small delay ensures SVG is fully rendered
         
         wrapper.addEventListener('wheel', (e) => {
             e.preventDefault();
