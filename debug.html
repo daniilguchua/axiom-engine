@@ -12,12 +12,16 @@
     <link rel="stylesheet" href="css/style.css">
 
     <style>
-        body {
-            background: #0a0a0f;
+        /* Override main stylesheet for debug page */
+        html, body {
+            background: #0a0a0f !important;
             color: #e0e0e0;
             font-family: 'Inter', sans-serif;
             margin: 0;
             padding: 20px;
+            height: auto !important;
+            overflow: auto !important;
+            display: block !important;
         }
 
         .debug-container {
@@ -101,9 +105,21 @@
 
         .stats-panel {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(6, 1fr);
             gap: 15px;
             margin-bottom: 30px;
+        }
+
+        @media (max-width: 1200px) {
+            .stats-panel {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .stats-panel {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .stat-card {
@@ -223,11 +239,15 @@
         }
 
         .test-item {
-            background: rgba(20, 20, 30, 0.6);
+            background: rgba(20, 20, 30, 0.8);
             border: 1px solid rgba(0, 243, 255, 0.2);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .test-item:hover {
+            background: rgba(30, 30, 45, 0.9);
         }
 
         .test-item-header {
@@ -374,9 +394,70 @@
                 <div class="loading">Loading recent tests...</div>
             </div>
         </div>
+
+        <!-- Error Log Section -->
+        <div class="recent-tests" style="margin-top: 40px; border-top: 2px solid rgba(248, 113, 113, 0.3); padding-top: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; color: #F87171;">Error Log</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="error-pipeline-filter" onchange="renderErrorLog()" style="background: rgba(20, 20, 30, 0.6); color: #e0e0e0; border: 1px solid rgba(248, 113, 113, 0.3); padding: 8px; border-radius: 4px; cursor: pointer;">
+                        <option value="all">All Pipelines</option>
+                        <option value="raw">RAW Errors</option>
+                        <option value="python">Python Errors</option>
+                        <option value="mermaidjs">Mermaid.js Errors</option>
+                        <option value="python_then_js">Python→JS Errors</option>
+                        <option value="js_then_python">JS→Python Errors</option>
+                    </select>
+                    <button onclick="renderErrorLog()" style="background: rgba(248, 113, 113, 0.2); border: 1px solid rgba(248, 113, 113, 0.3); color: #F87171; padding: 8px 15px; border-radius: 4px; cursor: pointer;">Refresh</button>
+                </div>
+            </div>
+
+            <!-- Error Panels Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+                <!-- Error Frequency Chart -->
+                <div id="error-frequency" style="background: rgba(20, 20, 30, 0.8); border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 12px; padding: 20px;">
+                    <h3 style="color: #F87171; margin: 0 0 15px 0; font-size: 1.1em;">Most Common Errors (by frequency)</h3>
+                    <div id="error-frequency-list" style="max-height: 600px; overflow-y: auto;">
+                        <div class="loading">Analyzing errors...</div>
+                    </div>
+                </div>
+
+                <!-- Full Error List -->
+                <div id="error-list" style="background: rgba(20, 20, 30, 0.8); border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 12px; padding: 20px;">
+                    <h3 style="color: #F87171; margin: 0 0 15px 0; font-size: 1.1em;">All Errors (most recent first)</h3>
+                    <div id="error-list-items" style="max-height: 600px; overflow-y: auto;">
+                        <div class="loading">Loading errors...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-screen Test Viewer Modal -->
+    <div id="test-viewer-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); z-index: 2000; overflow-y: auto;">
+        <div style="max-width: 1800px; margin: 0 auto; padding: 30px;">
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid rgba(188, 19, 254, 0.5);">
+                <div>
+                    <h1 id="modal-title" style="color: #bc13fe; margin: 0; font-size: 1.8em;">Test #0</h1>
+                    <p id="modal-subtitle" style="color: #888; margin: 10px 0 0 0;"></p>
+                </div>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <button onclick="navigateTest(-1)" style="background: rgba(0, 243, 255, 0.2); border: 1px solid rgba(0, 243, 255, 0.3); color: #00f3ff; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 1em;">← Previous</button>
+                    <button onclick="navigateTest(1)" style="background: rgba(0, 243, 255, 0.2); border: 1px solid rgba(0, 243, 255, 0.3); color: #00f3ff; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 1em;">Next →</button>
+                    <button onclick="closeTestViewer()" style="background: rgba(248, 113, 113, 0.2); border: 1px solid rgba(248, 113, 113, 0.3); color: #F87171; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 1em;">✕ Close</button>
+                </div>
+            </div>
+
+            <!-- Pipeline Cards Grid -->
+            <div id="modal-pipelines" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;"></div>
+        </div>
     </div>
 
     <script>
+        // API URL - must match Flask server
+        const API_URL = 'http://127.0.0.1:5000';
+
         // Initialize Mermaid
         mermaid.initialize({
             startOnLoad: false,
@@ -390,13 +471,14 @@
 
         // Load stats and recent tests on page load
         window.addEventListener('load', () => {
+            console.log('[DEBUG] Page loaded, fetching from:', API_URL);
             loadStats();
             loadRecentTests();
         });
 
         async function loadStats() {
             try {
-                const response = await fetch('/debug/stats?days=7');
+                const response = await fetch(`${API_URL}/debug/stats?days=7`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -414,23 +496,41 @@
 
 
         function renderTestItem(test) {
+            // Count how many pipelines succeeded
+            const results = [
+                { name: 'RAW', ok: test.raw_rendered },
+                { name: 'Py', ok: test.python_rendered },
+                { name: 'JS', ok: test.mermaidjs_rendered },
+                { name: 'Py→JS', ok: test.python_then_js_rendered },
+                { name: 'JS→Py', ok: test.js_then_python_rendered }
+            ];
+            const successCount = results.filter(r => r.ok).length;
+
+            // Create mini status pills
+            const statusPills = results.map(r =>
+                `<span style="display: inline-block; padding: 4px 8px; margin: 0 3px; border-radius: 6px; font-size: 0.8em; font-weight: 500; background: ${r.ok ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)'}; color: ${r.ok ? '#34D399' : '#F87171'};">${r.name} ${r.ok ? '✓' : '✗'}</span>`
+            ).join('');
+
+            // Preview of raw mermaid (first 100 chars)
+            const preview = (test.raw_mermaid || '').substring(0, 100).replace(/\n/g, ' ');
+
             return `
-                <div class="test-item">
-                    <div class="test-item-header">
-                        <span class="test-id">Test #${test.id}</span>
-                        <span class="best-method">${test.best_method}</span>
-                        <span style="color: #888; font-size: 0.9em;">${new Date(test.created_at).toLocaleString()}</span>
-                        <button class="expand-btn" onclick="toggleTestDetails(${test.id})">View Details</button>
-                    </div>
-                    <div class="test-details" id="test-details-${test.id}">
-                        <div class="pipeline-comparison">
-                            ${renderPipelineCard('RAW', test.raw_mermaid, test.raw_error, test.raw_rendered)}
-                            ${renderPipelineCard('Python', test.python_output, test.python_error, test.python_rendered)}
-                            ${renderPipelineCard('Mermaid.js', test.mermaidjs_output, test.mermaidjs_error, test.mermaidjs_rendered)}
-                            ${renderPipelineCard('Py→JS', test.python_then_js_output, test.python_then_js_error, test.python_then_js_rendered)}
-                            ${renderPipelineCard('JS→Py', test.js_then_python_output, test.js_then_python_error, test.js_then_python_rendered)}
+                <div class="test-item" style="cursor: pointer; transition: all 0.2s ease; border: 2px solid transparent;" onclick="toggleTestDetails(${test.id})" onmouseover="this.style.borderColor='rgba(188, 19, 254, 0.5)'" onmouseout="this.style.borderColor='transparent'">
+                    <div class="test-item-header" style="flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <span class="test-id" style="font-size: 1.1em;">Test #${test.id}</span>
+                            <span class="best-method" style="font-size: 0.95em;">${test.best_method || 'NONE'}</span>
+                            <span style="color: ${successCount > 0 ? '#34D399' : '#F87171'}; font-weight: 700; font-size: 1.1em;">${successCount}/5</span>
+                            <span style="color: #888; font-size: 0.85em;">${new Date(test.created_at).toLocaleString()}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            ${statusPills}
                         </div>
                     </div>
+                    <div style="margin-top: 10px; padding: 10px; background: rgba(0, 0, 0, 0.3); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.8em; color: #888;">
+                        ${escapeHtml(preview)}${preview.length >= 100 ? '...' : ''}
+                    </div>
+                    <div style="margin-top: 10px; text-align: center; color: #00f3ff; font-size: 0.9em;">Click to view full details →</div>
                 </div>
             `;
         }
@@ -439,30 +539,64 @@
             const statusClass = rendered ? 'success' : 'error';
             const statusText = rendered ? '✓ Rendered' : '✗ Failed';
             const codeId = `code-${Math.random().toString(36).substring(7)}`;
+            const renderId = `render-${Math.random().toString(36).substring(7)}`;
 
             return `
-                <div class="pipeline-card ${statusClass}">
+                <div class="pipeline-card ${statusClass}" onclick="event.stopPropagation();">
                     <div class="pipeline-header">
                         <div class="pipeline-name">${name}</div>
                         <div class="pipeline-status ${statusClass}">${statusText}</div>
                     </div>
-                    ${error ? `<div class="pipeline-error"><strong>Error:</strong> ${escapeHtml(error)}</div>` : ''}
-                    <div class="pipeline-code" style="max-height: 150px; cursor: pointer;" onclick="toggleCodeView('${codeId}')">
-                        <div style="color: #888; font-size: 0.8em; margin-bottom: 5px;">Click to view full code ▼</div>
-                        ${escapeHtml(output || 'N/A').substring(0, 200)}${(output || '').length > 200 ? '...' : ''}
+                    ${error ? `<div class="pipeline-error"><strong>Error:</strong> ${escapeHtml(error).substring(0, 200)}${(error || '').length > 200 ? '...' : ''}</div>` : ''}
+
+                    <!-- Render Preview Button -->
+                    ${rendered && output ? `
+                        <button onclick="renderMermaidPreview('${renderId}', \`${escapeForAttribute(output)}\`)" style="background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.3); color: #34D399; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; margin-bottom: 10px; width: 100%;">Show Graph Preview</button>
+                        <div id="${renderId}" class="pipeline-render" style="display: none;"></div>
+                    ` : ''}
+
+                    <div class="pipeline-code" style="max-height: 120px; cursor: pointer; font-size: 0.8em;" onclick="toggleCodeView('${codeId}')">
+                        <div style="color: #888; font-size: 0.75em; margin-bottom: 5px;">Click to view code (${(output || '').length} chars)</div>
+                        ${escapeHtml(output || 'N/A').substring(0, 150)}${(output || '').length > 150 ? '...' : ''}
                     </div>
-                    <div id="${codeId}" style="display: none; background: #000; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 10px; margin-top: 10px; max-height: 600px; overflow-y: auto;">
+                    <div id="${codeId}" style="display: none; background: #000; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 10px; margin-top: 10px; max-height: 400px; overflow-y: auto;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 10px;">
-                            <strong style="color: #00f3ff;">Full Transformed Code (${(output || '').length} chars)</strong>
+                            <strong style="color: #00f3ff;">Full Code</strong>
                             <div style="display: flex; gap: 5px;">
-                                <button onclick="copyCode('${codeId}')" style="background: rgba(0, 243, 255, 0.2); border: 1px solid rgba(0, 243, 255, 0.3); color: #00f3ff; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">Copy Code</button>
-                                <button onclick="downloadCode('${codeId}', '${name}')" style="background: rgba(0, 243, 255, 0.2); border: 1px solid rgba(0, 243, 255, 0.3); color: #00f3ff; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">Download</button>
+                                <button onclick="copyCode('${codeId}')" style="background: rgba(0, 243, 255, 0.2); border: 1px solid rgba(0, 243, 255, 0.3); color: #00f3ff; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">Copy</button>
                             </div>
                         </div>
-                        <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: 'JetBrains Mono', monospace; font-size: 0.85em; color: #e0e0e0; line-height: 1.5;">${escapeHtml(output || 'N/A')}</pre>
+                        <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-family: 'JetBrains Mono', monospace; font-size: 0.8em; color: #e0e0e0; line-height: 1.4;">${escapeHtml(output || 'N/A')}</pre>
                     </div>
                 </div>
             `;
+        }
+
+        function escapeForAttribute(str) {
+            return str.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+        }
+
+        async function renderMermaidPreview(containerId, code) {
+            const container = document.getElementById(containerId);
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                container.innerHTML = '<div style="color: #888; padding: 20px; text-align: center;">Rendering...</div>';
+
+                try {
+                    // Clean the code
+                    const cleanCode = code.replace(/\\`/g, '`').replace(/\\\$/g, '$');
+
+                    // Create a unique ID for this render
+                    const svgId = 'mermaid-' + Math.random().toString(36).substring(7);
+
+                    const { svg } = await mermaid.render(svgId, cleanCode);
+                    container.innerHTML = svg;
+                } catch (e) {
+                    container.innerHTML = `<div style="color: #F87171; padding: 10px;">Failed to render: ${escapeHtml(e.message)}</div>`;
+                }
+            } else {
+                container.style.display = 'none';
+            }
         }
 
         function toggleCodeView(codeId) {
@@ -550,10 +684,116 @@
             document.getElementById('comparison-modal').style.display = 'none';
         }
 
+        // Current test index for navigation
+        let currentViewingTestIndex = 0;
+
         function toggleTestDetails(testId) {
-            const details = document.getElementById(`test-details-${testId}`);
-            details.classList.toggle('expanded');
+            // Find the test and open in modal
+            const test = allTests.find(t => t.id === testId);
+            if (test) {
+                currentViewingTestIndex = allTests.indexOf(test);
+                openTestViewer(test);
+            }
         }
+
+        function openTestViewer(test) {
+            const modal = document.getElementById('test-viewer-modal');
+            const title = document.getElementById('modal-title');
+            const subtitle = document.getElementById('modal-subtitle');
+            const pipelines = document.getElementById('modal-pipelines');
+
+            // Count successes
+            const results = [
+                { name: 'RAW', ok: test.raw_rendered },
+                { name: 'Python', ok: test.python_rendered },
+                { name: 'Mermaid.js', ok: test.mermaidjs_rendered },
+                { name: 'Python→JS', ok: test.python_then_js_rendered },
+                { name: 'JS→Python', ok: test.js_then_python_rendered }
+            ];
+            const successCount = results.filter(r => r.ok).length;
+
+            title.textContent = `Test #${test.id}`;
+            subtitle.innerHTML = `
+                <span style="color: ${successCount > 0 ? '#34D399' : '#F87171'}; font-weight: 600;">${successCount}/5 pipelines passed</span>
+                &nbsp;•&nbsp; Best: <span style="color: #bc13fe;">${test.best_method || 'NONE'}</span>
+                &nbsp;•&nbsp; ${new Date(test.created_at).toLocaleString()}
+                &nbsp;•&nbsp; Test ${currentViewingTestIndex + 1} of ${allTests.length}
+            `;
+
+            // Render pipeline cards
+            pipelines.innerHTML = `
+                ${renderModalPipelineCard('RAW (Original LLM Output)', test.raw_mermaid, test.raw_error, test.raw_rendered)}
+                ${renderModalPipelineCard('Python Sanitizer', test.python_output, test.python_error, test.python_rendered)}
+                ${renderModalPipelineCard('Mermaid.js Fixer', test.mermaidjs_output, test.mermaidjs_error, test.mermaidjs_rendered)}
+                ${renderModalPipelineCard('Python → JS', test.python_then_js_output, test.python_then_js_error, test.python_then_js_rendered)}
+                ${renderModalPipelineCard('JS → Python', test.js_then_python_output, test.js_then_python_error, test.js_then_python_rendered)}
+            `;
+
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function renderModalPipelineCard(name, output, error, rendered) {
+            const statusClass = rendered ? 'success' : 'error';
+            const statusText = rendered ? '✓ RENDERED' : '✗ FAILED';
+            const renderId = `modal-render-${Math.random().toString(36).substring(7)}`;
+            const codeLength = (output || '').length;
+
+            return `
+                <div style="background: rgba(20, 20, 30, 0.8); border: 2px solid ${rendered ? 'rgba(52, 211, 153, 0.5)' : 'rgba(248, 113, 113, 0.5)'}; border-radius: 12px; padding: 20px;">
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                        <h3 style="margin: 0; color: #bc13fe; font-size: 1.2em;">${name}</h3>
+                        <span style="padding: 6px 14px; border-radius: 20px; font-size: 0.9em; font-weight: 600; background: ${rendered ? 'rgba(52, 211, 153, 0.2)' : 'rgba(248, 113, 113, 0.2)'}; color: ${rendered ? '#34D399' : '#F87171'};">${statusText}</span>
+                    </div>
+
+                    ${error ? `
+                        <div style="background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3); padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                            <strong style="color: #F87171;">Error:</strong>
+                            <pre style="margin: 8px 0 0 0; color: #F87171; font-size: 0.85em; white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(error)}</pre>
+                        </div>
+                    ` : ''}
+
+                    <!-- Graph Preview Button -->
+                    ${rendered && output ? `
+                        <button onclick="renderMermaidPreview('${renderId}', \`${escapeForAttribute(output)}\`)" style="background: rgba(52, 211, 153, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); color: #34D399; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 1em; width: 100%; margin-bottom: 15px; font-weight: 600;">Show Graph Preview</button>
+                        <div id="${renderId}" class="pipeline-render" style="display: none; background: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 20px; margin-bottom: 15px;"></div>
+                    ` : ''}
+
+                    <!-- Code Display -->
+                    <div style="background: #1a1a2e; border: 1px solid rgba(0, 243, 255, 0.3); border-radius: 8px; overflow: hidden;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: rgba(0, 243, 255, 0.1); border-bottom: 1px solid rgba(0, 243, 255, 0.2);">
+                            <span style="color: #00f3ff; font-weight: 600; font-size: 0.95em;">Mermaid Code (${codeLength} chars, ${(output || '').split('\\n').length} lines)</span>
+                            <button onclick="navigator.clipboard.writeText(\`${escapeForAttribute(output || '')}\`).then(() => alert('Copied!'))" style="background: rgba(0, 243, 255, 0.2); border: 1px solid rgba(0, 243, 255, 0.3); color: #00f3ff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em;">Copy Code</button>
+                        </div>
+                        <pre style="margin: 0; padding: 15px; white-space: pre-wrap; word-wrap: break-word; font-family: 'JetBrains Mono', monospace; font-size: 0.95em; color: #a8d8ff; line-height: 1.7; max-height: 400px; overflow-y: auto; background: #0d1117;">${highlightMermaidCode(output || 'N/A')}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        function closeTestViewer() {
+            document.getElementById('test-viewer-modal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function navigateTest(direction) {
+            const newIndex = currentViewingTestIndex + direction;
+            if (newIndex >= 0 && newIndex < allTests.length) {
+                currentViewingTestIndex = newIndex;
+                openTestViewer(allTests[newIndex]);
+            }
+        }
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeTestViewer();
+                closeComparison();
+            }
+            if (e.key === 'ArrowLeft') navigateTest(-1);
+            if (e.key === 'ArrowRight') navigateTest(1);
+        });
 
         async function submitTest() {
             const rawInput = document.getElementById('raw-input').value.trim();
@@ -572,7 +812,7 @@
 
             try {
                 // Step 1: Capture raw and get pipeline versions
-                const captureResponse = await fetch('/debug/capture-raw', {
+                const captureResponse = await fetch(`${API_URL}/debug/capture-raw`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -602,7 +842,7 @@
                 displayResults(testResults);
 
                 // Step 4: Log to database
-                await fetch('/debug/log-test-results', {
+                await fetch(`${API_URL}/debug/log-test-results`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -684,24 +924,155 @@
             return div.innerHTML;
         }
 
+        function highlightMermaidCode(code) {
+            // First escape HTML
+            let escaped = escapeHtml(code);
+
+            // Highlight keywords (flowchart, graph, subgraph, etc)
+            escaped = escaped.replace(/\b(flowchart|graph|subgraph|end|direction|classDef|class|style|linkStyle)\b/g,
+                '<span style="color: #ff79c6; font-weight: 600;">$1</span>');
+
+            // Highlight direction keywords
+            escaped = escaped.replace(/\b(LR|RL|TB|BT|TD)\b/g,
+                '<span style="color: #ffb86c;">$1</span>');
+
+            // Highlight arrows
+            escaped = escaped.replace(/(--&gt;|---|-\.-&gt;|==&gt;|--)/g,
+                '<span style="color: #8be9fd;">$1</span>');
+
+            // Highlight node IDs (letters/numbers before brackets)
+            escaped = escaped.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\s*(\[|\(|\{)/g,
+                '<span style="color: #50fa7b;">$1</span>$2');
+
+            // Highlight strings in quotes
+            escaped = escaped.replace(/(&quot;[^&]*&quot;)/g,
+                '<span style="color: #f1fa8c;">$1</span>');
+
+            // Highlight brackets content
+            escaped = escaped.replace(/(\[[^\]]*\])/g,
+                '<span style="color: #bd93f9;">$1</span>');
+
+            return escaped;
+        }
+
         // Store all tests for filtering
         let allTests = [];
 
         async function loadRecentTests() {
             try {
-                const response = await fetch('/debug/recent-tests?limit=50');
+                console.log('[DEBUG] Fetching recent tests...');
+                const response = await fetch(`${API_URL}/debug/recent-tests?limit=50`);
                 const data = await response.json();
+                console.log('[DEBUG] Got response:', data);
 
-                if (data.success && data.tests.length > 0) {
+                if (data.success && data.tests && data.tests.length > 0) {
+                    console.log(`[DEBUG] Loaded ${data.tests.length} tests`);
                     allTests = data.tests;
                     filterTests(); // Apply current filters
+                    renderErrorLog(); // Also update error log
                 } else {
-                    document.getElementById('recent-tests-list').innerHTML = '<div class="loading">No tests yet</div>';
+                    console.log('[DEBUG] No tests found:', data);
+                    document.getElementById('recent-tests-list').innerHTML = '<div class="loading">No tests captured yet. Use the main app to generate some graphs!</div>';
+                    document.getElementById('error-frequency-list').innerHTML = '<div class="loading">No errors yet</div>';
+                    document.getElementById('error-list-items').innerHTML = '<div class="loading">No errors yet</div>';
                 }
             } catch (e) {
-                console.error('Error loading recent tests:', e);
-                document.getElementById('recent-tests-list').innerHTML = '<div class="loading">Error loading tests</div>';
+                console.error('[DEBUG] Error loading recent tests:', e);
+                document.getElementById('recent-tests-list').innerHTML = `<div class="loading" style="color: #F87171;">Error loading tests: ${e.message}<br><br>Make sure Flask server is running on ${API_URL}</div>`;
             }
+        }
+
+        function renderErrorLog() {
+            const pipelineFilter = document.getElementById('error-pipeline-filter').value;
+
+            // Collect all errors from all tests
+            const errors = [];
+            const errorCounts = {};
+
+            allTests.forEach(test => {
+                const pipelines = [
+                    { key: 'raw', name: 'RAW', error: test.raw_error, rendered: test.raw_rendered },
+                    { key: 'python', name: 'Python', error: test.python_error, rendered: test.python_rendered },
+                    { key: 'mermaidjs', name: 'Mermaid.js', error: test.mermaidjs_error, rendered: test.mermaidjs_rendered },
+                    { key: 'python_then_js', name: 'Python→JS', error: test.python_then_js_error, rendered: test.python_then_js_rendered },
+                    { key: 'js_then_python', name: 'JS→Python', error: test.js_then_python_error, rendered: test.js_then_python_rendered }
+                ];
+
+                pipelines.forEach(p => {
+                    if (p.error && (pipelineFilter === 'all' || pipelineFilter === p.key)) {
+                        // Normalize error message for counting (first line only, trimmed)
+                        const normalizedError = p.error.split('\n')[0].trim().substring(0, 100);
+
+                        errors.push({
+                            testId: test.id,
+                            pipeline: p.name,
+                            pipelineKey: p.key,
+                            error: p.error,
+                            normalizedError: normalizedError,
+                            timestamp: test.created_at
+                        });
+
+                        // Count occurrences
+                        const countKey = `${p.key}:${normalizedError}`;
+                        if (!errorCounts[countKey]) {
+                            errorCounts[countKey] = {
+                                pipeline: p.name,
+                                error: normalizedError,
+                                fullError: p.error,
+                                count: 0
+                            };
+                        }
+                        errorCounts[countKey].count++;
+                    }
+                });
+            });
+
+            // Render error frequency (top 10)
+            const sortedCounts = Object.values(errorCounts).sort((a, b) => b.count - a.count).slice(0, 10);
+
+            if (sortedCounts.length > 0) {
+                const maxCount = sortedCounts[0].count;
+                document.getElementById('error-frequency-list').innerHTML = sortedCounts.map(item => {
+                    const barWidth = (item.count / maxCount) * 100;
+                    return `
+                        <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <span style="color: #bc13fe; font-weight: 600; font-size: 1em;">${item.pipeline}</span>
+                                <span style="background: rgba(248, 113, 113, 0.3); color: #F87171; font-weight: 700; padding: 4px 12px; border-radius: 12px; font-size: 0.9em;">${item.count}x occurrences</span>
+                            </div>
+                            <div style="background: rgba(248, 113, 113, 0.1); border-radius: 4px; overflow: hidden; margin-bottom: 12px; height: 6px;">
+                                <div style="background: linear-gradient(90deg, #F87171, #fb923c); height: 100%; width: ${barWidth}%; border-radius: 4px;"></div>
+                            </div>
+                            <pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.85em; color: #F87171; white-space: pre-wrap; word-wrap: break-word; background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 6px; max-height: 200px; overflow-y: auto; line-height: 1.5;">${escapeHtml(item.fullError)}</pre>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                document.getElementById('error-frequency-list').innerHTML = '<div style="color: #34D399; text-align: center; padding: 20px;">No errors found! All pipelines succeeded.</div>';
+            }
+
+            // Render full error list (most recent first)
+            if (errors.length > 0) {
+                document.getElementById('error-list-items').innerHTML = errors.slice(0, 50).map(err => `
+                    <div style="background: rgba(248, 113, 113, 0.05); border: 1px solid rgba(248, 113, 113, 0.2); border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #00f3ff; font-weight: 600;">Test #${err.testId}</span>
+                                <span style="background: rgba(188, 19, 254, 0.2); color: #bc13fe; padding: 3px 8px; border-radius: 4px; font-size: 0.85em;">${err.pipeline}</span>
+                            </div>
+                            <span style="color: #888; font-size: 0.85em;">${new Date(err.timestamp).toLocaleString()}</span>
+                        </div>
+                        <pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.85em; color: #F87171; white-space: pre-wrap; word-wrap: break-word; max-height: 150px; overflow-y: auto; background: rgba(0, 0, 0, 0.3); padding: 10px; border-radius: 4px;">${escapeHtml(err.error)}</pre>
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('error-list-items').innerHTML = '<div style="color: #34D399; text-align: center; padding: 20px;">No errors found!</div>';
+            }
+        }
+
+        function showErrorDetail(errorText) {
+            const cleanError = errorText.replace(/\\`/g, '`').replace(/\\\$/g, '$');
+            alert(cleanError);
         }
 
         function filterTests() {
@@ -775,7 +1146,7 @@
             }
 
             try {
-                const response = await fetch('/debug/clear-test-database', {
+                const response = await fetch(`${API_URL}/debug/clear-test-database`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
