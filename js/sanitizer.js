@@ -31,6 +31,10 @@
 
         console.log("🔄 PHASE 1: Unescape & Normalize");
 
+        // Force LR layout - catch all variants (AGGRESSIVE)
+        clean = clean.replace(/(graph|flowchart)\s+(TD|TB|BT|RL)\b/gi, "$1 LR");
+        clean = clean.replace(/\b(TD|TB|BT|RL)\b(?=\s*[;\n])/gi, "LR");
+
         // Convert escaped newlines to real newlines
         const beforeNewlineConvert = clean;
         clean = clean.replace(/\\n/g, "\n");
@@ -140,9 +144,10 @@
         // Ensure subgraph has newline after title
         clean = clean.replace(/(subgraph\s+\w+(?:\s*\[.*?\])?)\s*([A-Za-z])/gi, "$1\n$2");
 
-        // Fix subgraph followed by direction - needs semicolon
-        // "subgraph NAME["title"]\n    direction TB" → "subgraph NAME["title"];\n    direction TB"
-        clean = clean.replace(/(subgraph\s+\w+(?:\s*\[.*?\])?)\s*\n\s*(direction\s+(?:LR|RL|TB|TD|BT))/gi, "$1;\n    $2");
+        // Remove direction statements from inside subgraphs (not supported in Mermaid v11.3.0+)
+        // Mermaid v11.3.0 does NOT support direction statements inside subgraph blocks
+        // This was causing ALL parse errors in repair_tests.db
+        clean = clean.replace(/(subgraph\s+\w+(?:\s*\[.*?\])?)\s*\n\s*direction\s+(?:LR|RL|TB|TD|BT)\s*;?\s*\n/gi, "$1\n");
 
         // ═══════════════════════════════════════════════════════════════
         // PHASE 5: FIX ARROWS

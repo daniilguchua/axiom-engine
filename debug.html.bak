@@ -1193,13 +1193,6 @@
                 alert('❌ Error: ' + e.message);
             }
         }
-
-        function toggleAutoRefresh(checkbox) {
-            if (checkbox.checked) {
-                startAutoRefresh();
-            } else {
-                stopAutoRefresh();
-            }
-        }    </script>
+    </script>
 </body>
 </html>

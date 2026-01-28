@@ -498,3 +498,17 @@ def repair_success():
         logger.info(f"âœ… Repair verified by client: step {step_index}")
     
     return jsonify({"status": "acknowledged"}), 200
+
+@repair_bp.route('/clear-pending-repairs', methods=['POST'])
+@validate_session
+def clear_pending_repairs():
+    """Clear ALL pending repair flags for this session."""
+    session_id = g.session_id
+    cache_manager = get_cache_manager()
+    
+    # Clear all pending repairs for this session
+    cleared_count = cache_manager.clear_all_pending_repairs(session_id)
+    
+    logger.info(f"[REPAIR] Cleared {cleared_count} pending repairs for session {session_id}")
+    
+    return jsonify({"status": "cleared", "count": cleared_count}), 200

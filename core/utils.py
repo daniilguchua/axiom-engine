@@ -257,8 +257,12 @@ def sanitize_mermaid_code(mermaid_code: str) -> str:
     code = code.replace('\\"', '"')
     code = code.replace("\\'", "'")
 
-    # 1. BASIC CLEANUP - Force horizontal layout
-    code = re.sub(r'(graph|flowchart)\s+(TD|TB)', r'\1 LR', code, flags=re.IGNORECASE)
+    # 1. BASIC CLEANUP - Force horizontal layout (AGGRESSIVE)
+    # Match: "graph TB", "flowchart TD;", "graph TD   ", etc.
+    code = re.sub(r'(graph|flowchart)\s+(TD|TB|BT|RL)\b', r'\1 LR', code, flags=re.IGNORECASE)
+    
+    # Also catch malformed versions that might slip through
+    code = re.sub(r'\b(TD|TB|BT|RL)\b(?=\s*[;\n])', 'LR', code, flags=re.IGNORECASE)
 
     # 2. FIX: Unescaped quotes inside labels
     def fix_internal_quotes(match):
@@ -268,12 +272,14 @@ def sanitize_mermaid_code(mermaid_code: str) -> str:
     code = re.sub(r'\["([^"]*?)"\]', fix_internal_quotes, code)
 
     # 3. FIX: Parenthesis inside labels (Mermaid interprets them as shapes)
-    def escape_parens(match):
-        opener, content, closer = match.groups()
-        safe_content = content.replace("(", "#40;").replace(")", "#41;")
-        return f"{opener}{safe_content}{closer}"
-    code = re.sub(r'(\[")([^"]*?)("\])', escape_parens, code)
-    code = re.sub(r'(\(")([^"]*?)("\))', escape_parens, code)
+    # DISABLED: Modern Mermaid v11.3.0+ handles parentheses in labels correctly.
+    # This "fix" was actually breaking labels by converting () to HTML entities.
+    # def escape_parens(match):
+    #     opener, content, closer = match.groups()
+    #     safe_content = content.replace("(", "#40;").replace(")", "#41;")
+    #     return f"{opener}{safe_content}{closer}"
+    # code = re.sub(r'(\[")([^"]*?)("\])', escape_parens, code)
+    # code = re.sub(r'(\(")([^"]*?)("\))', escape_parens, code)
 
     # 4. FIX: Illegal markdown lists in nodes
     code = code.replace('["-', '["•').replace('\\n-', '\\n•')
@@ -295,9 +301,10 @@ def sanitize_mermaid_code(mermaid_code: str) -> str:
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?-->)', r';\n\1', code)
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?==>)', r';\n\1', code)
 
-    # 9b. FIX: Subgraph followed by direction needs semicolon
-    # "subgraph NAME["title"]\n    direction TB" → "subgraph NAME["title"];\n    direction TB"
-    code = re.sub(r'(subgraph\s+\w+(?:\s*\[.*?\])?)\s*\n\s*(direction\s+(?:LR|RL|TB|TD|BT))', r'\1;\n    \2', code, flags=re.IGNORECASE)
+    # 9b. FIX: Remove direction statements from inside subgraphs (not supported in Mermaid v11.3.0+)
+    # Mermaid v11.3.0 does NOT support direction statements inside subgraph blocks
+    # This was causing ALL parse errors in repair_tests.db (15/15 cases)
+    code = re.sub(r'(subgraph\s+\w+(?:\s*\[.*?\])?)\s*\n\s*direction\s+(?:LR|RL|TB|TD|BT)\s*;?\s*\n', r'\1\n', code, flags=re.IGNORECASE)
 
     # 9c. FIX: Join arrows broken across lines
     # "A --> \n B" → "A --> B"

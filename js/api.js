@@ -398,6 +398,8 @@
         setTimeout(async () => {
             try {
                 console.log(`🔍 [GHOST] Starting automatic capture for ${rawMermaid.length} chars`);
+                console.log(`🔍 [GHOST] API URL: ${API_URL}/debug/capture-raw`);
+                console.log(`🔍 [GHOST] Session ID: ${AXIOM.currentSessionId || 'unknown'}`);
 
                 // Step 1: Capture raw and get pipeline versions
                 const captureResponse = await fetch(`${API_URL}/debug/capture-raw`, {
@@ -412,11 +414,16 @@
                     })
                 });
 
+                console.log(`🔍 [GHOST] Capture response status: ${captureResponse.status}`);
+
                 if (!captureResponse.ok) {
+                    const errorText = await captureResponse.text();
+                    console.error(`❌ [GHOST] Capture failed: ${captureResponse.status}`, errorText);
                     throw new Error(`Capture failed: ${captureResponse.status}`);
                 }
 
                 const captureData = await captureResponse.json();
+                console.log(`✅ [GHOST] Capture successful:`, captureData);
 
                 if (!captureData.success) {
                     throw new Error(captureData.error || 'Capture failed');
@@ -530,6 +537,21 @@
     // EXPORT
     // =========================================================================
 
+    async function clearAllPendingRepairs() {
+        try {
+            const response = await fetch(`${API_URL}/clear-pending-repairs`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('[API] Clear pending repairs failed:', error);
+            throw error;
+        }
+    }
+
     AXIOM.api = {
         sendFeedback,
         callQuickFix,
@@ -545,7 +567,8 @@
         sendChatMessage,
         getDifficultyInfo,
         ghostCaptureAndTest,
-        testMermaidRendering
+        testMermaidRendering,
+        clearAllPendingRepairs
     };
     
     console.log('âœ… AXIOM API loaded');

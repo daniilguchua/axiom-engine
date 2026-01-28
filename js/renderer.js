@@ -183,9 +183,23 @@
             console.log(`  Preview:`, rawGraph.substring(0, 150));
 
             // 🔍 GHOST: Automatically capture and test in background
+            console.log(`🔍 [GHOST] Checking if capture is available:`, {
+                hasAPI: !!AXIOM.api,
+                hasFunction: !!(AXIOM.api && AXIOM.api.ghostCaptureAndTest),
+                simId,
+                stepIndex,
+                graphLength: rawGraph.length
+            });
+            
             if (AXIOM.api && AXIOM.api.ghostCaptureAndTest) {
-                console.log(`🔍 [GHOST] Triggering automatic capture for step ${stepIndex}`);
+                console.log(`🔍 [GHOST] ✅ Triggering automatic capture for step ${stepIndex}`);
                 AXIOM.api.ghostCaptureAndTest(rawGraph, simId, stepIndex, null);
+            } else {
+                console.error(`❌ [GHOST] Capture function not available!`, {
+                    AXIOM_exists: !!AXIOM,
+                    api_exists: !!AXIOM.api,
+                    ghostCapture_exists: !!(AXIOM.api && AXIOM.api.ghostCaptureAndTest)
+                });
             }
 
             const preElement = codeBlock.parentElement;
@@ -227,6 +241,43 @@
     // RENDER PLAYLIST STEP
     // =========================================================================
     
+    // Helper function to render step analysis (NEW FORMAT - single object)
+    function renderStepAnalysis(analysis) {
+        console.log('[RENDERER] renderStepAnalysis:', { 
+            hasAnalysis: !!analysis,
+            isObject: typeof analysis === 'object' && !Array.isArray(analysis),
+            keys: analysis ? Object.keys(analysis) : []
+        });
+        
+        // Handle missing or invalid analysis
+        if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) {
+            console.warn('[RENDERER] Invalid step analysis format (expected single object, not array)');
+            return '';
+        }
+        
+        // Render single analysis object with new fields
+        return `
+            <div class="step-item">
+                <div class="step-detail">
+                    <div class="step-label">What Changed</div>
+                    <div class="step-value">${analysis.what_changed || 'N/A'}</div>
+                </div>
+                <div class="step-detail">
+                    <div class="step-label">Previous State</div>
+                    <div class="step-value">${analysis.previous_state || 'N/A'}</div>
+                </div>
+                <div class="step-detail">
+                    <div class="step-label">Current State</div>
+                    <div class="step-value">${analysis.current_state || 'N/A'}</div>
+                </div>
+                <div class="step-detail">
+                    <div class="step-label">Why It Matters</div>
+                    <div class="step-value">${analysis.why_matters || 'N/A'}</div>
+                </div>
+            </div>
+        `;
+    }
+
     async function renderPlaylistStep(simId, index, targetElement = null) {
         const playlist = AXIOM.simulation.store[simId];
         if (!playlist || index < 0 || index >= playlist.length) return;
@@ -258,7 +309,7 @@
         }
 
         const htmlContent = `
-        <div class="simulation-container" style="display:flex; flex-direction:column; gap:10px;">
+        <div class="simulation-container" data-sim-id="${simId}" data-step="${index}">
             <div class="simulation-header" style="border-left: 3px solid #bc13fe; padding-left: 10px; margin-bottom: 5px;">
                 ${marked.parse(stepData.instruction)}
             </div>
@@ -276,8 +327,14 @@
                 ${nextButtonHtml}
             </div>
 
-            <div class="simulation-data" style="background:rgba(0,0,0,0.2); padding:10px; border-radius:4px; font-size:0.9em; overflow-x:auto;">
-                ${stepData.data_table}
+            <div class="step-summary-wrapper">
+                <button class="summary-toggle" onclick="toggleStepSummary(this)">
+                    <span class="toggle-icon">▶</span>
+                    <span class="toggle-text">Step-by-Step Analysis</span>
+                </button>
+                <div class="summary-content" style="display: none;">
+                    ${stepData.step_analysis ? renderStepAnalysis(stepData.step_analysis) : '<p style="padding:20px;color:#94A3B8;">No step analysis available for this simulation.</p>'}
+                </div>
             </div>
         </div>`;
         
@@ -290,6 +347,18 @@
             
             // THIS IS THE CRITICAL FIX - pass simId and index!
             await fixMermaid(targetElement, simId, index);
+            
+            // Create or update floating panel for this simulation
+            if (AXIOM.interactions && AXIOM.interactions.createOrUpdateFloatingPanel && stepData.data_table) {
+                console.log('[RENDERER] Creating floating panel:', { simId, index, hasDataTable: !!stepData.data_table });
+                AXIOM.interactions.createOrUpdateFloatingPanel(simId, index, stepData.data_table);
+            } else {
+                console.warn('[RENDERER] Panel not created:', {
+                    hasInteractions: !!AXIOM.interactions,
+                    hasFunction: !!(AXIOM.interactions && AXIOM.interactions.createOrUpdateFloatingPanel),
+                    hasDataTable: !!stepData.data_table
+                });
+            }
             
             targetElement.style.opacity = '1';
             

@@ -667,6 +667,18 @@ class CacheManager:
                 logger.info(f"âœ… Cleared {cleared} pending repair(s) for '{prompt_key[:40]}...'")
             return cleared
     
+    def clear_all_pending_repairs(self, session_id: str) -> int:
+        """Clear ALL pending repair flags for a session (used on page refresh)."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                DELETE FROM pending_repairs
+                WHERE session_id = ?
+            """, (session_id,))
+            count = cursor.rowcount
+            conn.commit()
+        return count
+    
     def has_pending_repair(self, session_id: str, prompt_key: str) -> bool:
         """Check if there are any pending repairs for this session/prompt."""
         # Opportunistic cleanup: clear stale pending repairs before checking

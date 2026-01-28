@@ -10,44 +10,83 @@
     // ZOOM & PAN
     // =========================================================================
     
+    /**
+     * Wait for SVG to have valid dimensions before centering
+     * Uses exponential backoff to detect when SVG is fully painted
+     */
+    async function waitForSvgDimensions(svg, maxRetries = 20) {
+        for (let i = 0; i < maxRetries; i++) {
+            // Check multiple dimension sources
+            const rect = svg.getBoundingClientRect();
+            const hasValidRect = rect.width > 10 && rect.height > 10;
+            const hasValidClient = svg.clientWidth > 10 && svg.clientHeight > 10;
+            
+            if (hasValidRect || hasValidClient) {
+                console.log(`✅ [ZOOM] SVG dimensions ready after ${i} attempts:`, {
+                    rect: `${rect.width}x${rect.height}`,
+                    client: `${svg.clientWidth}x${svg.clientHeight}`
+                });
+                return { width: rect.width || svg.clientWidth, height: rect.height || svg.clientHeight };
+            }
+            
+            // Exponential backoff: 10ms, 20ms, 40ms, 80ms, 160ms...
+            const delay = Math.min(10 * Math.pow(2, i), 500);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        
+        // Last resort: try getBBox
+        try {
+            const bbox = svg.getBBox();
+            if (bbox.width > 10 && bbox.height > 10) {
+                console.warn(`⚠️ [ZOOM] Using getBBox fallback: ${bbox.width}x${bbox.height}`);
+                return { width: bbox.width, height: bbox.height };
+            }
+        } catch(e) {
+            console.error(`❌ [ZOOM] getBBox failed:`, e);
+        }
+        
+        console.error(`❌ [ZOOM] SVG dimensions never became valid, using defaults`);
+        return { width: 800, height: 400 };
+    }
+    
     function setupZoomPan(wrapper, graphDiv) {
         let scale = 1, panning = false, pointX = 0, pointY = 0, start = { x: 0, y: 0 };
         
-        // Center the graph with proper timing to ensure SVG is fully rendered
-        setTimeout(() => {
+        // Center the graph immediately when SVG is ready
+        (async () => {
             const svg = graphDiv.querySelector('svg');
-            if (!svg) return;
+            if (!svg) {
+                console.warn('[ZOOM] No SVG found in graphDiv');
+                return;
+            }
             
-            // Wait for actual paint to get accurate dimensions
+            console.log('[ZOOM] Starting dimension detection...');
+            const dimensions = await waitForSvgDimensions(svg);
+            
+            // Use requestAnimationFrame to ensure layout is complete
             requestAnimationFrame(() => {
                 const wrapperRect = wrapper.getBoundingClientRect();
-                const svgRect = svg.getBoundingClientRect();
+                const svgWidth = dimensions.width;
+                const svgHeight = dimensions.height;
                 
-                // Get actual rendered dimensions (more reliable than getBBox)
-                let svgWidth = svgRect.width || svg.clientWidth || 800;
-                let svgHeight = svgRect.height || svg.clientHeight || 400;
-                
-                // Fallback to getBBox if dimensions are still invalid
-                if (svgWidth < 10 || svgHeight < 10) {
-                    try {
-                        const bbox = svg.getBBox();
-                        svgWidth = bbox.width || 800;
-                        svgHeight = bbox.height || 400;
-                    } catch(e) {
-                        svgWidth = 800;
-                        svgHeight = 400;
-                    }
-                }
+                console.log('[ZOOM] Calculating fit:', {
+                    wrapper: `${wrapperRect.width}x${wrapperRect.height}`,
+                    svg: `${svgWidth}x${svgHeight}`
+                });
                 
                 // Calculate scale to fit with padding
-                const padding = 80;
-                const availWidth = wrapperRect.width - padding;
-                const availHeight = wrapperRect.height - padding;
+                const padding = 40; // Reduced from 80 for tighter fit
+                const availWidth = wrapperRect.width - (padding * 2);
+                const availHeight = wrapperRect.height - (padding * 2);
                 
                 const scaleX = availWidth / svgWidth;
                 const scaleY = availHeight / svgHeight;
-                scale = Math.min(scaleX, scaleY, 1.5); // Don't upscale too much
-                scale = Math.max(scale, 0.3); // Don't downscale too much
+                
+                // Use smaller scale to fit both dimensions
+                scale = Math.min(scaleX, scaleY);
+                
+                // Constrain to 50%-150%
+                scale = Math.max(0.5, Math.min(1.5, scale));
                 
                 // Calculate centered position
                 const scaledWidth = svgWidth * scale;
@@ -55,24 +94,40 @@
                 pointX = (wrapperRect.width - scaledWidth) / 2;
                 pointY = (wrapperRect.height - scaledHeight) / 2;
                 
+                console.log('[ZOOM] Applied transform:', {
+                    scale: scale.toFixed(3),
+                    translate: `${pointX.toFixed(1)}, ${pointY.toFixed(1)}`
+                });
+                
                 // Apply transform
                 graphDiv.style.transformOrigin = '0 0';
                 graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
             });
-        }, 100); // Small delay ensures SVG is fully rendered
+        })();
         
         wrapper.addEventListener('wheel', (e) => {
             e.preventDefault();
+            
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = scale * delta;
+            
+            // Enforce 50%-150% limits
+            if (newScale < 0.5 || newScale > 1.5) {
+                return; // Don't zoom beyond limits
+            }
+            
+            // Zoom toward mouse position
             const rect = wrapper.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
-            const xs = (mouseX - pointX) / scale;
-            const ys = (mouseY - pointY) / scale;
-            const delta = -e.deltaY;
-            (delta > 0) ? (scale *= 1.1) : (scale /= 1.1);
-            scale = Math.min(Math.max(0.2, scale), 5);
-            pointX = mouseX - xs * scale;
-            pointY = mouseY - ys * scale;
+            
+            // Calculate new position to zoom toward mouse
+            const prevScale = scale;
+            scale = newScale;
+            
+            pointX = mouseX - (mouseX - pointX) * (scale / prevScale);
+            pointY = mouseY - (mouseY - pointY) * (scale / prevScale);
+            
             graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
         });
         
@@ -244,6 +299,159 @@
     });
     
     // =========================================================================
+    // FLOATING PANEL MANAGEMENT
+    // =========================================================================
+    
+    function createOrUpdateFloatingPanel(simId, stepIndex, panelContent) {
+        const panelId = `floating-panel-${simId}`;
+        let panel = document.getElementById(panelId);
+        
+        if (!panel) {
+            // Create new panel
+            panel = document.createElement('div');
+            panel.id = panelId;
+            panel.className = 'floating-panel';
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <span class="panel-icon">📊</span>
+                    <span class="panel-title">Graph Data - Step ${stepIndex + 1}</span>
+                    <button class="panel-btn" onclick="AXIOM.interactions.togglePanelCollapse('${panelId}')">−</button>
+                </div>
+                <div class="panel-content" id="${panelId}-content">
+                    ${panelContent}
+                </div>
+            `;
+            document.body.appendChild(panel);
+            
+            // Load saved position and state
+            const savedState = localStorage.getItem(panelId);
+            if (savedState) {
+                try {
+                    const state = JSON.parse(savedState);
+                    if (state.top) panel.style.top = state.top;
+                    if (state.left) panel.style.left = state.left;
+                    if (state.collapsed) panel.classList.add('collapsed');
+                } catch (e) {
+                    console.warn('[PANEL] Error loading saved state:', e);
+                }
+            } else {
+                // Default position
+                panel.style.top = '100px';
+                panel.style.right = '30px';
+            }
+            
+            // Make draggable
+            makePanelDraggable(panel);
+        } else {
+            // Update existing panel
+            const titleEl = panel.querySelector('.panel-title');
+            if (titleEl) titleEl.textContent = `Graph Data - Step ${stepIndex + 1}`;
+            const contentEl = panel.querySelector('.panel-content');
+            if (contentEl) contentEl.innerHTML = panelContent;
+        }
+    }
+    
+    function makePanelDraggable(panel) {
+        const header = panel.querySelector('.panel-header');
+        let isDragging = false;
+        let startX, startY, startLeft, startTop;
+        
+        function dragStart(e) {
+            // Don't drag if clicking the button
+            if (e.target.classList.contains('panel-btn') || e.target.closest('.panel-btn')) {
+                return;
+            }
+            
+            isDragging = true;
+            
+            // Get current position
+            const rect = panel.getBoundingClientRect();
+            startLeft = rect.left;
+            startTop = rect.top;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            // Remove transitions during drag
+            panel.style.transition = 'none';
+            header.style.cursor = 'grabbing';
+            
+            // Prevent text selection during drag
+            e.preventDefault();
+        }
+        
+        function drag(e) {
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            const newLeft = startLeft + deltaX;
+            const newTop = startTop + deltaY;
+            
+            // Constrain to viewport
+            const maxX = window.innerWidth - panel.offsetWidth;
+            const maxY = window.innerHeight - panel.offsetHeight;
+            
+            panel.style.left = Math.max(0, Math.min(newLeft, maxX)) + 'px';
+            panel.style.top = Math.max(0, Math.min(newTop, maxY)) + 'px';
+            panel.style.right = 'auto';
+            panel.style.bottom = 'auto';
+        }
+        
+        function dragEnd() {
+            if (!isDragging) return;
+            
+            isDragging = false;
+            panel.style.transition = '';
+            header.style.cursor = 'move';
+            
+            // Save position
+            localStorage.setItem(panel.id + '_pos', JSON.stringify({
+                left: panel.style.left,
+                top: panel.style.top
+            }));
+        }
+        
+        header.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+        
+        // Restore saved position on creation
+        const savedPos = localStorage.getItem(panel.id + '_pos');
+        if (savedPos) {
+            try {
+                const pos = JSON.parse(savedPos);
+                panel.style.left = pos.left;
+                panel.style.top = pos.top;
+                panel.style.right = 'auto';
+                panel.style.bottom = 'auto';
+            } catch (e) {
+                console.warn('[PANEL] Failed to restore position:', e);
+            }
+        }
+    }
+    
+    function togglePanelCollapse(panelId) {
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        
+        const btn = panel.querySelector('.panel-btn');
+        panel.classList.toggle('collapsed');
+        if (btn) btn.textContent = panel.classList.contains('collapsed') ? '+' : '−';
+        
+        // Save state
+        const currentState = localStorage.getItem(panelId);
+        let state = {};
+        try {
+            state = currentState ? JSON.parse(currentState) : {};
+        } catch (e) {
+            console.warn('[PANEL] Error parsing saved state:', e);
+        }
+        state.collapsed = panel.classList.contains('collapsed');
+        localStorage.setItem(panelId, JSON.stringify(state));
+    }
+    
+    // =========================================================================
     // EXPORT
     // =========================================================================
     
@@ -252,7 +460,9 @@
         setupNodeClicks,
         attachNodePhysics,
         reattachGraphPhysics,
-        setupCardTilt
+        setupCardTilt,
+        createOrUpdateFloatingPanel,
+        togglePanelCollapse
     };
     
     console.log('âœ… AXIOM Interactions loaded');

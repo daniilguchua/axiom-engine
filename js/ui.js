@@ -229,11 +229,42 @@
         handleLobbyInit,
         toggleGraphTheme,
         startProcessingEffects,
-        stopProcessingEffects
+        stopProcessingEffects,
+        toggleStepSummary
     };
     
-    // Also expose toggleGraphTheme globally for onclick handlers
+    // =========================================================================
+    // STEP SUMMARY TOGGLE
+    // =========================================================================
+    
+    function toggleStepSummary(button) {
+        const content = button.nextElementSibling;
+        const icon = button.querySelector('.toggle-icon');
+        
+        console.log('[UI] toggleStepSummary:', { 
+            content, 
+            currentDisplay: content.style.display,
+            hasExpanded: content.classList.contains('expanded')
+        });
+        
+        if (content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            icon.textContent = '▼';
+            button.classList.add('expanded');
+            content.classList.add('expanded');
+            console.log('[UI] Expanded step summary');
+        } else {
+            content.style.display = 'none';
+            icon.textContent = '▶';
+            button.classList.remove('expanded');
+            content.classList.remove('expanded');
+            console.log('[UI] Collapsed step summary');
+        }
+    }
+    
+    // Also expose toggleGraphTheme and toggleStepSummary globally for onclick handlers
     window.toggleGraphTheme = toggleGraphTheme;
+    window.toggleStepSummary = toggleStepSummary;
     
     console.log('✅ AXIOM UI loaded');
     
