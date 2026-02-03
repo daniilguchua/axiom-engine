@@ -80,11 +80,24 @@ def chat():
     
     if any(t in user_msg.lower() for t in ["more", "next"]):
         is_new_sim = False
+
+    # Explicit CONTINUE_SIMULATION command from the GENERATE_MORE button always wins
+    if "continue_simulation" in user_msg.lower():
+        is_new_sim = False
     
-    is_continue = (
-        any(t in user_msg.lower() for t in triggers_continue) 
+    # Detect explicit CONTINUE_SIMULATION command from frontend GENERATE_MORE button.
+    # This works even if session was lost (simulation_active is False).
+    is_explicit_continue = "continue_simulation" in user_msg.lower()
+
+    is_continue = is_explicit_continue or (
+        any(t in user_msg.lower() for t in triggers_continue)
         and user_db["simulation_active"]
     )
+
+    # If explicit continue but session lost, re-activate the simulation
+    if is_explicit_continue and not user_db["simulation_active"]:
+        user_db["simulation_active"] = True
+        logger.warning(f"⚠️ Session lost but got explicit CONTINUE_SIMULATION, re-activating")
     
     # =========================================================================
     # CACHE CHECK (Only for new simulations, only if VERIFIED complete)
@@ -263,12 +276,21 @@ Answer the question. Use the Context if available, otherwise use internal knowle
 Match the {difficulty.upper()} mode style in your response.
 """
     
+    # For continuations, the frontend sends a verbose prompt with full state context.
+    # The backend already builds its own context from user_db["current_sim_data"],
+    # so using the raw frontend message would be redundant and bloats the prompt.
+    if mode == "CONTINUE_SIMULATION":
+        step_count_for_prompt = len(user_db["current_sim_data"])
+        user_msg_for_prompt = f"CONTINUE_SIMULATION from step {step_count_for_prompt}. Generate the next 2 steps as a JSON steps array."
+    else:
+        user_msg_for_prompt = user_msg
+
     full_prompt = f"""
 {final_system_instruction}
 {context_instruction}
 **HISTORY:**
 {history_str}
-**USER:** {user_msg}
+**USER:** {user_msg_for_prompt}
 """
     
     # =========================================================================
@@ -278,7 +300,7 @@ Match the {difficulty.upper()} mode style in your response.
     def generate():
         config = {
             "temperature": 0.2,  # Lower temperature for more consistent JSON output
-            "max_output_tokens": 12000,
+            "max_output_tokens": 14000,
             "response_mime_type": "application/json" if expect_json else "text/plain"
         }
         
@@ -292,7 +314,7 @@ Match the {difficulty.upper()} mode style in your response.
             
             for chunk in stream:
                 if chunk.parts:
-                    clean_chunk = chunk.text.replace("$$", "").replace(r"\[", "(").replace(r"\]", ")")
+                    clean_chunk = chunk.text
                     full_response += clean_chunk
                     yield clean_chunk
         except StopIteration:
@@ -319,24 +341,10 @@ Match the {difficulty.upper()} mode style in your response.
                     parts = clean_json.split("```")
                     if len(parts) >= 3:
                         inner = parts[1].strip()
-                        # Check if inner content starts with a language tag (python, javascript, etc.)
-                        # If so, the AI is outputting code, not JSON
-                        lang_tags = ('python', 'javascript', 'js', 'typescript', 'ts', 'java', 'cpp', 'c++', 'ruby', 'go', 'rust')
-                        if inner.split('\n')[0].strip().lower() in lang_tags:
-                            logger.error(f"❌ AI output is a code block, not JSON: {inner[:100]}")
-                            raise ValueError("AI generated a code block instead of JSON. Please retry.")
-                        clean_json = inner
+    
                 
                 clean_json = clean_json.strip()
                 
-                # Fix common JSON issues
-                import re
-                # Fix unescaped backslashes (not valid JSON escapes)
-                clean_json = re.sub(r'\\(?![\\"/bfnrtu]|u[0-9a-fA-F]{4})', r'\\\\', clean_json)
-                # Fix single quotes
-                clean_json = clean_json.replace("\\'", "'")
-                # Fix double-escaped quotes
-                clean_json = clean_json.replace('\\\\"', '\\"')
                 
                 # Reject if it looks like code (Python, JS, pseudocode, etc.)
                 code_patterns = (
@@ -394,8 +402,29 @@ Match the {difficulty.upper()} mode style in your response.
                 logger.exception(f"Post-processing error: {e}")
         
         # Update chat history
-        user_db["chat_history"].append({"role": "user", "content": user_msg})
-        user_db["chat_history"].append({"role": "model", "content": full_response})
+        # For continuations and JSON responses, store clean summaries instead of
+        # massive raw data. This prevents history from snowballing and confusing
+        # the LLM on subsequent requests.
+        if mode == "CONTINUE_SIMULATION":
+            step_total = len(user_db.get("current_sim_data", []))
+            user_db["chat_history"].append({
+                "role": "user",
+                "content": f"User requested simulation continuation from step {step_total - 2}"
+            })
+            user_db["chat_history"].append({
+                "role": "model",
+                "content": f"Generated continuation steps. Total steps now: {step_total}"
+            })
+        elif expect_json and full_response.strip().startswith(("{", "[")):
+            user_db["chat_history"].append({"role": "user", "content": user_msg})
+            step_total = len(user_db.get("current_sim_data", []))
+            user_db["chat_history"].append({
+                "role": "model",
+                "content": f"Generated simulation playlist with {step_total} steps."
+            })
+        else:
+            user_db["chat_history"].append({"role": "user", "content": user_msg})
+            user_db["chat_history"].append({"role": "model", "content": full_response})
         
         if sources:
             source_text = "\n\n**SOURCES:**\n" + "\n".join([

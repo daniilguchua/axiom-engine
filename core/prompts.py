@@ -345,6 +345,13 @@ The Mermaid graph is THE MOST IMPORTANT part of every simulation step.
    - **Visual hierarchy:** The current step should be visually prominent with `active` class
    - This is what students see FIRST and learn from MOST
 
+  - **CONTENT SEPARATION (CRITICAL):**
+     * **THE GRAPH IS FOR TOPOLOGY:** Use Mermaid ONLY for the actual nodes, edges, and architecture.
+     * **THE PANEL IS FOR STATE:** Do NOT create subgraphs or nodes for "Queue", "Stack", "Visited Set", or "Inventory".
+     * **BAD:** `subgraph Queue["Queue: [A, B]"]` (Do not visualize data structures as geometry)
+     * **GOOD:** Put `Queue: [A, B]` inside the `data_table` HTML field.
+     * **EXCEPTION:** You MAY include state values *inside* the relevant node's label (e.g., `NodeA["Node A | dist:5"]` is fine).
+
 **2. INSTRUCTION FIELD (Priority #2 - 30% of effort):**
    - **Length:** 200-300 words maximum
    - **Required structure:**
@@ -467,6 +474,13 @@ The Mermaid graph is THE MOST IMPORTANT part of every simulation step.
    - **Node labels with inline data:** Show state in labels (e.g., "Node A | dist: 0", "Cache | 3 hits")
    - **Visual hierarchy:** The current step should be visually prominent with `active` class
    - This is what students see FIRST and learn from MOST
+
+  - **CONTENT SEPARATION (CRITICAL):**
+     * **THE GRAPH IS FOR TOPOLOGY:** Use Mermaid ONLY for the actual nodes, edges, and architecture.
+     * **THE PANEL IS FOR STATE:** Do NOT create subgraphs or nodes for "Queue", "Stack", "Visited Set", or "Inventory".
+     * **BAD:** `subgraph Queue["Queue: [A, B]"]` (Do not visualize data structures as geometry)
+     * **GOOD:** Put `Queue: [A, B]` inside the `data_table` HTML field.
+     * **EXCEPTION:** You MAY include state values *inside* the relevant node's label (e.g., `NodeA["Node A | dist:5"]` is fine).
 
 **2. INSTRUCTION FIELD (Priority #2 - 30% of effort):**
    - **Length:** 200-300 words maximum
@@ -609,6 +623,13 @@ The Mermaid graph is THE MOST IMPORTANT part of every simulation step.
    - **Visual hierarchy:** The current step should be visually prominent with `active` class
    - **Use subgraphs** for complex structures (input layer, hidden layer, output layer, etc.)
    - This is what students see FIRST and learn from MOST
+
+   - **CONTENT SEPARATION (CRITICAL):**
+     * **THE GRAPH IS FOR TOPOLOGY:** Use Mermaid ONLY for the actual nodes, edges, and architecture.
+     * **THE PANEL IS FOR STATE:** Do NOT create subgraphs or nodes for "Queue", "Stack", "Visited Set", or "Inventory".
+     * **BAD:** `subgraph Queue["Queue: [A, B]"]` (Do not visualize data structures as geometry)
+     * **GOOD:** Put `Queue: [A, B]` inside the `data_table` HTML field.
+     * **EXCEPTION:** You MAY include state values *inside* the relevant node's label (e.g., `NodeA["Node A | dist:5"]` is fine).
 
 **2. INSTRUCTION FIELD (Priority #2 - 30% of effort):**
    - **Length:** 200-300 words maximum

@@ -79,7 +79,6 @@ def debug_clear_cache():
     logger.warning("🗑️ Cache cleared via debug endpoint")
     return jsonify({"status": "cleared"})
 
-
 # =============================================================================
 # GHOST REPAIR SYSTEM - Sanitizer Tournament
 # =============================================================================
@@ -125,7 +124,15 @@ def capture_raw_output():
         # Apply Python sanitizer
         python_sanitized = sanitize_mermaid_code(raw_mermaid)
 
+        # DEBUG: Check newline conversion
+        raw_newlines = raw_mermaid.count('\n')
+        raw_escaped = raw_mermaid.count('\\n')
+        python_newlines = python_sanitized.count('\n')
+        python_escaped = python_sanitized.count('\\n')
+
         logger.info(f"[GHOST] Captured raw output ({len(raw_mermaid)} chars)")
+        logger.info(f"[GHOST DEBUG] Raw: {raw_newlines} real newlines, {raw_escaped} escaped \\n")
+        logger.info(f"[GHOST DEBUG] Python sanitized: {python_newlines} real newlines, {python_escaped} escaped \\n")
 
         # Return all pipeline inputs to client for testing
         return jsonify({
@@ -190,6 +197,12 @@ def log_test_results():
         sim_id = data.get('sim_id')
         step_index = data.get('step_index')
         prompt = data.get('prompt')
+
+        # DEBUG: Check what we're receiving from client
+        python_output = test_results.get('python', {}).get('output', '')
+        python_newlines = python_output.count('\n')
+        python_escaped = python_output.count('\\n')
+        logger.info(f"[GHOST DEBUG] Received from client - Python output: {python_newlines} real newlines, {python_escaped} escaped \\n")
 
         # Log to database
         test_id = repair_tester.log_test(

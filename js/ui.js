@@ -262,9 +262,27 @@
         }
     }
     
-    // Also expose toggleGraphTheme and toggleStepSummary globally for onclick handlers
+    function toggleGraphDataOverlay(button) {
+        const overlay = button.closest('.graph-data-overlay');
+        if (!overlay) return;
+        
+        const isCollapsed = overlay.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            overlay.classList.remove('collapsed');
+            button.classList.remove('collapsed');
+            console.log('[UI] Expanded graph data overlay');
+        } else {
+            overlay.classList.add('collapsed');
+            button.classList.add('collapsed');
+            console.log('[UI] Collapsed graph data overlay');
+        }
+    }
+    
+    // Also expose toggleGraphTheme, toggleStepSummary, and toggleGraphDataOverlay globally for onclick handlers
     window.toggleGraphTheme = toggleGraphTheme;
     window.toggleStepSummary = toggleStepSummary;
+    window.toggleGraphDataOverlay = toggleGraphDataOverlay;
     
     console.log('✅ AXIOM UI loaded');
     

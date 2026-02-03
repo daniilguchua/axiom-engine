@@ -43,6 +43,14 @@
             console.log("  ✓ NEW NEWLINE COUNT:", (clean.match(/\n/g) || []).length);
         }
 
+        // CRITICAL FIX: Convert escaped quotes to real quotes
+        // LLMs sometimes return \" instead of " in their JSON
+        const beforeQuoteConvert = clean;
+        clean = clean.replace(/\\"/g, '"');
+        if (beforeQuoteConvert !== clean) {
+            console.log("  ✓ Converted escaped quotes (\\\" → actual quotes)");
+        }
+
         // Normalize quotes
         clean = clean.replace(/[""]/g, '"').replace(/['']/g, "'");
 
@@ -124,7 +132,10 @@
         
         // Normalize graph direction to LR
         clean = clean.replace(/^(graph|flowchart)\s+(TD|TB|RL|BT)/im, "$1 LR");
-        
+
+        // Handle graph/flowchart with NO direction keyword (Mermaid defaults to TD)
+        clean = clean.replace(/^(graph|flowchart)\s*(?=\n|$)/im, "$1 LR");
+
         // Ensure newline after graph declaration
         clean = clean.replace(/^((?:graph|flowchart)\s+LR)([^\n])/im, "$1\n$2");
         

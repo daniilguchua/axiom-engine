@@ -18,3 +18,7 @@ pydantic-settings
 typing_extensions
 numpy
 scikit-learn
+pytest>=7.0
+pytest-mock>=3.10
+pytest-cov>=4.0
+freezegun>=1.2

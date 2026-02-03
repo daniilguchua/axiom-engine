@@ -809,14 +809,13 @@ class CacheManager:
                     error_after[:1000] if error_after else None,
                     was_successful, duration_ms, datetime.now()
                 ))
-                
-                # Update daily stats
-                self._update_repair_stats(tier, was_successful, duration_ms)
-                
+
                 status = "SUCCESS" if was_successful else "FAILED"
                 logger.info(f"[REPAIR] {status}: tier={tier_name}, step={step_index}, duration={duration_ms}ms")
             except sqlite3.Error as e:
                 logger.error(f"Repair attempt log failed: {e}")
+                
+        self._update_repair_stats(tier, was_successful, duration_ms)
     
     def _update_repair_stats(self, tier: int, success: bool, duration_ms: int) -> None:
         """Update daily aggregated repair stats."""
@@ -1132,17 +1131,16 @@ class CacheManager:
                 (session_id, prompt, simulation_data, rating, step_index, comment, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (session_id, prompt, json_str, rating, step_index, comment, datetime.now()))
-            
-            # Update average rating in cache (separate try block)
-                try:
-                    self._update_cache_rating(prompt, rating)
-                except:
-                    pass  # Non-critical
-            
-                logger.info(f"ðŸ‘ Feedback logged: rating={rating} for '{prompt[:30]}...'")
+                logger.info(f"👍 Feedback logged: rating={rating} for '{prompt[:30]}...'")
         except sqlite3.Error as e:
-        # Log but don't raise - this is non-critical
+            # Log but don't raise - this is non-critical
             logger.warning(f"Feedback log failed (non-critical): {e}")
+
+        # Update average rating in cache (after first connection is closed)
+        try:
+            self._update_cache_rating(prompt, rating)
+        except Exception:
+            pass  # Non-critical
 
     
     # =========================================================================

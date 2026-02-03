@@ -40,10 +40,21 @@
         graphDiv.textContent = code;
         Object.assign(graphDiv.style, {
             transformOrigin: "0 0",
-            transition: "transform 0.05s linear",
+            transition: "transform 0.05s linear, opacity 0.3s ease",
             width: "100%",
-            height: "100%"
+            height: "100%",
+            opacity: "0"
         });
+
+        // SAFETY NET: Force-reveal after 3s if the normal reveal path fails
+        const safetyTimer = setTimeout(() => {
+            if (graphDiv.style.opacity === '0') {
+                console.warn('[SAFETY] Force-revealing graphDiv after 3s timeout');
+                graphDiv.style.opacity = '1';
+            }
+        }, 3000);
+        graphDiv.dataset.safetyTimer = String(safetyTimer);
+
         return graphDiv;
     }
     
@@ -127,21 +138,20 @@
         // Log for ML training
         AXIOM.api.logGraphToServer(code, simId, stepIndex, wasRepaired);
 
-        // Attach interactions
-        setTimeout(() => {
-            const svg = graphDiv.querySelector('svg');
-            if (svg) {
-                console.log(`🎨 Attaching interactions to SVG`);
-                svg.style.width = "100%";
-                svg.style.height = "100%";
-                svg.style.maxWidth = "none";
-                AXIOM.interactions.setupZoomPan(wrapper, graphDiv);
-                AXIOM.interactions.setupNodeClicks(svg, wrapper);
-                AXIOM.interactions.attachNodePhysics(wrapper);
-            } else {
-                console.warn(`⚠️ No SVG found in graphDiv after render`);
+        // Attach interactions (no delay - setupZoomPan handles dimension waiting internally)
+        const svg = graphDiv.querySelector('svg');
+        if (svg) {
+            console.log(`🎨 Attaching interactions to SVG`);
+            AXIOM.interactions.setupZoomPan(wrapper, graphDiv);
+            AXIOM.interactions.setupNodeClicks(svg, wrapper);
+            AXIOM.interactions.attachNodePhysics(wrapper);
+        } else {
+            console.warn(`⚠️ No SVG found in graphDiv after render, revealing anyway`);
+            graphDiv.style.opacity = '1';
+            if (graphDiv.dataset.safetyTimer) {
+                clearTimeout(Number(graphDiv.dataset.safetyTimer));
             }
-        }, 200);
+        }
     }
     
     // =========================================================================
@@ -315,7 +325,18 @@
             </div>
             
             <div class="graph-frame" style="position: relative;">
-                <pre><code class="language-mermaid">${stepData.mermaid}</code></pre>
+                <pre><code class="language-mermaid">${AXIOM.escapeHtml(stepData.mermaid)}</code></pre>
+                ${stepData.data_table ? `
+                <div class="graph-data-overlay" data-sim-id="${simId}" data-step="${index}">
+                    <div class="overlay-header">
+                        <div class="overlay-title">📊 STATE</div>
+                        <button class="overlay-toggle-btn" onclick="toggleGraphDataOverlay(this)">◀</button>
+                    </div>
+                    <div class="overlay-content">
+                        ${stepData.data_table}
+                    </div>
+                </div>
+                ` : ''}
                 ${feedbackHtml}
             </div>
             
@@ -348,17 +369,11 @@
             // THIS IS THE CRITICAL FIX - pass simId and index!
             await fixMermaid(targetElement, simId, index);
             
-            // Create or update floating panel for this simulation
-            if (AXIOM.interactions && AXIOM.interactions.createOrUpdateFloatingPanel && stepData.data_table) {
-                console.log('[RENDERER] Creating floating panel:', { simId, index, hasDataTable: !!stepData.data_table });
-                AXIOM.interactions.createOrUpdateFloatingPanel(simId, index, stepData.data_table);
-            } else {
-                console.warn('[RENDERER] Panel not created:', {
-                    hasInteractions: !!AXIOM.interactions,
-                    hasFunction: !!(AXIOM.interactions && AXIOM.interactions.createOrUpdateFloatingPanel),
-                    hasDataTable: !!stepData.data_table
-                });
-            }
+            // NOTE: Old floating panel disabled - using new graph-data-overlay instead
+            // if (AXIOM.interactions && AXIOM.interactions.createOrUpdateFloatingPanel && stepData.data_table) {
+            //     console.log('[RENDERER] Creating floating panel:', { simId, index, hasDataTable: !!stepData.data_table });
+            //     AXIOM.interactions.createOrUpdateFloatingPanel(simId, index, stepData.data_table);
+            // }
             
             targetElement.style.opacity = '1';
             

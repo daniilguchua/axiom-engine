@@ -132,47 +132,50 @@
                         console.log(`  ✓ JSON repaired (changed: ${beforeRepair.length} → ${cleanJson.length} chars)`);
                     }
 
-                    // Step 2.5: CRITICAL FIX - ALWAYS escape mermaid newlines (don't wait for parse failure!)
-                    console.log("🔧 STEP 2.5: Escape mermaid field content (ALWAYS)");
-                    let mermaidFieldsFound = 0;
-                    cleanJson = cleanJson.replace(
-                        /"mermaid"\s*:\s*"([\s\S]*?)"(?=\s*,\s*"(?:data_table|step|instruction|is_final))/g,
-                        (match, content) => {
-                            mermaidFieldsFound++;
-                            const hasNewlines = content.includes('\n');
-                            const hasEscapedNewlines = content.includes('\\n');
-
-                            console.log(`  🔍 Mermaid field #${mermaidFieldsFound}:`);
-                            console.log(`     Length: ${content.length}`);
-                            console.log(`     Has literal newlines: ${hasNewlines}`);
-                            console.log(`     Has escaped newlines: ${hasEscapedNewlines}`);
-
-                            const escaped = content
-                                .replace(/\\/g, '\\\\')
-                                .replace(/"/g, '\\"')
-                                .replace(/\n/g, '\\n')   // Convert literal newlines to escaped
-                                .replace(/\r/g, '\\r');  // Also handle carriage returns
-
-                            console.log(`     ✓ After escaping: ${escaped.length} chars`);
-                            return `"mermaid": "${escaped}"`;
-                        }
-                    );
-
-                    if (mermaidFieldsFound === 0) {
-                        console.warn(`  ⚠️ WARNING: No mermaid fields found in JSON!`);
-                    } else {
-                        console.log(`  ✓ Processed ${mermaidFieldsFound} mermaid field(s)`);
-                    }
-
-                    // Step 3: Try parsing
-                    console.log("🔍 STEP 3: Attempt JSON.parse()");
+                    // Step 3: Try parsing DIRECTLY first (works for cached/properly-encoded JSON)
+                    console.log("🔍 STEP 3: Attempt JSON.parse() directly");
                     try {
                         parsed = JSON.parse(cleanJson);
-                        console.log(`  ✅ JSON parsed successfully!`);
-                    } catch (parseErr) {
-                        console.error("  ❌ JSON parse failed:", parseErr.message);
-                        console.log("  🔍 First 500 chars of failed JSON:", cleanJson.substring(0, 500));
-                        throw parseErr;
+                        console.log(`  ✅ JSON parsed successfully (clean path — cached or well-formed)`);
+                    } catch (firstParseErr) {
+                        console.warn("  ⚠️ Direct parse failed:", firstParseErr.message);
+                        console.log("  🔧 STEP 3.5: Applying mermaid field escaping (LLM raw output fallback)");
+
+                        // The mermaid regex fixes broken JSON from fresh LLM output
+                        // (literal newlines and unescaped quotes inside mermaid string values).
+                        // Only applied when direct parse fails, to avoid double-escaping cached JSON.
+                        let mermaidFieldsFound = 0;
+                        cleanJson = cleanJson.replace(
+                            /"mermaid"\s*:\s*"([\s\S]*?)"(?=\s*,\s*"(?:data_table|step|instruction|is_final))/g,
+                            (match, content) => {
+                                mermaidFieldsFound++;
+                                console.log(`  🔍 Mermaid field #${mermaidFieldsFound}: ${content.length} chars`);
+
+                                const escaped = content
+                                    .replace(/\\/g, '\\\\')
+                                    .replace(/"/g, '\\"')
+                                    .replace(/\n/g, '\\n')
+                                    .replace(/\r/g, '\\r');
+
+                                return `"mermaid": "${escaped}"`;
+                            }
+                        );
+
+                        if (mermaidFieldsFound === 0) {
+                            console.warn(`  ⚠️ No mermaid fields found to fix`);
+                        } else {
+                            console.log(`  ✓ Escaped ${mermaidFieldsFound} mermaid field(s)`);
+                        }
+
+                        // Retry parse after mermaid escaping
+                        try {
+                            parsed = JSON.parse(cleanJson);
+                            console.log(`  ✅ JSON parsed successfully after mermaid escaping`);
+                        } catch (secondParseErr) {
+                            console.error("  ❌ JSON parse failed even after escaping:", secondParseErr.message);
+                            console.log("  🔍 First 500 chars:", cleanJson.substring(0, 500));
+                            throw secondParseErr;
+                        }
                     }
                     
                     // Step 4: Validate structure and extract steps
@@ -188,6 +191,26 @@
                         } else if (typeof parsed.step !== 'undefined' && parsed.instruction) {
                             newSteps = [parsed];
                             console.log(`  ✓ Single step object found`);
+                        }
+                    }
+
+                    // Step 4.5: Normalize mermaid strings (fix corrupted cached data)
+                    // Old code double-escaped mermaid content before caching.
+                    // This produces literal \n, \", \\ in mermaid strings after JSON.parse.
+                    // Clean them up so the store (and future cache entries) have correct data.
+                    for (let i = 0; i < newSteps.length; i++) {
+                        if (newSteps[i].mermaid && typeof newSteps[i].mermaid === 'string') {
+                            const m = newSteps[i].mermaid;
+                            const hasLiteralEscapes = m.includes('\\n') || m.includes('\\"');
+                            if (hasLiteralEscapes) {
+                                newSteps[i].mermaid = m
+                                    .replace(/\\\\/g, '\\')   // Un-double backslashes first
+                                    .replace(/\\n/g, '\n')     // Then \n → newline
+                                    .replace(/\\"/g, '"')      // \" → quote
+                                    .replace(/\\t/g, '\t')     // \t → tab
+                                    .replace(/\\r/g, '\r');    // \r → CR
+                                console.log(`  🔧 Step ${i}: Cleaned literal escapes from mermaid`);
+                            }
                         }
                     }
 

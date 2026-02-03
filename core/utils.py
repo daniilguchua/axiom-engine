@@ -236,98 +236,114 @@ def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
 # MERMAID SANITIZATION
 # ============================================================================
 
+import re
+
+import re
+
+import re
+
 def sanitize_mermaid_code(mermaid_code: str) -> str:
     """
     Sanitize Mermaid diagram code to fix common LLM generation errors.
     Acts as a 'Syntax Firewall' before rendering.
-    
-    Args:
-        mermaid_code: Raw Mermaid code from LLM
-        
-    Returns:
-        Cleaned Mermaid code
     """
     if not mermaid_code:
         return ""
     
     code = mermaid_code
 
-    # 0. CRITICAL: Remove backslash escapes that LLM incorrectly adds
-    # Fix: B[\"Label\"] → B["Label"]
-    code = code.replace('\\"', '"')
-    code = code.replace("\\'", "'")
+    # 0. CRITICAL: Convert literal "\n" strings to actual newlines
+    # This prevents the "One Giant Line" bug
+    code = code.replace('\\n', '\n')
 
-    # 1. BASIC CLEANUP - Force horizontal layout (AGGRESSIVE)
-    # Match: "graph TB", "flowchart TD;", "graph TD   ", etc.
-    code = re.sub(r'(graph|flowchart)\s+(TD|TB|BT|RL)\b', r'\1 LR', code, flags=re.IGNORECASE)
+    # 0b. CRITICAL: Convert escaped quotes from LLM responses
+    # LLMs sometimes return \" instead of " in their JSON output
+    code = code.replace('\\"', '"')
+
+    # 1. Remove hanging backslashes (line continuations)
+    code = code.replace('\\\n', '\n')
     
-    # Also catch malformed versions that might slip through
+    # 2. Fix Double Escapes
+    code = code.replace('\\"', '"').replace("\\'", "'")
+
+    # 3. BASIC CLEANUP - Force horizontal layout
+    code = re.sub(r'(graph|flowchart)\s+(TD|TB|BT|RL)\b', r'\1 LR', code, flags=re.IGNORECASE)
     code = re.sub(r'\b(TD|TB|BT|RL)\b(?=\s*[;\n])', 'LR', code, flags=re.IGNORECASE)
 
-    # 2. FIX: Unescaped quotes inside labels
+    # 4. FIX: Collapse "Spaced" Shape Definitions (The fix for your current error)
+    # The LLM writes "A[ ("Label") ]" (Cylinder) or "B( ("Label") )" (Circle) with spaces.
+    # We must collapse them to "A[(" and "B((" to be valid Mermaid.
+    
+    # Fix Cylinder: [ ( -> [(
+    code = re.sub(r'\[\s+\(', '[(', code)
+    # Fix Circle: ( ( -> ((
+    code = re.sub(r'\(\s+\(', '((', code)
+    # Fix Cylinder End: ) ] -> )]
+    code = re.sub(r'\)\s+\]', ')]', code)
+    # Fix Circle End: ) ) -> ))
+    code = re.sub(r'\)\s+\)', '))', code)
+
+    # 5. FIX: Malformed Subgraph Definitions (ONLY if truly malformed)
+    # Valid: subgraph ID[Label] or subgraph ID
+    # Invalid: subgraph ID["unclosed or subgraph ID garbage text
+    # Strategy: Only strip if we detect unclosed quotes or invalid syntax
+    # Otherwise, preserve the label
+
+    # Fix only truly malformed subgraphs with unclosed quotes
+    code = re.sub(r'(subgraph\s+[A-Za-z0-9_]+)\["([^"\]]*?)$', r'\1', code, flags=re.IGNORECASE | re.MULTILINE)
+
+    # 6. FIX: Ensure Newline after Subgraph ID
+    # Prevents "subgraph GRAPH A" (where A is a node) from merging
+    code = re.sub(r'(subgraph\s+[A-Za-z0-9_]+)\s+(?=[A-Za-z])', r'\1\n', code)
+
+    # 7. FIX: Unescaped quotes inside labels
     def fix_internal_quotes(match):
         content = match.group(1)
         clean_content = content.replace('"', "'")
         return f'["{clean_content}"]'
     code = re.sub(r'\["([^"]*?)"\]', fix_internal_quotes, code)
 
-    # 3. FIX: Parenthesis inside labels (Mermaid interprets them as shapes)
-    # DISABLED: Modern Mermaid v11.3.0+ handles parentheses in labels correctly.
-    # This "fix" was actually breaking labels by converting () to HTML entities.
-    # def escape_parens(match):
-    #     opener, content, closer = match.groups()
-    #     safe_content = content.replace("(", "#40;").replace(")", "#41;")
-    #     return f"{opener}{safe_content}{closer}"
-    # code = re.sub(r'(\[")([^"]*?)("\])', escape_parens, code)
-    # code = re.sub(r'(\(")([^"]*?)("\))', escape_parens, code)
-
-    # 4. FIX: Illegal markdown lists in nodes
+    # 8. FIX: Illegal markdown lists in nodes
     code = code.replace('["-', '["•').replace('\\n-', '\\n•')
 
-    # 5. FIX: Missing semicolons after classDef
+    # 9. FIX: Missing semicolons after classDef
     code = re.sub(r'(classDef.*?[^;])(\n|$)', r'\1;\2', code)
 
-    # 6. FIX: "Smashed" commands (no space after closing bracket)
+    # 10. FIX: "Smashed" commands
     code = re.sub(r'([>])\s*([A-Z])', r'\1\n\2', code)
     code = re.sub(r'endsubgraph', 'end', code)
 
-    # 7. FIX: Malformed stadium shapes
+    # 11. FIX: Malformed stadium/cylinder shapes (Legacy fix)
     code = re.sub(r'\(\["(.*?)"\];', r'(["\1"]);', code)
+    code = re.sub(r'\[\("(.*?)"\)\]', r'[("\1")]', code) 
 
-    # 8. FIX: Mismatched brackets
+    # 12. FIX: Mismatched brackets
     code = re.sub(r'\["([^"]*?)"\);', r'["\1"];', code)
 
-    # 9. FIX: Run-on link statements - force newlines
+    # 13. FIX: Run-on link statements
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?-->)', r';\n\1', code)
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?==>)', r';\n\1', code)
 
-    # 9b. FIX: Remove direction statements from inside subgraphs (not supported in Mermaid v11.3.0+)
-    # Mermaid v11.3.0 does NOT support direction statements inside subgraph blocks
-    # This was causing ALL parse errors in repair_tests.db (15/15 cases)
+    # 14. FIX: Remove direction statements inside subgraphs
     code = re.sub(r'(subgraph\s+\w+(?:\s*\[.*?\])?)\s*\n\s*direction\s+(?:LR|RL|TB|TD|BT)\s*;?\s*\n', r'\1\n', code, flags=re.IGNORECASE)
 
-    # 9c. FIX: Join arrows broken across lines
-    # "A --> \n B" → "A --> B"
+    # 15. FIX: Join arrows broken across lines
     code = re.sub(r'(-->|==>|---|-\.->)\s*\n\s*(\w)', r'\1 \2', code)
 
-    # 10. FIX: Empty arrow labels
-    code = code.replace('-- "" -->', '-->')
-    code = code.replace('-- "" ---', '---')
+    # 16. FIX: Empty arrow labels
+    code = code.replace('-- "" -->', '-->').replace('-- "" ---', '---')
 
-    # 11. FIX: Orphaned CSS properties
-    # Only add default stroke-width if there's NO value after it (avoid creating 2px;2px)
+    # 17. FIX: Orphaned CSS properties
     code = re.sub(r'stroke-width\s*(?=;|\s*,|\s*$)', 'stroke-width:2px', code, flags=re.IGNORECASE)
     code = re.sub(r'stroke-dasharray\s+(\d+)', r'stroke-dasharray:\1', code, flags=re.IGNORECASE)
 
-    # 12. FIX: Ensure proper spacing after graph declaration
+    # 18. FIX: Ensure proper spacing after graph declaration
     code = re.sub(r'(graph\s+(?:LR|TB|TD|RL|BT))([A-Za-z])', r'\1\n\2', code)
 
-    # 13. FIX: Remove double semicolons
+    # 19. FINAL CLEANUP: Double semicolons
     code = re.sub(r';+', ';', code)
     
     return code
-
-
 # ============================================================================
 # INPUT VALIDATION (Security)
 # ============================================================================

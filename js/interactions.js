@@ -56,7 +56,11 @@
         (async () => {
             const svg = graphDiv.querySelector('svg');
             if (!svg) {
-                console.warn('[ZOOM] No SVG found in graphDiv');
+                console.warn('[ZOOM] No SVG found in graphDiv, revealing anyway');
+                graphDiv.style.opacity = '1';
+                if (graphDiv.dataset.safetyTimer) {
+                    clearTimeout(Number(graphDiv.dataset.safetyTimer));
+                }
                 return;
             }
             
@@ -65,43 +69,54 @@
             
             // Use requestAnimationFrame to ensure layout is complete
             requestAnimationFrame(() => {
-                const wrapperRect = wrapper.getBoundingClientRect();
-                const svgWidth = dimensions.width;
-                const svgHeight = dimensions.height;
-                
-                console.log('[ZOOM] Calculating fit:', {
-                    wrapper: `${wrapperRect.width}x${wrapperRect.height}`,
-                    svg: `${svgWidth}x${svgHeight}`
-                });
-                
-                // Calculate scale to fit with padding
-                const padding = 40; // Reduced from 80 for tighter fit
-                const availWidth = wrapperRect.width - (padding * 2);
-                const availHeight = wrapperRect.height - (padding * 2);
-                
-                const scaleX = availWidth / svgWidth;
-                const scaleY = availHeight / svgHeight;
-                
-                // Use smaller scale to fit both dimensions
-                scale = Math.min(scaleX, scaleY);
-                
-                // Constrain to 50%-150%
-                scale = Math.max(0.5, Math.min(1.5, scale));
-                
-                // Calculate centered position
-                const scaledWidth = svgWidth * scale;
-                const scaledHeight = svgHeight * scale;
-                pointX = (wrapperRect.width - scaledWidth) / 2;
-                pointY = (wrapperRect.height - scaledHeight) / 2;
-                
-                console.log('[ZOOM] Applied transform:', {
-                    scale: scale.toFixed(3),
-                    translate: `${pointX.toFixed(1)}, ${pointY.toFixed(1)}`
-                });
-                
-                // Apply transform
-                graphDiv.style.transformOrigin = '0 0';
-                graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+                try {
+                    const wrapperRect = wrapper.getBoundingClientRect();
+                    const svgWidth = dimensions.width;
+                    const svgHeight = dimensions.height;
+
+                    console.log('[ZOOM] Calculating fit:', {
+                        wrapper: `${wrapperRect.width}x${wrapperRect.height}`,
+                        svg: `${svgWidth}x${svgHeight}`
+                    });
+
+                    // Calculate scale to fit with padding
+                    const padding = 40;
+                    const availWidth = wrapperRect.width - (padding * 2);
+                    const availHeight = wrapperRect.height - (padding * 2);
+
+                    const scaleX = availWidth / svgWidth;
+                    const scaleY = availHeight / svgHeight;
+
+                    // Use smaller scale to fit both dimensions
+                    scale = Math.min(scaleX, scaleY);
+
+                    // Constrain to 10%-150% (low min allows wide LR diagrams to fit)
+                    scale = Math.max(0.1, Math.min(1.5, scale));
+
+                    // Calculate centered position
+                    const scaledWidth = svgWidth * scale;
+                    const scaledHeight = svgHeight * scale;
+                    pointX = (wrapperRect.width - scaledWidth) / 2;
+                    pointY = (wrapperRect.height - scaledHeight) / 2;
+
+                    console.log('[ZOOM] Applied transform:', {
+                        scale: scale.toFixed(3),
+                        translate: `${pointX.toFixed(1)}, ${pointY.toFixed(1)}`
+                    });
+
+                    // Apply transform and reveal (graph starts at opacity 0)
+                    graphDiv.style.transformOrigin = '0 0';
+                    graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+                    graphDiv.style.opacity = '1';
+                } catch (err) {
+                    console.error('[ZOOM] Centering failed, revealing anyway:', err);
+                    graphDiv.style.opacity = '1';
+                }
+
+                // Cancel safety timer since we've revealed
+                if (graphDiv.dataset.safetyTimer) {
+                    clearTimeout(Number(graphDiv.dataset.safetyTimer));
+                }
             });
         })();
         
@@ -111,8 +126,8 @@
             const delta = e.deltaY > 0 ? 0.9 : 1.1;
             const newScale = scale * delta;
             
-            // Enforce 50%-150% limits
-            if (newScale < 0.5 || newScale > 1.5) {
+            // Enforce 10%-300% limits (min matches initial fit constraint)
+            if (newScale < 0.1 || newScale > 3.0) {
                 return; // Don't zoom beyond limits
             }
             

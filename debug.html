@@ -8,6 +8,10 @@
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11.3.0/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
+    <!-- AXIOM Sanitizer -->
+    <script>var AXIOM = {};</script>
+    <script src="js/sanitizer.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     
     <!-- AXIOM Modular CSS -->
@@ -397,6 +401,7 @@
                         Auto-refresh (5s)
                     </label>
                     <button onclick="loadRecentTests()" style="background: rgba(0, 243, 255, 0.2); border: 1px solid rgba(0, 243, 255, 0.3); color: #00f3ff; padding: 8px 15px; border-radius: 4px; cursor: pointer;">🔄 Refresh</button>
+                    <button onclick="retryAllFailedTests()" style="background: rgba(188, 19, 254, 0.2); border: 1px solid rgba(188, 19, 254, 0.3); color: #bc13fe; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 600;">⚡ Retry All Failed</button>
                     <button onclick="exportTests()" style="background: rgba(0, 243, 255, 0.2); border: 1px solid rgba(0, 243, 255, 0.3); color: #00f3ff; padding: 8px 15px; border-radius: 4px; cursor: pointer;">Export CSV</button>
                     <button onclick="clearAllTests()" style="background: rgba(248, 113, 113, 0.2); border: 1px solid rgba(248, 113, 113, 0.3); color: #F87171; padding: 8px 15px; border-radius: 4px; cursor: pointer;">Clear All</button>
                 </div>
@@ -531,45 +536,49 @@
 
 
         function renderTestItem(test) {
-            // Count how many pipelines succeeded
-            const results = [
-                { name: 'RAW', ok: test.raw_rendered },
-                { name: 'Py', ok: test.python_rendered },
-                { name: 'JS', ok: test.mermaidjs_rendered },
-                { name: 'Py→JS', ok: test.python_then_js_rendered },
-                { name: 'JS→Py', ok: test.js_then_python_rendered }
-            ];
-            const successCount = results.filter(r => r.ok).length;
+    // Count how many pipelines succeeded
+    const results = [
+        { name: 'RAW', ok: test.raw_rendered },
+        { name: 'Py', ok: test.python_rendered },
+        { name: 'JS', ok: test.mermaidjs_rendered },
+        { name: 'Py→JS', ok: test.python_then_js_rendered },
+        { name: 'JS→Py', ok: test.js_then_python_rendered }
+    ];
+    const successCount = results.filter(r => r.ok).length;
 
-            // Create mini status pills
-            const statusPills = results.map(r =>
-                `<span style="display: inline-block; padding: 4px 8px; margin: 0 3px; border-radius: 6px; font-size: 0.8em; font-weight: 500; background: ${r.ok ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)'}; color: ${r.ok ? '#34D399' : '#F87171'};">${r.name} ${r.ok ? '✓' : '✗'}</span>`
-            ).join('');
+    // Create mini status pills
+    const statusPills = results.map(r =>
+        `<span style="display: inline-block; padding: 4px 8px; margin: 0 3px; border-radius: 6px; font-size: 0.8em; font-weight: 500; background: ${r.ok ? 'rgba(52, 211, 153, 0.3)' : 'rgba(248, 113, 113, 0.3)'}; color: ${r.ok ? '#34D399' : '#F87171'};">${r.name} ${r.ok ? '✓' : '✗'}</span>`
+    ).join('');
 
-            // Preview of raw mermaid (first 100 chars)
-            const preview = (test.raw_mermaid || '').substring(0, 100).replace(/\n/g, ' ');
+    // Preview of raw mermaid (first 100 chars)
+    const preview = (test.raw_mermaid || '').substring(0, 100).replace(/\n/g, ' ');
 
-            return `
-                <div class="test-item" style="cursor: pointer; transition: all 0.2s ease; border: 2px solid transparent;" onclick="toggleTestDetails(${test.id})" onmouseover="this.style.borderColor='rgba(188, 19, 254, 0.5)'" onmouseout="this.style.borderColor='transparent'">
-                    <div class="test-item-header" style="flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                            <span class="test-id" style="font-size: 1.1em;">Test #${test.id}</span>
-                            <span class="best-method" style="font-size: 0.95em;">${test.best_method || 'NONE'}</span>
-                            <span style="color: ${successCount > 0 ? '#34D399' : '#F87171'}; font-weight: 700; font-size: 1.1em;">${successCount}/5</span>
-                            <span style="color: #888; font-size: 0.85em;">${new Date(test.created_at).toLocaleString()}</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                            ${statusPills}
-                        </div>
-                    </div>
-                    <div style="margin-top: 10px; padding: 10px; background: rgba(0, 0, 0, 0.3); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.8em; color: #888;">
-                        ${escapeHtml(preview)}${preview.length >= 100 ? '...' : ''}
-                    </div>
-                    <div style="margin-top: 10px; text-align: center; color: #00f3ff; font-size: 0.9em;">Click to view full details →</div>
+    return `
+        <div class="test-item" style="cursor: pointer; transition: all 0.2s ease; border: 2px solid transparent;" onclick="toggleTestDetails(${test.id})" onmouseover="this.style.borderColor='rgba(188, 19, 254, 0.5)'" onmouseout="this.style.borderColor='transparent'">
+            <div class="test-item-header" style="flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <span class="test-id" style="font-size: 1.1em;">Test #${test.id}</span>
+                    
+                    <button onclick="event.stopPropagation(); retryTest(${test.id})" style="background: rgba(0, 243, 255, 0.2); border: 1px solid rgba(0, 243, 255, 0.3); color: #00f3ff; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: 600; display: flex; align-items: center; gap: 5px;">
+                        🔄 Retry
+                    </button>
+
+                    <span class="best-method" style="font-size: 0.95em;">${test.best_method || 'NONE'}</span>
+                    <span style="color: ${successCount > 0 ? '#34D399' : '#F87171'}; font-weight: 700; font-size: 1.1em;">${successCount}/5</span>
+                    <span style="color: #888; font-size: 0.85em;">${new Date(test.created_at).toLocaleString()}</span>
                 </div>
-            `;
-        }
-
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    ${statusPills}
+                </div>
+            </div>
+            <div style="margin-top: 10px; padding: 10px; background: rgba(0, 0, 0, 0.3); border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.8em; color: #888;">
+                ${escapeHtml(preview)}${preview.length >= 100 ? '...' : ''}
+            </div>
+            <div style="margin-top: 10px; text-align: center; color: #00f3ff; font-size: 0.9em;">Click to view full details →</div>
+        </div>
+    `;
+}
         function renderPipelineCard(name, output, error, rendered) {
             const statusClass = rendered ? 'success' : 'error';
             const statusText = rendered ? '✓ Rendered' : '✗ Failed';
@@ -863,12 +872,19 @@
                     throw new Error(captureData.error || 'Failed to capture');
                 }
 
-                // Step 2: Test each pipeline
+                // Step 2: Test each pipeline with appropriate sanitization
                 const testResults = {};
                 const pipelines = ['raw', 'python', 'mermaidjs', 'python_then_js', 'js_then_python'];
 
                 for (const pipeline of pipelines) {
-                    const code = captureData.pipelines[pipeline];
+                    let code = captureData.pipelines[pipeline];
+
+                    // Apply JS sanitizer for pipelines that need it
+                    if (pipeline === 'mermaidjs' || pipeline === 'python_then_js' || pipeline === 'js_then_python') {
+                        console.log(`[DEBUG] Applying JS sanitizer for ${pipeline} pipeline`);
+                        code = AXIOM.sanitizer.sanitizeMermaidString(code);
+                    }
+
                     const result = await testMermaidRendering(code, pipeline);
                     testResults[pipeline] = result;
                 }
@@ -1206,6 +1222,165 @@
             } else {
                 stopAutoRefresh();
             }
-        }    </script>
+        }  
+        function retryTest(testId) {
+    // 1. Find the test data
+    const test = allTests.find(t => t.id === testId);
+    if (!test) {
+        alert("Test data not found in local cache.");
+        return;
+    }
+
+    // 2. Populate the main input with the ORIGINAL raw code
+    document.getElementById('raw-input').value = test.raw_mermaid;
+
+    // 3. Scroll to the top so you can see it running
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // 4. Update status to let you know what's happening
+    const statusDiv = document.getElementById('test-status');
+    statusDiv.textContent = `🔄 Re-running Test #${testId} with latest sanitizers...`;
+    statusDiv.style.color = '#00f3ff';
+
+    // 5. Trigger the submission
+    submitTest();
+}
+
+async function retryAllFailedTests() {
+    // Find all tests where ALL pipelines failed
+    const failedTests = allTests.filter(test => {
+        return !test.raw_rendered &&
+               !test.python_rendered &&
+               !test.mermaidjs_rendered &&
+               !test.python_then_js_rendered &&
+               !test.js_then_python_rendered;
+    });
+
+    if (failedTests.length === 0) {
+        alert('✅ No completely failed tests found! All tests have at least one passing pipeline.');
+        return;
+    }
+
+    const confirm_retry = confirm(
+        `⚡ Retry All Failed Tests\n\n` +
+        `Found ${failedTests.length} tests where ALL pipelines failed.\n` +
+        `This will re-run them with the updated sanitizers.\n\n` +
+        `This may take a while. Continue?`
+    );
+
+    if (!confirm_retry) return;
+
+    // Create progress modal
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; align-items: center; justify-content: center;';
+    modal.innerHTML = `
+        <div style="background: #1a1a2e; border: 2px solid #bc13fe; border-radius: 12px; padding: 30px; max-width: 600px; text-align: center;">
+            <h2 style="color: #bc13fe; margin-top: 0;">⚡ Retrying Failed Tests</h2>
+            <div style="margin: 20px 0;">
+                <div style="color: #00f3ff; font-size: 3em; font-weight: 700; margin-bottom: 10px;" id="retry-progress">0/${failedTests.length}</div>
+                <div style="color: #888; font-size: 1.1em;" id="retry-status">Initializing...</div>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); height: 20px; border-radius: 10px; overflow: hidden; margin: 20px 0;">
+                <div id="retry-progress-bar" style="background: linear-gradient(90deg, #bc13fe, #00f3ff); height: 100%; width: 0%; transition: width 0.3s;"></div>
+            </div>
+            <div style="color: #34D399; font-size: 1em; margin-top: 15px;" id="retry-results">
+                <div>✅ Passed: <span id="retry-passed">0</span></div>
+                <div style="margin-top: 5px;">❌ Still Failing: <span id="retry-failed">0</span></div>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" style="margin-top: 20px; background: rgba(248, 113, 113, 0.2); border: 1px solid rgba(248, 113, 113, 0.3); color: #F87171; padding: 10px 20px; border-radius: 6px; cursor: pointer; display: none;" id="retry-close-btn">Close</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const progressDiv = document.getElementById('retry-progress');
+    const statusDiv = document.getElementById('retry-status');
+    const progressBar = document.getElementById('retry-progress-bar');
+    const passedSpan = document.getElementById('retry-passed');
+    const failedSpan = document.getElementById('retry-failed');
+    const closeBtn = document.getElementById('retry-close-btn');
+
+    let passed = 0;
+    let failed = 0;
+
+    // Retry tests one by one with delay
+    for (let i = 0; i < failedTests.length; i++) {
+        const test = failedTests[i];
+        progressDiv.textContent = `${i + 1}/${failedTests.length}`;
+        statusDiv.textContent = `Testing #${test.id}...`;
+        progressBar.style.width = `${((i + 1) / failedTests.length) * 100}%`;
+
+        try {
+            // Submit test
+            const captureResponse = await fetch(`${API_URL}/debug/capture-raw`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    raw_mermaid: test.raw_mermaid,
+                    session_id: test.session_id || 'retry_session',
+                    prompt: `Retry of test #${test.id}`
+                })
+            });
+
+            const captureData = await captureResponse.json();
+
+            if (captureData.success) {
+                // Test each pipeline
+                const testResults = {};
+                const pipelines = ['raw', 'python', 'mermaidjs', 'python_then_js', 'js_then_python'];
+
+                for (const pipeline of pipelines) {
+                    let code = captureData.pipelines[pipeline];
+
+                    // Apply JS sanitizer for pipelines that need it
+                    if (pipeline === 'mermaidjs' || pipeline === 'python_then_js' || pipeline === 'js_then_python') {
+                        code = AXIOM.sanitizer.sanitizeMermaidString(code);
+                    }
+
+                    const result = await testMermaidRendering(code, pipeline);
+                    testResults[pipeline] = result;
+                }
+
+                // Log results
+                await fetch(`${API_URL}/debug/log-test-results`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        raw_mermaid: test.raw_mermaid,
+                        session_id: test.session_id || 'retry_session',
+                        test_results: testResults
+                    })
+                });
+
+                // Check if at least one pipeline passed
+                const anyPassed = Object.values(testResults).some(r => r.rendered);
+                if (anyPassed) {
+                    passed++;
+                } else {
+                    failed++;
+                }
+            } else {
+                failed++;
+            }
+        } catch (error) {
+            console.error(`Error retrying test #${test.id}:`, error);
+            failed++;
+        }
+
+        passedSpan.textContent = passed;
+        failedSpan.textContent = failed;
+
+        // Small delay to avoid overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    statusDiv.textContent = '✅ Retry Complete!';
+    statusDiv.style.color = '#34D399';
+    closeBtn.style.display = 'inline-block';
+
+    // Refresh the test list
+    loadRecentTests();
+    loadStats();
+}
+</script>
 </body>
 </html>
