@@ -149,6 +149,7 @@ class CacheManager:
                         last_accessed TIMESTAMP,
                         access_count INTEGER DEFAULT 0,
                         avg_rating REAL,
+                        client_verified BOOLEAN DEFAULT 0,
                         difficulty TEXT DEFAULT 'engineer'
                     )
                 ''')

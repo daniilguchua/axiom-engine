@@ -266,7 +266,8 @@ class TestSimulationSaving:
                 prompt="test prompt",
                 playlist_data=playlist_data,
                 difficulty="engineer",
-                is_final_complete=True
+                is_final_complete=True,
+                client_verified=True  # Required for new cache entries
             )
             
             assert result is True
@@ -275,7 +276,7 @@ class TestSimulationSaving:
             with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT COUNT(*) FROM simulation_cache WHERE status = 'complete'
+                    SELECT COUNT(*) FROM simulation_cache WHERE status = 'verified'
                 """)
                 count = cursor.fetchone()[0]
             
@@ -302,8 +303,11 @@ class TestRepairLogging:
                 step_index=1,
                 tier=1,
                 tier_name="python_fix",
+                attempt_number=1,
                 input_code="bad code",
                 output_code="fixed code",
+                error_before="syntax error",
+                error_after=None,
                 was_successful=True,
                 duration_ms=150
             )
@@ -333,8 +337,11 @@ class TestRepairLogging:
                     step_index=1,
                     tier=1,
                     tier_name="python_fix",
+                    attempt_number=1,
                     input_code="code",
                     output_code="fixed",
+                    error_before="error",
+                    error_after=None if i % 2 == 0 else "still error",
                     was_successful=i % 2 == 0,  # Half succeed
                     duration_ms=100
                 )
@@ -400,12 +407,10 @@ class TestBrokenSimulationTracking:
         with patch("core.cache.DB_PATH", temp_db_path):
             manager = CacheManager()
             
-            prompt_hash = "abc123"
             manager.mark_simulation_broken(
                 session_id="session-1",
                 prompt_key="test-prompt",
-                prompt_hash=prompt_hash,
-                failed_step_index=2,
+                step_index=2,
                 failure_reason="Syntax error in node declaration"
             )
             
@@ -462,7 +467,8 @@ class TestPendingRepairs:
             # Then resolve it
             manager.mark_repair_resolved(
                 session_id="session-1",
-                prompt_key="test-prompt"
+                prompt_key="test-prompt",
+                step_index=1
             )
             
             # Verify it's resolved

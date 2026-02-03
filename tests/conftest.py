@@ -41,42 +41,82 @@ def real_test_db(temp_db_path):
     conn.execute("PRAGMA journal_mode=WAL")
     cursor = conn.cursor()
     
-    # Create cache schema (matching core/cache.py)
+    # Create cache schema (matching core/cache.py - using correct table names)
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS cache (
+        CREATE TABLE IF NOT EXISTS simulation_cache (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message_hash TEXT UNIQUE NOT NULL,
-            message TEXT NOT NULL,
-            response TEXT NOT NULL,
-            embedding BLOB NOT NULL,
-            difficulty TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            access_count INTEGER DEFAULT 1,
-            requires_repair INTEGER DEFAULT 0
+            prompt_key TEXT UNIQUE,
+            embedding TEXT,
+            playlist_json TEXT,
+            status TEXT DEFAULT 'complete',
+            step_count INTEGER DEFAULT 0,
+            is_final_complete BOOLEAN DEFAULT 0,
+            created_at TIMESTAMP,
+            last_accessed TIMESTAMP,
+            access_count INTEGER DEFAULT 0,
+            avg_rating REAL,
+            client_verified BOOLEAN DEFAULT 0,
+            difficulty TEXT DEFAULT 'engineer'
         )
     """)
     
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS repairs (
+        CREATE TABLE IF NOT EXISTS repair_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message_hash TEXT NOT NULL,
-            attempt_number INTEGER DEFAULT 1,
+            session_id TEXT,
+            original_prompt TEXT,
+            broken_code TEXT,
+            error_msg TEXT,
+            fixed_code TEXT,
+            repair_method TEXT,
+            was_successful BOOLEAN,
+            repair_duration_ms INTEGER,
+            created_at TIMESTAMP
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS repair_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            sim_id TEXT,
+            step_index INTEGER,
             tier INTEGER,
-            success INTEGER DEFAULT 0,
-            attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(message_hash) REFERENCES cache(message_hash)
+            tier_name TEXT,
+            attempt_number INTEGER,
+            input_code TEXT,
+            output_code TEXT,
+            error_before TEXT,
+            error_after TEXT,
+            was_successful BOOLEAN,
+            duration_ms INTEGER,
+            created_at TIMESTAMP
         )
     """)
     
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS feedback (
+        CREATE TABLE IF NOT EXISTS pending_repairs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message_hash TEXT NOT NULL,
-            vote INTEGER,
-            feedback_text TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(message_hash) REFERENCES cache(message_hash)
+            session_id TEXT,
+            prompt_key TEXT,
+            step_index INTEGER,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP,
+            resolved_at TIMESTAMP,
+            UNIQUE(session_id, prompt_key, step_index)
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS broken_simulations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            prompt_key TEXT,
+            prompt_hash TEXT,
+            failed_step_index INTEGER,
+            failure_reason TEXT,
+            created_at TIMESTAMP,
+            UNIQUE(prompt_hash)
         )
     """)
     

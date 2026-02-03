@@ -269,27 +269,28 @@ class TestSessionManagerTTL:
         assert removed_count == 0
         assert len(manager._sessions) == 1
     
-    @freeze_time("2026-02-03 12:00:00")
     def test_cleanup_with_mixed_sessions(self):
         """Test cleanup with some expired and some recent sessions."""
-        manager = SessionManager(ttl_minutes=60)
-        
-        # Create old session
-        old_id = "old-session"
-        manager.get_session(old_id)
-        
-        # Advance time
-        with freeze_time("2026-02-03 13:00:00"):
-            # Create new session
+        with freeze_time("2026-02-03 12:00:00") as frozen_time:
+            manager = SessionManager(ttl_minutes=60)
+            
+            # Create old session at 12:00
+            old_id = "old-session"
+            manager.get_session(old_id)
+            
+            # Advance time to 13:01 (61 minutes later - beyond TTL)
+            frozen_time.move_to("2026-02-03 13:01:00")
+            
+            # Create new session at 13:01
             new_id = "new-session"
             manager.get_session(new_id)
             
-            # Cleanup
+            # Cleanup - old session should be expired, new one should not
             removed = manager._cleanup_expired()
-        
-        assert removed == 1  # Only old_id removed
-        assert old_id not in manager._sessions
-        assert new_id in manager._sessions
+            
+            assert removed == 1  # Only old_id removed
+            assert old_id not in manager._sessions
+            assert new_id in manager._sessions
 
 
 # ============================================================================
