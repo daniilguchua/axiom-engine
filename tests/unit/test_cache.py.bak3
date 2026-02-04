@@ -52,7 +52,7 @@ class TestCacheManagerSetup:
 class TestSemanticSearch:
     """Test semantic similarity search functionality."""
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_hit_with_high_similarity(self, mock_embed, temp_db_path, monkeypatch):
         """Test that cache hit is triggered with high similarity (>0.80)."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
@@ -92,7 +92,7 @@ class TestSemanticSearch:
         assert result is not None
         assert result["steps"][0]["code"] == "graph LR\n  A --> B"
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_miss_with_low_similarity(self, mock_embed, temp_db_path, monkeypatch):
         """Test that cache miss occurs with low similarity (<0.80)."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
@@ -125,7 +125,7 @@ class TestSemanticSearch:
         
         assert result is None
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_respects_difficulty_filter(self, mock_embed, temp_db_path, monkeypatch):
         """Test that cache only returns simulations matching difficulty."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
@@ -162,7 +162,7 @@ class TestSemanticSearch:
         # (This test validates the WHERE clause includes difficulty filter)
         assert result is not None
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_requires_complete_status(self, mock_embed, temp_db_path, monkeypatch):
         """Test that require_complete=True filters for complete status."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
@@ -196,7 +196,7 @@ class TestSemanticSearch:
         
         assert result is None
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_requires_verified(self, mock_embed, temp_db_path, monkeypatch):
         """Test that require_verified=True filters for verified status."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
@@ -239,7 +239,7 @@ class TestSemanticSearch:
 class TestSimulationSaving:
     """Test saving simulations to cache."""
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_save_simulation_success(self, mock_embed, temp_db_path, monkeypatch):
         """Test saving a simulation to cache."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
@@ -474,7 +474,7 @@ class TestPendingRepairs:
 class TestCacheThreadSafety:
     """Test thread-safe cache operations."""
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_concurrent_cache_saves(self, mock_embed, temp_db_path, monkeypatch):
         """Test that concurrent saves are thread-safe."""
         import threading

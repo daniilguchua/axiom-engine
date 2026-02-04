@@ -9,25 +9,12 @@ from flask import Blueprint, request, jsonify, g
 import google.generativeai as genai
 
 from core.config import get_configured_api_key, get_session_manager, get_cache_manager
-from core.decorators import validate_session, rate_limit
+from core.decorators import validate_session, rate_limit, require_configured_api_key
 from core.utils import InputValidator
 
 logger = logging.getLogger(__name__)
 
 feedback_bp = Blueprint('feedback', __name__)
-
-
-def _require_api_key(f):
-    """Local wrapper for require_api_key decorator."""
-    from functools import wraps
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not get_configured_api_key():
-            return jsonify({
-                "error": "Server misconfigured: GEMINI_API_KEY not set"
-            }), 503
-        return f(*args, **kwargs)
-    return decorated
 
 
 @feedback_bp.route('/vote', methods=['POST'])
@@ -67,7 +54,7 @@ def vote():
 
 
 @feedback_bp.route('/enhance-prompt', methods=['POST'])
-@_require_api_key
+@require_configured_api_key
 @rate_limit(max_requests=20, window_seconds=60)
 def enhance():
     """Enhance a user prompt using the COSTARA method."""

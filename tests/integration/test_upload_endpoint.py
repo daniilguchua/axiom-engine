@@ -303,7 +303,7 @@ class TestUploadErrorHandling:
         """Test handling when API key is missing."""
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         
-        with patch("routes.upload.get_configured_api_key", return_value=None):
+        with patch("core.config.get_configured_api_key", return_value=None):
             file_data = {
                 "file": (io.BytesIO(b"content"), "test.pdf")
             }

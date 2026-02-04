@@ -3,15 +3,10 @@
 AXIOM Engine - Clean Graph Generation System
 Focused on producing beautiful, well-aligned visualizations
 """
-
-# =============================================================================
+# ============================================================================
 # CORE MERMAID SYNTAX (CLEAN & CONSISTENT)
 # =============================================================================
 #prompts.py
-
-# prompts.py
-
-# Add this to MERMAID_FIX in prompts.py
 
 SHAPE_REFERENCE = """
 ### 8. FLOWCHART SHAPES (USE THESE)

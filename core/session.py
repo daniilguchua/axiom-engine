@@ -50,6 +50,7 @@ class Session:
             "current_step_index": self.current_step_index,
             "pending_repair": self.pending_repair,
             "repair_step_index": self.repair_step_index,
+            "difficulty": getattr(self, 'difficulty', 'engineer'),  # Include difficulty with default
         }
 
 

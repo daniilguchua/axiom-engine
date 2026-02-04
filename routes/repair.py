@@ -15,25 +15,12 @@ from flask import Blueprint, request, jsonify, g
 import google.generativeai as genai
 
 from core.config import get_configured_api_key, get_session_manager, get_cache_manager
-from core.decorators import validate_session
+from core.decorators import validate_session, require_configured_api_key
 from core.utils import sanitize_mermaid_code  # NOW USING THE PYTHON SANITIZER!
 
 logger = logging.getLogger(__name__)
 
 repair_bp = Blueprint('repair', __name__)
-
-
-def _require_api_key(f):
-    """Local wrapper for require_api_key decorator."""
-    from functools import wraps
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not get_configured_api_key():
-            return jsonify({
-                "error": "Server misconfigured: GEMINI_API_KEY not set"
-            }), 503
-        return f(*args, **kwargs)
-    return decorated
 
 
 # =============================================================================
@@ -285,7 +272,7 @@ def repair_failed():
 
 
 @repair_bp.route('/repair', methods=['POST'])
-@_require_api_key
+@require_configured_api_key
 @validate_session
 def repair():
     """

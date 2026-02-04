@@ -8,7 +8,7 @@ import logging
 from flask import Blueprint, request, jsonify, g
 
 from core.config import get_configured_api_key, get_session_manager
-from core.decorators import validate_session
+from core.decorators import validate_session, require_configured_api_key
 from core.utils import extract_text_from_pdf, build_vector_index, InputValidator
 
 logger = logging.getLogger(__name__)
@@ -16,24 +16,16 @@ logger = logging.getLogger(__name__)
 upload_bp = Blueprint('upload', __name__)
 
 
-def _require_api_key(f):
-    """Local wrapper for require_api_key decorator."""
-    from functools import wraps
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not get_configured_api_key():
-            return jsonify({
-                "error": "Server misconfigured: GEMINI_API_KEY not set"
-            }), 503
-        return f(*args, **kwargs)
-    return decorated
-
-
 @upload_bp.route('/upload', methods=['POST'])
-@_require_api_key
+@require_configured_api_key
 @validate_session
 def upload():
     """Handle PDF file uploads and build vector index."""
+    # Validate content type
+    content_type = request.content_type
+    if content_type and 'multipart/form-data' not in content_type:
+        return jsonify({"error": "Content-Type must be multipart/form-data"}), 415
+    
     if 'file' not in request.files:
         return jsonify({"error": "No file provided"}), 400
     
@@ -52,6 +44,17 @@ def upload():
     session_manager = get_session_manager()
     
     try:
+        # Get session with proper error handling
+        try:
+            user_db = session_manager.get_session(session_id)
+        except ValueError as e:
+            logger.error(f"Invalid session: {e}")
+            return jsonify({"error": "Invalid session ID"}), 401
+        
+        if user_db is None:
+            logger.error(f"Session not found: {session_id}")
+            return jsonify({"error": "Session not found"}), 401
+        
         # Extract text from PDF
         texts, metas, page_count = extract_text_from_pdf(file.stream, safe_filename)
         
@@ -59,7 +62,6 @@ def upload():
             return jsonify({"error": "PDF is empty or unreadable"}), 400
         
         # Build vector index
-        user_db = session_manager.get_session(session_id)
         user_db["full_text"] = " ".join(texts)
         user_db["vector_store"], chunk_count = build_vector_index(texts, metas)
         user_db["filename"] = safe_filename

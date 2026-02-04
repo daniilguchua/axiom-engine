@@ -10,7 +10,7 @@ from flask import Blueprint, request, jsonify, Response, g
 import google.generativeai as genai
 
 from core.config import get_configured_api_key, get_session_manager, get_cache_manager
-from core.decorators import validate_session, rate_limit
+from core.decorators import validate_session, rate_limit, require_configured_api_key
 from core.prompts import get_system_prompt, DIFFICULTY_PROMPTS
 from core.utils import InputValidator
 from core.repair_tester import RepairTester
@@ -23,21 +23,8 @@ repair_tester = RepairTester()
 chat_bp = Blueprint('chat', __name__)
 
 
-def _require_api_key(f):
-    """Local wrapper for require_api_key decorator."""
-    from functools import wraps
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not get_configured_api_key():
-            return jsonify({
-                "error": "Server misconfigured: GEMINI_API_KEY not set"
-            }), 503
-        return f(*args, **kwargs)
-    return decorated
-
-
 @chat_bp.route('/chat', methods=['POST'])
-@_require_api_key
+@require_configured_api_key
 @validate_session
 @rate_limit(max_requests=30, window_seconds=60)
 def chat():
@@ -61,7 +48,17 @@ def chat():
     session_id = g.session_id
     session_manager = get_session_manager()
     cache_manager = get_cache_manager()
-    user_db = session_manager.get_session(session_id)
+    
+    # Get session with proper error handling
+    try:
+        user_db = session_manager.get_session(session_id)
+    except ValueError as e:
+        logger.error(f"Invalid session: {e}")
+        return jsonify({"error": "Invalid session ID"}), 401
+    
+    if user_db is None:
+        logger.error(f"Session not found: {session_id}")
+        return jsonify({"error": "Session not found"}), 401
     
     # Store difficulty preference in session
     user_db["difficulty"] = difficulty

@@ -29,6 +29,22 @@ def require_api_key(api_key):
     return decorator
 
 
+def require_configured_api_key(f):
+    """
+    Simplified decorator that checks if API key is configured.
+    Imports get_configured_api_key to avoid requiring it as a parameter.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        from core.config import get_configured_api_key
+        if not get_configured_api_key():
+            return jsonify({
+                "error": "Server misconfigured: GEMINI_API_KEY not set"
+            }), 503
+        return f(*args, **kwargs)
+    return decorated
+
+
 def validate_session(f):
     """Decorator to validate and extract session_id."""
     @wraps(f)
@@ -36,19 +52,22 @@ def validate_session(f):
         # Import here to avoid circular imports
         from core.utils import InputValidator
         
-        # Try to get session_id from JSON body or form data
-        if request.is_json:
-            session_id = request.get_json().get("session_id")
-        else:
-            session_id = request.form.get("session_id")
+        # Try to get session_id from X-Session-ID header first, then JSON body or form data
+        session_id = request.headers.get("X-Session-ID")
         
-        # Generate new session if not provided
         if not session_id:
-            session_id = f"user_{uuid.uuid4().hex[:16]}"
+            if request.is_json:
+                session_id = request.get_json().get("session_id")
+            else:
+                session_id = request.form.get("session_id")
+        
+        # Reject if no session provided (don't auto-generate)
+        if not session_id:
+            return jsonify({"error": "Session ID required (X-Session-ID header or session_id field)"}), 401
         
         # Validate format
         if not InputValidator.validate_session_id(session_id):
-            return jsonify({"error": "Invalid session_id format"}), 400
+            return jsonify({"error": "Invalid session_id format"}), 401
         
         g.session_id = session_id
         return f(*args, **kwargs)

@@ -52,7 +52,7 @@ class TestCacheManagerSetup:
 class TestSemanticSearch:
     """Test semantic similarity search functionality."""
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_hit_with_high_similarity(self, mock_embed, temp_db_path, monkeypatch):
         """Test that cache hit is triggered with high similarity (>0.80)."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
@@ -62,10 +62,11 @@ class TestSemanticSearch:
         db_embedding = [0.99, 0.01, 0.0, 0.0, 0.0]  # Very similar
         mock_embed.return_value = query_embedding
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        # Manually insert a cached simulation
-        with manager._get_connection() as conn:
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            # Manually insert a cached simulation
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 playlist_data = {"steps": [{"code": "graph LR\n  A --> B"}]}
                 cursor.execute("""
@@ -80,28 +81,29 @@ class TestSemanticSearch:
                     "engineer",
                     1
                 ))
-        
-        # Query should find it
-        with patch("core.cache.cosine_similarity", return_value=0.95):
+            
+            # Query should find it
+            with patch("core.cache.cosine_similarity", return_value=0.95):
                 result = manager.get_cached_simulation(
                     "similar prompt",
                     difficulty="engineer",
                     require_complete=True
                 )
-        
-        assert result is not None
-        assert result["steps"][0]["code"] == "graph LR\n  A --> B"
+            
+            assert result is not None
+            assert result["steps"][0]["code"] == "graph LR\n  A --> B"
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_miss_with_low_similarity(self, mock_embed, temp_db_path, monkeypatch):
         """Test that cache miss occurs with low similarity (<0.80)."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         mock_embed.return_value = [1.0, 0.0, 0.0]
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        # Insert a cached simulation
-        with manager._get_connection() as conn:
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            # Insert a cached simulation
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO simulation_cache 
@@ -115,26 +117,27 @@ class TestSemanticSearch:
                     "engineer",
                     1
                 ))
-        
-        # Query with low similarity should miss
-        with patch("core.cache.cosine_similarity", return_value=0.5):
+            
+            # Query with low similarity should miss
+            with patch("core.cache.cosine_similarity", return_value=0.5):
                 result = manager.get_cached_simulation(
                     "different prompt",
                     difficulty="engineer"
                 )
-        
-        assert result is None
+            
+            assert result is None
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_respects_difficulty_filter(self, mock_embed, temp_db_path, monkeypatch):
         """Test that cache only returns simulations matching difficulty."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         mock_embed.return_value = [1.0, 0.0, 0.0]
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        # Insert simulations for different difficulties
-        with manager._get_connection() as conn:
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            # Insert simulations for different difficulties
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 for difficulty in ["explorer", "engineer", "architect"]:
                     cursor.execute("""
@@ -149,29 +152,30 @@ class TestSemanticSearch:
                         difficulty,
                         1
                     ))
-        
-        # Query with specific difficulty
-        with patch("core.cache.cosine_similarity", return_value=0.95):
+            
+            # Query with specific difficulty
+            with patch("core.cache.cosine_similarity", return_value=0.95):
                 result = manager.get_cached_simulation(
                     "test prompt",
                     difficulty="explorer",
                     require_complete=True
                 )
-        
-        # Should only find explorer difficulty
-        # (This test validates the WHERE clause includes difficulty filter)
-        assert result is not None
+            
+            # Should only find explorer difficulty
+            # (This test validates the WHERE clause includes difficulty filter)
+            assert result is not None
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_requires_complete_status(self, mock_embed, temp_db_path, monkeypatch):
         """Test that require_complete=True filters for complete status."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         mock_embed.return_value = [1.0, 0.0, 0.0]
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        # Insert partial simulation
-        with manager._get_connection() as conn:
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            # Insert partial simulation
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO simulation_cache 
@@ -185,27 +189,28 @@ class TestSemanticSearch:
                     "engineer",
                     0
                 ))
-        
-        # Query with require_complete=True should miss
-        with patch("core.cache.cosine_similarity", return_value=0.95):
+            
+            # Query with require_complete=True should miss
+            with patch("core.cache.cosine_similarity", return_value=0.95):
                 result = manager.get_cached_simulation(
                     "test prompt",
                     difficulty="engineer",
                     require_complete=True
                 )
-        
-        assert result is None
+            
+            assert result is None
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_cache_requires_verified(self, mock_embed, temp_db_path, monkeypatch):
         """Test that require_verified=True filters for verified status."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         mock_embed.return_value = [1.0, 0.0, 0.0]
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        # Insert unverified simulation
-        with manager._get_connection() as conn:
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            # Insert unverified simulation
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO simulation_cache 
@@ -220,16 +225,16 @@ class TestSemanticSearch:
                     1,
                     0
                 ))
-        
-        # Query with require_verified=True should miss
-        with patch("core.cache.cosine_similarity", return_value=0.95):
+            
+            # Query with require_verified=True should miss
+            with patch("core.cache.cosine_similarity", return_value=0.95):
                 result = manager.get_cached_simulation(
                     "test prompt",
                     difficulty="engineer",
                     require_verified=True
                 )
-        
-        assert result is None
+            
+            assert result is None
 
 
 # ============================================================================
@@ -239,39 +244,40 @@ class TestSemanticSearch:
 class TestSimulationSaving:
     """Test saving simulations to cache."""
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_save_simulation_success(self, mock_embed, temp_db_path, monkeypatch):
         """Test saving a simulation to cache."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         mock_embed.return_value = [1.0, 0.0, 0.0]
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        playlist_data = {
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            playlist_data = {
                 "steps": [
                     {"code": "graph LR\n  A[Start] --> B[End]"}
                 ]
-        }
-        
-        result = manager.save_simulation(
+            }
+            
+            result = manager.save_simulation(
                 prompt="test prompt",
                 playlist_data=playlist_data,
                 difficulty="engineer",
                 is_final_complete=True,
                 client_verified=True  # Required for new cache entries
-        )
-        
-        assert result is True
-        
-        # Verify it was saved
-        with manager._get_connection() as conn:
+            )
+            
+            assert result is True
+            
+            # Verify it was saved
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT COUNT(*) FROM simulation_cache WHERE status = 'verified'
                 """)
                 count = cursor.fetchone()[0]
-        
-        assert count == 1
+            
+            assert count == 1
 
 
 # ============================================================================
@@ -285,9 +291,10 @@ class TestRepairLogging:
         """Test logging a repair attempt."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        manager.log_repair_attempt(
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            manager.log_repair_attempt(
                 session_id="test-session",
                 sim_id="sim-123",
                 step_index=1,
@@ -300,26 +307,27 @@ class TestRepairLogging:
                 error_after=None,
                 was_successful=True,
                 duration_ms=150
-        )
-        
-        # Verify it was logged
-        with manager._get_connection() as conn:
+            )
+            
+            # Verify it was logged
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT COUNT(*) FROM repair_attempts WHERE was_successful = 1
                 """)
                 count = cursor.fetchone()[0]
-        
-        assert count == 1
+            
+            assert count == 1
     
     def test_get_repair_stats(self, temp_db_path, monkeypatch):
         """Test retrieving repair statistics."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        # Log some repair attempts
-        for i in range(5):
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            # Log some repair attempts
+            for i in range(5):
                 manager.log_repair_attempt(
                     session_id=f"session-{i}",
                     sim_id=f"sim-{i}",
@@ -334,9 +342,9 @@ class TestRepairLogging:
                     was_successful=i % 2 == 0,  # Half succeed
                     duration_ms=100
                 )
-        
-        stats = manager.get_repair_stats()
-        assert "total_repairs" in stats or len(stats) > 0
+            
+            stats = manager.get_repair_stats()
+            assert "total_repairs" in stats or len(stats) > 0
 
 
 # ============================================================================
@@ -350,10 +358,11 @@ class TestAccessMetrics:
         """Test that access metrics are updated."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        # Insert a simulation
-        with manager._get_connection() as conn:
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            # Insert a simulation
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO simulation_cache 
@@ -366,19 +375,19 @@ class TestAccessMetrics:
                     "engineer",
                     1
                 ))
-        
-        # Update access metrics
-        manager._update_access_metrics("test-prompt")
-        
-        # Verify access count increased
-        with manager._get_connection() as conn:
+            
+            # Update access metrics
+            manager._update_access_metrics("test-prompt")
+            
+            # Verify access count increased
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT access_count FROM simulation_cache WHERE prompt_key = 'test-prompt'
                 """)
                 count = cursor.fetchone()[0]
-        
-        assert count > 1
+            
+            assert count > 1
 
 
 # ============================================================================
@@ -392,19 +401,20 @@ class TestBrokenSimulationTracking:
         """Test marking a simulation as broken."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        manager.mark_simulation_broken(
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            manager.mark_simulation_broken(
                 session_id="session-1",
                 prompt_key="test-prompt",
                 step_index=2,
                 failure_reason="Syntax error in node declaration"
-        )
-        
-        # Verify it was marked
-        is_broken = manager._is_simulation_broken("test-prompt")
-        # May return True if implemented, or may need to check differently
-        assert isinstance(is_broken, bool)
+            )
+            
+            # Verify it was marked
+            is_broken = manager._is_simulation_broken("test-prompt")
+            # May return True if implemented, or may need to check differently
+            assert isinstance(is_broken, bool)
 
 
 # ============================================================================
@@ -418,53 +428,55 @@ class TestPendingRepairs:
         """Test marking a repair as pending."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        manager.mark_repair_pending(
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            manager.mark_repair_pending(
                 session_id="session-1",
                 prompt_key="test-prompt",
                 step_index=1
-        )
-        
-        # Verify it was marked
-        with manager._get_connection() as conn:
+            )
+            
+            # Verify it was marked
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT COUNT(*) FROM pending_repairs WHERE status = 'pending'
                 """)
                 count = cursor.fetchone()[0]
-        
-        assert count == 1
+            
+            assert count == 1
     
     def test_mark_repair_resolved(self, temp_db_path, monkeypatch):
         """Test marking a repair as resolved."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        manager = CacheManager(db_path=temp_db_path)
-        
-        # First mark as pending
-        manager.mark_repair_pending(
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            
+            # First mark as pending
+            manager.mark_repair_pending(
                 session_id="session-1",
                 prompt_key="test-prompt",
                 step_index=1
-        )
-        
-        # Then resolve it
-        manager.mark_repair_resolved(
+            )
+            
+            # Then resolve it
+            manager.mark_repair_resolved(
                 session_id="session-1",
                 prompt_key="test-prompt",
                 step_index=1
-        )
-        
-        # Verify it's resolved
-        with manager._get_connection() as conn:
+            )
+            
+            # Verify it's resolved
+            with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT COUNT(*) FROM pending_repairs WHERE status = 'resolved'
                 """)
                 count = cursor.fetchone()[0]
-        
-        assert count >= 0  # May be 0 or 1 depending on implementation
+            
+            assert count >= 0  # May be 0 or 1 depending on implementation
 
 
 # ============================================================================
@@ -474,7 +486,7 @@ class TestPendingRepairs:
 class TestCacheThreadSafety:
     """Test thread-safe cache operations."""
     
-    @patch("core.cache.semantic_cache.get_text_embedding")
+    @patch("core.cache.get_text_embedding")
     def test_concurrent_cache_saves(self, mock_embed, temp_db_path, monkeypatch):
         """Test that concurrent saves are thread-safe."""
         import threading
@@ -482,10 +494,11 @@ class TestCacheThreadSafety:
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         mock_embed.return_value = [1.0, 0.0, 0.0]
         
-        manager = CacheManager(db_path=temp_db_path)
-        errors = []
-        
-        def save_sim(index):
+        with patch("core.cache.DB_PATH", temp_db_path):
+            manager = CacheManager()
+            errors = []
+            
+            def save_sim(index):
                 try:
                     manager.save_simulation(
                         prompt=f"prompt-{index}",
@@ -495,14 +508,14 @@ class TestCacheThreadSafety:
                     )
                 except Exception as e:
                     errors.append(str(e))
-        
-        threads = []
-        for i in range(5):
+            
+            threads = []
+            for i in range(5):
                 t = threading.Thread(target=save_sim, args=(i,))
                 threads.append(t)
                 t.start()
-        
-        for t in threads:
+            
+            for t in threads:
                 t.join()
-        
-        assert len(errors) == 0, f"Errors occurred: {errors}"
+            
+            assert len(errors) == 0, f"Errors occurred: {errors}"
