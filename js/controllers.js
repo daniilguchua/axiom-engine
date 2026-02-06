@@ -70,17 +70,46 @@ TASK: Generate NEXT 3 steps.`;
         }
         
         if (cleanId === 'CMD_PREV') {
-            if (window.simulationPlaylist.length > 0) {
-                AXIOM.renderer.renderPlaylistStep(AXIOM.simulation.currentStepIndex - 1);
-                return;
+            if (wrapperElement) {
+                const simId = wrapperElement.closest('[data-sim-id]')?.dataset.simId;
+                if (simId) {
+                    const stepIndex = (AXIOM.simulation.state?.[simId] ?? 0) - 1;
+                    if (stepIndex >= 0) {
+                        AXIOM.renderer.renderPlaylistStep(simId, stepIndex, wrapperElement.closest('.msg-body'));
+                    }
+                }
+            }
+            return;
+        }
+        
+        // NEW: Node Inspection - Show tooltip with rich context
+        let currentStep = null;
+        
+        if (wrapperElement) {
+            // Extract simId from wrapper dataset
+            const simId = wrapperElement.closest('[data-sim-id]')?.dataset.simId;
+            const playlist = simId && AXIOM.simulation.store?.[simId];
+            
+            if (playlist && playlist.length > 0) {
+                // Get the current step index for this simulation
+                const stepIndex = AXIOM.simulation.state?.[simId] ?? playlist.length - 1;
+                currentStep = playlist[Math.min(stepIndex, playlist.length - 1)];
+                
+                console.log(`📍 Node Click: simId=${simId}, stepIndex=${stepIndex}, nodeId=${cleanId}`);
             }
         }
         
-        const prompt = `Elaborate on the element "${cleanId}" in the context of the current diagram. Keep it concise.`;
-        AXIOM.state.isSimulationUpdate = false;
-        AXIOM.ui.appendMessage('user', `System Command: Inspect "${cleanId}"`);
-        AXIOM.elements.userInput.value = prompt;
-        AXIOM.sendMessage();
+        if (currentStep) {
+            // Has step context - show tooltip with rich explanation
+            showNodeInspectionTooltip(cleanId, wrapperElement, currentStep);
+        } else {
+            // Fallback to old behavior (only if no step data available)
+            const prompt = `Elaborate on the element "${cleanId}" in the context of the current diagram. Keep it concise.`;
+            AXIOM.state.isSimulationUpdate = false;
+            AXIOM.ui.appendMessage('user', `System Command: Inspect "${cleanId}"`);
+            AXIOM.elements.userInput.value = prompt;
+            AXIOM.sendMessage();
+        }
     }
     
     // =========================================================================
@@ -187,12 +216,149 @@ TASK: Generate NEXT 3 steps.`;
     }
     
     // =========================================================================
+    // NODE INSPECTION TOOLTIP SYSTEM
+    // =========================================================================
+    
+    async function showNodeInspectionTooltip(nodeId, wrapperElement, currentStep) {
+        let tooltip;
+        try {
+            // Create tooltip element
+            tooltip = document.createElement('div');
+            tooltip.className = 'node-tooltip';
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <span class="tooltip-title">🔍 ${nodeId}</span>
+                    <button class="tooltip-close" title="Close">✕</button>
+                </div>
+                <div class="tooltip-body">
+                    <div class="tooltip-loading">Analyzing...</div>
+                </div>
+            `;
+            
+            // Position and add to DOM
+            if (wrapperElement) {
+                wrapperElement.appendChild(tooltip);
+                positionTooltip(tooltip, nodeId, wrapperElement);
+            } else {
+                document.body.appendChild(tooltip);
+            }
+            
+            // Close button handler
+            tooltip.querySelector('.tooltip-close').addEventListener('click', () => {
+                tooltip.remove();
+            });
+            
+            // Fetch explanation from backend
+            const context = {
+                node_id: nodeId,
+                step_data: currentStep,
+                difficulty: AXIOM.state.currentDifficulty || 'engineer'
+            };
+            
+            console.log(`📍 Requesting node inspection for ${nodeId}...`);
+            
+            const response = await fetch('/node-inspect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(context)
+            });
+            
+            if (response.ok) {
+                const explanation = await response.text();
+                tooltip.querySelector('.tooltip-body').innerHTML = explanation;
+            } else {
+                let errorMessage = 'Failed to generate explanation';
+                try {
+                    const error = await response.json();
+                    errorMessage = error.error || errorMessage;
+                } catch (parseErr) {
+                    const text = await response.text();
+                    if (text) errorMessage = text;
+                }
+                tooltip.querySelector('.tooltip-body').innerHTML = `
+                    <div class="tooltip-error">
+                        Error: ${errorMessage}
+                    </div>
+                `;
+            }
+            
+            // Close on outside click
+            const closeOutside = (e) => {
+                if (!tooltip.contains(e.target) && e.target !== nodeId) {
+                    tooltip.remove();
+                    document.removeEventListener('click', closeOutside);
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('click', closeOutside);
+            }, 100);
+            
+        } catch (err) {
+            console.error('Tooltip error:', err);
+            if (tooltip && tooltip.querySelector('.tooltip-body')) {
+                const body = tooltip.querySelector('.tooltip-body');
+                body.innerHTML = `
+                    <div class="tooltip-error">
+                        Error: ${err?.message || 'Failed to generate explanation'}
+                    </div>
+                `;
+            }
+        }
+    }
+    
+    function positionTooltip(tooltip, nodeId, wrapper) {
+        try {
+            // Find the clicked node in the SVG
+            const svg = wrapper.querySelector('svg');
+            if (!svg) return;
+            
+            // Try multiple ways to find the node
+            let node = svg.querySelector(`#${nodeId}`);
+            if (!node) {
+                // Try finding by text content
+                const nodes = svg.querySelectorAll('.node');
+                node = Array.from(nodes).find(n => n.textContent.includes(nodeId));
+            }
+            
+            if (!node) return;
+            
+            const nodeRect = node.getBoundingClientRect();
+            const wrapperRect = wrapper.getBoundingClientRect();
+            
+            // Initial position: right of node with some offset
+            let left = nodeRect.right - wrapperRect.left + 15;
+            let top = nodeRect.top - wrapperRect.top;
+            
+            // Adjust if tooltip goes off screen
+            const tooltipWidth = 320; // max-width from CSS
+            const tooltipHeight = 200; // estimated
+            
+            if (left + tooltipWidth > window.innerWidth) {
+                // Move to left of node
+                left = nodeRect.left - wrapperRect.left - tooltipWidth - 15;
+            }
+            
+            if (top + tooltipHeight > window.innerHeight) {
+                // Move up
+                top = Math.max(10, nodeRect.bottom - wrapperRect.top - tooltipHeight);
+            }
+            
+            tooltip.style.left = `${Math.max(10, left)}px`;
+            tooltip.style.top = `${Math.max(10, top)}px`;
+            
+        } catch (err) {
+            console.warn('Tooltip positioning error:', err);
+        }
+    }
+    
+    // =========================================================================
     // EXPORT (also expose globally for onclick handlers)
     // =========================================================================
     
     AXIOM.controllers = {
         mermaidNodeClick,
-        handleSimNav
+        handleSimNav,
+        showNodeInspectionTooltip
     };
     
     // Global exposure for onclick handlers in HTML

@@ -10,6 +10,7 @@ from routes.health import health_bp
 from routes.repair import repair_bp
 from routes.session_routes import session_bp
 from routes.upload import upload_bp
+from routes.node_inspect import node_inspect_bp
 
 
 def register_routes(app):
@@ -21,3 +22,4 @@ def register_routes(app):
     app.register_blueprint(repair_bp)
     app.register_blueprint(session_bp)
     app.register_blueprint(upload_bp)
+    app.register_blueprint(node_inspect_bp)

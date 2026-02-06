@@ -79,7 +79,7 @@ def get_cors_config():
     return {
         r"/*": {
             "origins": os.environ.get("ALLOWED_ORIGINS", "*").split(","),
-            "methods": ["GET", "POST"],
+            "methods": ["GET", "POST", "OPTIONS"],
             "allow_headers": ["Content-Type"]
         }
     }

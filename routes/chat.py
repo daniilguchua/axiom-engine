@@ -178,7 +178,7 @@ def chat():
 
 **CRITICAL INSTRUCTION:**
 If the Context above is empty or irrelevant, USE YOUR INTERNAL KNOWLEDGE.
-Do NOT say "Based on the context provided...".
+Do NOT say "Based on the context provided..."
 You are an Expert Engine. You know how {user_msg} works.
 """
     
@@ -296,7 +296,7 @@ Match the {difficulty.upper()} mode style in your response.
     
     def generate():
         config = {
-            "temperature": 0.2,  # Lower temperature for more consistent JSON output
+            "temperature": 0.4,  # Lower temperature for more consistent JSON output
             "max_output_tokens": 14000,
             "response_mime_type": "application/json" if expect_json else "text/plain"
         }

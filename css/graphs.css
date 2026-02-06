@@ -625,3 +625,122 @@ g.node:hover .nodeLabel {
     rx: 12px !important;
     ry: 12px !important;
 }
+/* =========================================
+   NODE INSPECTION SYSTEM
+   Tooltips, highlights, and interactive feedback
+   ========================================= */
+
+/* Highlight effect when node is clicked/inspected */
+.node-inspecting {
+    animation: node-inspect-pulse 0.6s ease-in-out;
+    filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.9));
+}
+
+@keyframes node-inspect-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.12);
+    }
+}
+
+/* Node inspection tooltip */
+.node-tooltip {
+    position: absolute;
+    background: rgba(20, 20, 30, 0.98);
+    border: 1px solid var(--accent-violet, #a78bfa);
+    border-radius: 8px;
+    padding: 0;
+    max-width: 320px;
+    min-width: 220px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(167, 139, 250, 0.2);
+    z-index: 2000;
+    animation: tooltip-fadein 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    font-size: 13px;
+    line-height: 1.6;
+    backdrop-filter: blur(8px);
+}
+
+@keyframes tooltip-fadein {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(167, 139, 250, 0.2);
+    gap: 8px;
+}
+
+.tooltip-title {
+    font-weight: 600;
+    color: var(--accent-cyan, #00f3ff);
+    font-size: 13px;
+}
+
+.tooltip-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary, #aaa);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.tooltip-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary, #fff);
+}
+
+.tooltip-body {
+    padding: 12px 14px;
+    color: var(--text-primary, #e0e0e0);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.tooltip-loading {
+    text-align: center;
+    padding: 8px;
+    color: var(--accent-cyan, #00f3ff);
+    font-style: italic;
+}
+
+.tooltip-error {
+    color: #ff6b6b;
+    padding: 8px;
+    font-size: 12px;
+}
+
+/* Tooltip content formatting */
+.tooltip-body strong {
+    color: var(--accent-cyan, #00f3ff);
+    font-weight: 600;
+}
+
+.tooltip-body p {
+    margin: 6px 0;
+}
+
+.tooltip-body > *:first-child {
+    margin-top: 0;
+}
+
+.tooltip-body > *:last-child {
+    margin-bottom: 0;
+}

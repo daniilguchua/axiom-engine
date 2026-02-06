@@ -183,6 +183,13 @@
             node.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                
+                // Remove previous highlight
+                svg.querySelectorAll('.node-inspecting').forEach(n => n.classList.remove('node-inspecting'));
+                
+                // Add highlight to clicked node
+                node.classList.add('node-inspecting');
+                
                 const rawId = node.id;
                 const idParts = rawId.split('-');
                 let cleanId = idParts.find(p => isNaN(p) && p !== 'flowchart' && p !== 'graph' && p.length > 1);
