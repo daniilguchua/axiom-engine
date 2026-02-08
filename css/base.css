@@ -61,10 +61,10 @@
     --radius-xl: 16px;
     
     /* === SHADOWS === */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.7);
-    --shadow-glow: 0 0 30px var(--accent-glow);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.6);
+    --shadow-glow: 0 0 20px var(--accent-glow);
 }
 
 /* =========================================
@@ -129,7 +129,7 @@ html {
     padding: 3px 8px;
     background: var(--bg-elevated);
     border: 1px solid var(--border-subtle);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font-family: var(--font-mono);
     font-size: 0.9em;
     color: var(--accent-hover);
@@ -252,9 +252,9 @@ input:focus::placeholder {
         box-shadow: 0 0 8px var(--success);
         transform: scale(1);
     }
-    50% { 
-        box-shadow: 0 0 16px var(--success);
-        transform: scale(1.1);
+    50% {
+        box-shadow: 0 0 12px var(--success);
+        transform: scale(1.03);
     }
 }
 
@@ -351,10 +351,10 @@ pre::before {
     background: linear-gradient(
         90deg, 
         transparent, 
-        rgba(255,255,255,0.25), 
+        rgba(255,255,255,0.15),
         transparent
     );
-    transition: left 0.5s ease;
+    transition: left 0.35s ease;
 }
 
 .btn:hover::before {

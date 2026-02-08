@@ -89,7 +89,7 @@
     color: var(--accent) !important;
     font-weight: 600;
     background: var(--accent-muted);
-    text-shadow: 0 0 12px var(--accent-glow);
+    text-shadow: 0 0 4px var(--accent-glow);
 }
 
 /* =========================================
@@ -108,13 +108,13 @@
     border-radius: var(--radius-xl);
     margin: 20px auto;
     width: fit-content;
-    box-shadow: var(--shadow-lg), 0 0 40px rgba(139, 92, 246, 0.2);
+    box-shadow: var(--shadow-md);
     animation: loader-glow 2s ease-in-out infinite, loader-border-flow 3s linear infinite;
 }
 
 @keyframes loader-glow {
-    0%, 100% { box-shadow: var(--shadow-lg), 0 0 30px rgba(139, 92, 246, 0.2); }
-    50% { box-shadow: var(--shadow-lg), 0 0 50px rgba(139, 92, 246, 0.35); }
+    0%, 100% { box-shadow: var(--shadow-lg), 0 0 20px rgba(139, 92, 246, 0.15); }
+    50% { box-shadow: var(--shadow-lg), 0 0 28px rgba(139, 92, 246, 0.25); }
 }
 
 @keyframes loader-border-flow {
@@ -136,23 +136,23 @@
     background: var(--accent);
     border-radius: 50%;
     animation: node-pulse 1.5s ease-in-out infinite;
-    box-shadow: 0 0 10px var(--accent);
+    box-shadow: 0 0 6px var(--accent);
 }
 
 .loader-node:nth-child(2) { 
     animation-delay: 0.2s; 
     background: var(--graph-process); 
-    box-shadow: 0 0 10px var(--graph-process); 
+    box-shadow: 0 0 6px var(--graph-process);
 }
 
-.loader-node:nth-child(3) { 
-    animation-delay: 0.4s; 
+.loader-node:nth-child(3) {
+    animation-delay: 0.4s;
 }
 
-.loader-node:nth-child(4) { 
-    animation-delay: 0.6s; 
-    background: var(--graph-data); 
-    box-shadow: 0 0 10px var(--graph-data); 
+.loader-node:nth-child(4) {
+    animation-delay: 0.6s;
+    background: var(--graph-data);
+    box-shadow: 0 0 6px var(--graph-data); 
 }
 
 .loader-node:nth-child(5) { 
@@ -198,11 +198,10 @@
 }
 
 .loader-text {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 13px;
-    color: var(--text-primary);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
 }
 
 /* Stage indicators */
@@ -261,7 +260,7 @@
 
 @keyframes scan {
     0% { transform: translateX(-100%); }
-    100% { transform: translateX(350%); }
+    100% { transform: translateX(200%); }
 }
 
 @keyframes shimmer {
@@ -452,7 +451,7 @@
     background: #0a0a0f;
     padding: 2px 6px;
     border-radius: 4px;
-    font-family: 'Fira Code', 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.9em;
     color: #A78BFA;
 }

@@ -112,6 +112,7 @@
         
         AXIOM.state.appMode = 'CHAT';
         lobbyPanel.style.opacity = '0';
+        lobbyPanel.style.transform = 'scale(0.98)';
         lobbyPanel.style.pointerEvents = 'none';
         
         setTimeout(() => {
@@ -119,7 +120,10 @@
             container.classList.add('mode-focus');
             disconnectBtn.style.display = 'block';
             chatPanel.style.display = 'flex';
-            setTimeout(() => { chatPanel.style.opacity = '1'; }, 50);
+            setTimeout(() => {
+                chatPanel.style.opacity = '1';
+                chatPanel.style.transform = 'translateY(0)';
+            }, 50);
         }, 500);
         
         statusText.innerText = "ENGINE ONLINE";
@@ -157,16 +161,20 @@
 
         // 3. ANIMATION: Transition back to Lobby
         chatPanel.style.opacity = '0';
+        chatPanel.style.transform = 'translateY(10px)';
         setTimeout(() => {
             chatPanel.style.display = 'none';
             historyDiv.innerHTML = '';
-            
+
             container.classList.remove('mode-focus');
             disconnectBtn.style.display = 'none';
-            
+
             lobbyPanel.classList.remove('hidden');
             lobbyPanel.style.pointerEvents = 'all';
-            setTimeout(() => { lobbyPanel.style.opacity = '1'; }, 50);
+            setTimeout(() => {
+                lobbyPanel.style.opacity = '1';
+                lobbyPanel.style.transform = 'scale(1)';
+            }, 50);
         }, 500);
         
         statusText.innerText = "IDLE";

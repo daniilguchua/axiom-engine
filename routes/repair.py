@@ -210,7 +210,7 @@ def confirm_complete():
         logger.info(f"âœ… Cleared {cleared_count} pending repairs (client verified)")
     
     # Clear any old "broken" flags since client successfully rendered all steps
-    cache_manager.clear_broken_status(original_prompt)
+    cache_manager.clear_broken_status(original_prompt, original_difficulty)
     
     # Cache the simulation with the (potentially repaired) steps
     full_playlist = {

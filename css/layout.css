@@ -155,7 +155,7 @@ header {
     justify-content: center;
     padding: 24px;
     gap: 40px;
-    transition: opacity 0.5s ease, transform 0.5s ease;
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     background: transparent;
 }
 
@@ -651,10 +651,10 @@ header {
     background: linear-gradient(
         90deg, 
         transparent, 
-        rgba(255,255,255,0.3), 
+        rgba(255,255,255,0.15),
         transparent
     );
-    transition: left 0.5s ease;
+    transition: left 0.35s ease;
 }
 
 #lobby-btn:hover::before {
@@ -663,11 +663,40 @@ header {
 
 #lobby-btn:hover {
     filter: brightness(1.1);
-    box-shadow: 0 0 30px rgba(139, 92, 246, 0.4);
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
 }
 
 #lobby-btn:active {
     transform: scale(0.97);
+}
+
+/* === LOBBY FOOTER === */
+.lobby-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding-top: 24px;
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+
+.footer-links {
+    display: flex;
+    gap: 16px;
+}
+
+.footer-links a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 12px;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+
+.footer-links a:hover {
+    opacity: 1;
 }
 
 /* =========================================
@@ -681,7 +710,7 @@ header {
     padding-top: 60px;
     opacity: 0;
     transform: translateY(10px);
-    transition: all 0.4s ease;
+    transition: opacity 0.5s ease 0.1s, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s;
     background: transparent;
 }
 
@@ -872,13 +901,23 @@ input[type="text"]:focus {
     box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
+/* Processing state — subtle border pulse */
+.input-wrapper.processing input[type="text"] {
+    animation: input-processing 2s ease-in-out infinite;
+}
+
+@keyframes input-processing {
+    0%, 100% { border-color: var(--border-subtle); }
+    50% { border-color: rgba(139, 92, 246, 0.4); }
+}
+
 /* =========================================
    6. DIFFICULTY SYSTEM
    ========================================= */
 
 /* Difficulty Badge in Header */
 .difficulty-badge {
-    border: 1px solid #333;
+    border: 1px solid var(--border-subtle);
     padding: 5px 12px;
     border-radius: 4px;
     font-size: 0.8rem;
@@ -887,19 +926,19 @@ input[type="text"]:focus {
     background: rgba(0,0,0,0.3);
 }
 
-.diff-text.explorer { 
-    color: #FBBF24; 
-    text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); 
+.diff-text.explorer {
+    color: #FBBF24;
+    text-shadow: 0 0 4px rgba(251, 191, 36, 0.3);
 }
 
-.diff-text.engineer { 
-    color: #60A5FA; 
-    text-shadow: 0 0 10px rgba(96, 165, 250, 0.5); 
+.diff-text.engineer {
+    color: #60A5FA;
+    text-shadow: 0 0 4px rgba(96, 165, 250, 0.3);
 }
 
-.diff-text.architect { 
-    color: #A78BFA; 
-    text-shadow: 0 0 10px rgba(167, 139, 250, 0.5); 
+.diff-text.architect {
+    color: #A78BFA;
+    text-shadow: 0 0 4px rgba(167, 139, 250, 0.3);
 }
 
 .difficulty-indicator {
@@ -1037,7 +1076,7 @@ input[type="text"]:focus {
 
 .difficulty-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
 }
 
 .difficulty-card.selected {

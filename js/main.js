@@ -86,6 +86,8 @@
         }
 
         AXIOM.state.isProcessing = true;
+        const inputWrapper = document.querySelector('.input-wrapper');
+        if (inputWrapper) inputWrapper.classList.add('processing');
 
         try {
             // Stream the response WITH difficulty parameter
@@ -403,6 +405,8 @@
         } finally {
             AXIOM.state.isProcessing = false;
             AXIOM.state.isSimulationUpdate = false;
+            const inputWrapper = document.querySelector('.input-wrapper');
+            if (inputWrapper) inputWrapper.classList.remove('processing');
         }
     }
     

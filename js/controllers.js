@@ -183,12 +183,11 @@ TASK: Generate NEXT 3 steps.`;
                     <div style="text-align:center;">
                         <div style="font-size: 24px; animation: spin 1s linear infinite; margin-bottom: 10px;">⟳</div>
                         <span style="
-                            font-family: 'JetBrains Mono', monospace; 
-                            color: #00f3ff; 
-                            font-weight: bold; 
-                            text-shadow: 0 0 10px rgba(0, 243, 255, 0.8);
-                            letter-spacing: 1px;
-                        ">EXPANDING SIMULATION...</span>
+                            font-family: 'Inter', sans-serif;
+                            color: var(--text-secondary, #B0B0C0);
+                            font-weight: 500;
+                            letter-spacing: 0.5px;
+                        ">Expanding simulation...</span>
                     </div>
                 `;
                 

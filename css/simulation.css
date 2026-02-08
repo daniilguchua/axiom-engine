@@ -165,7 +165,7 @@
         rgba(96, 165, 250, 0.1) 0%, 
         rgba(139, 92, 246, 0.05) 100%);
     border: 1px solid rgba(96, 165, 250, 0.25);
-    border-left: 4px solid var(--graph-process);
+    border-left: 3px solid var(--graph-process);
     border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
     position: relative;
     
@@ -489,7 +489,7 @@ tr.active-row td:first-child {
     margin: 20px 0;
     background: linear-gradient(135deg, var(--bg-base) 0%, var(--bg-elevated) 100%);
     border: 1px solid var(--border-muted);
-    border-left: 4px solid var(--graph-data);
+    border-left: 3px solid var(--graph-data);
     border-radius: var(--radius-md);
     font-size: 15px;
     text-align: center;

@@ -7,6 +7,7 @@ Manages simulation break state and repair workflow coordination.
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,14 @@ class RepairTracker:
         """
         self.db = database
     
-    def is_simulation_broken(self, prompt: str, max_age_hours: int = 24, get_hash_callback=None) -> bool:
+    def is_simulation_broken(self, prompt: str, difficulty: str = "medium", max_age_hours: int = 24, get_hash_callback=None) -> bool:
         """
         Check if a simulation is marked as broken.
         Broken status expires after max_age_hours to allow retries.
         
         Args:
             prompt: The user prompt to check
+            difficulty: The difficulty level of the simulation
             max_age_hours: Hours before broken status expires
             get_hash_callback: Callback to get prompt hash
             
@@ -47,8 +49,8 @@ class RepairTracker:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT created_at FROM broken_simulations 
-                WHERE prompt_hash = ?
-            """, (prompt_hash,))
+                WHERE prompt_hash = ? AND difficulty = ?
+            """, (prompt_hash, difficulty))
             row = cursor.fetchone()
         
             if not row:
@@ -69,76 +71,60 @@ class RepairTracker:
     
     def mark_simulation_broken(
         self,
-        session_id: str,
-        prompt_key: str,
-        step_index: int,
-        failure_reason: str = "Render failure after all repair attempts",
-        get_hash_callback=None
-    ) -> None:
+        prompt: str,
+        difficulty: str,
+        reason: str = ""
+    ) -> bool:
         """
-        Mark a simulation as broken for a specific session.
-        Other sessions can still attempt the same prompt.
+        Mark a simulation as broken with difficulty awareness.
         
         Args:
-            session_id: The session ID
-            prompt_key: The prompt that failed
-            step_index: Which step failed
-            failure_reason: Description of failure
-            get_hash_callback: Callback to get prompt hash
+            prompt: The user prompt
+            difficulty: The difficulty level
+            reason: Description of failure
+            
+        Returns:
+            True if marked broken, False otherwise
         """
-        if not get_hash_callback:
-            logger.error("Cannot mark broken: no hash callback provided")
-            return
+        try:
+            prompt_hash = hashlib.sha256(prompt.strip().lower().encode()).hexdigest()
+            cursor = self.db.get_connection().cursor()
             
-        clean_key = prompt_key.strip()
-        prompt_hash = get_hash_callback(clean_key)
+            cursor.execute(
+                """
+                INSERT INTO broken_simulations (prompt_hash, difficulty, failure_reason)
+                VALUES (?, ?, ?)
+                ON CONFLICT(prompt_hash, difficulty) DO UPDATE SET
+                    failure_reason = excluded.failure_reason,
+                    failed_at = CURRENT_TIMESTAMP
+                """,
+                (prompt_hash, difficulty, reason)
+            )
+            self.db.get_connection().commit()
+            return True
+        except Exception as e:
+            print(f"Error marking simulation broken: {e}")
+            return False
     
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            try:
-                # Use session_id + prompt_hash as unique key
-                cursor.execute("""
-                    INSERT INTO broken_simulations 
-                    (session_id, prompt_key, prompt_hash, failed_step_index, failure_reason, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(prompt_hash) DO UPDATE SET
-                        session_id = excluded.session_id,
-                        failed_step_index = excluded.failed_step_index,
-                        failure_reason = excluded.failure_reason,
-                        created_at = excluded.created_at
-                """, (session_id, clean_key, prompt_hash, step_index, failure_reason, datetime.now()))
-            
-                # Also clear any pending repairs since we're giving up
-                cursor.execute("""
-                    UPDATE pending_repairs 
-                    SET status = 'failed', resolved_at = ?
-                    WHERE session_id = ? AND prompt_key = ? AND status = 'pending'
-                """, (datetime.now(), session_id, clean_key))
-            
-                conn.commit()
-                logger.warning(f"🚫 Simulation marked broken (session {session_id[:16]}...): '{clean_key[:40]}...' at step {step_index}")
-            except Exception as e:
-                logger.error(f"Failed to mark simulation broken: {e}")
-    
-    def clear_broken_status(self, prompt: str, get_hash_callback=None) -> bool:
+    def clear_broken_status(self, prompt: str, difficulty: str = "medium") -> bool:
         """
         Clear the broken status for a simulation (admin function).
         Use if the simulation has been fixed and should be re-cached.
         
         Args:
             prompt: The prompt to clear
-            get_hash_callback: Callback to get prompt hash
+            difficulty: The difficulty level
             
         Returns:
             True if status was cleared, False otherwise
         """
-        if not get_hash_callback:
+        if not difficulty:
             return False
             
-        prompt_hash = get_hash_callback(prompt)
+        prompt_hash = hashlib.sha256(prompt.strip().lower().encode()).hexdigest()
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ?", (prompt_hash,))
+            cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ? AND difficulty = ?", (prompt_hash, difficulty))
             deleted = cursor.rowcount > 0
             if deleted:
                 logger.info(f"✅ Broken status cleared for: '{prompt[:40]}...'")

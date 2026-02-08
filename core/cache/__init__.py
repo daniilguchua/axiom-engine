@@ -82,20 +82,16 @@ class CacheManager:
     
     def get_cached_simulation(
         self, 
-        user_prompt: str,
-        difficulty: str = "engineer",
-        require_complete: bool = True,
-        require_verified: bool = False
+        prompt_key: str,
+        difficulty: str = "engineer"
     ) -> Optional[Dict[str, Any]]:
         """
         Retrieve a cached simulation using semantic similarity.
         Delegates to SemanticCache module.
         """
         return self.semantic_cache.get_cached_simulation(
-            user_prompt=user_prompt,
+            prompt_key=prompt_key,
             difficulty=difficulty,
-            require_complete=require_complete,
-            require_verified=require_verified,
             is_broken_callback=self._is_simulation_broken
         )
     
@@ -131,36 +127,22 @@ class CacheManager:
     # REPAIR TRACKING OPERATIONS
     # =========================================================================
     
-    def _is_simulation_broken(self, prompt: str, max_age_hours: int = 24) -> bool:
-        """Check if a simulation is marked as broken."""
-        return self.repair_tracker.is_simulation_broken(
-            prompt=prompt,
-            max_age_hours=max_age_hours,
-            get_hash_callback=self._get_prompt_hash
-        )
+    def _is_simulation_broken(self, prompt: str, difficulty: str) -> bool:
+        """Check if simulation is marked broken."""
+        return self.repair_tracker.is_simulation_broken(prompt, difficulty)
     
     def mark_simulation_broken(
         self,
-        session_id: str,
-        prompt_key: str,
-        step_index: int,
-        failure_reason: str = "Render failure after all repair attempts"
-    ) -> None:
-        """Mark a simulation as broken."""
-        self.repair_tracker.mark_simulation_broken(
-            session_id=session_id,
-            prompt_key=prompt_key,
-            step_index=step_index,
-            failure_reason=failure_reason,
-            get_hash_callback=self._get_prompt_hash
-        )
+        prompt: str,
+        difficulty: str,
+        reason: str = ""
+    ) -> bool:
+        """Mark simulation as broken."""
+        return self.repair_tracker.mark_simulation_broken(prompt, difficulty, reason)
     
-    def clear_broken_status(self, prompt: str) -> bool:
-        """Clear the broken status for a simulation."""
-        return self.repair_tracker.clear_broken_status(
-            prompt=prompt,
-            get_hash_callback=self._get_prompt_hash
-        )
+    def clear_broken_status(self, prompt: str, difficulty: str) -> bool:
+        """Clear broken status."""
+        return self.repair_tracker.clear_broken_status(prompt, difficulty)
     
     def mark_repair_pending(
         self,
