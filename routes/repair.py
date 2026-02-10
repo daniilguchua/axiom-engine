@@ -260,10 +260,11 @@ def repair_failed():
                 break
     
     # Mark as permanently failed
+    difficulty = user_db.get("original_difficulty", "engineer")
     cache_manager.mark_simulation_broken(
-        session_id=session_id,
-        prompt_key=original_prompt,
-        step_index=step_index
+        prompt=original_prompt,
+        difficulty=difficulty,
+        reason=f"Failed at step {step_index}"
     )
     
     logger.warning(f"âŒ Simulation marked broken at step {step_index}: '{original_prompt[:40]}...'")

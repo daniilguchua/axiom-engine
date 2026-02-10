@@ -134,6 +134,75 @@
                         console.log(`  ✓ JSON repaired (changed: ${beforeRepair.length} → ${cleanJson.length} chars)`);
                     }
 
+                    // Step 2.5: Strip leading/trailing non-JSON content
+                    console.log("✂️ STEP 2.5: Strip leading/trailing non-JSON content");
+                    const firstBrace = cleanJson.indexOf('{');
+                    
+                    console.log(`  First '{' at position: ${firstBrace}`);
+                    console.log(`  Total length: ${cleanJson.length}`);
+                    
+                    // Find the matching closing brace by counting braces, not just using lastIndexOf
+                    // This prevents finding braces inside trailing HTML comments or text
+                    let lastBrace = -1;
+                    if (firstBrace !== -1) {
+                        let braceCount = 0;
+                        let inString = false;
+                        let escapeNext = false;
+                        
+                        for (let i = firstBrace; i < cleanJson.length; i++) {
+                            const char = cleanJson[i];
+                            
+                            if (escapeNext) {
+                                escapeNext = false;
+                                continue;
+                            }
+                            
+                            if (char === '\\') {
+                                escapeNext = true;
+                                continue;
+                            }
+                            
+                            if (char === '"') {
+                                inString = !inString;
+                                continue;
+                            }
+                            
+                            if (!inString) {
+                                if (char === '{') {
+                                    braceCount++;
+                                } else if (char === '}') {
+                                    braceCount--;
+                                    if (braceCount === 0) {
+                                        lastBrace = i;
+                                        break; // Found the matching closing brace
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    console.log(`  Last '}' (matched) at position: ${lastBrace}`);
+                    
+                    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                        const leading = cleanJson.substring(0, firstBrace).trim();
+                        const trailing = cleanJson.substring(lastBrace + 1).trim();
+                        
+                        if (leading) {
+                            console.warn(`  ⚠️ Truncating leading content: "${leading.substring(0, 100)}${leading.length > 100 ? '...' : ''}"`);
+                        }
+                        if (trailing) {
+                            console.warn(`  ⚠️ Truncating trailing content: "${trailing.substring(0, 100)}${trailing.length > 100 ? '...' : ''}"`);
+                        }
+                        
+                        if (leading || trailing) {
+                            cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
+                            console.log(`  ✓ Extracted JSON from position ${firstBrace} to ${lastBrace + 1}`);
+                        }
+                    } else {
+                        console.error(`  ❌ Could not find valid JSON boundaries! This may indicate incomplete/malformed response.`);
+                        console.log(`  Last 200 chars: ${cleanJson.substring(Math.max(0, cleanJson.length - 200))}`);
+                    }
+
                     // Step 3: Try parsing DIRECTLY first (works for cached/properly-encoded JSON)
                     console.log("🔍 STEP 3: Attempt JSON.parse() directly");
                     try {
@@ -307,7 +376,18 @@
                     
                 } catch (jsonErr) {
                     console.error("❌ JSON Processing Failed:", jsonErr.message);
+                    console.log("Raw text length:", fullText.length);
                     console.log("Raw text (first 500 chars):", fullText.substring(0, 500));
+                    console.log("Raw text (last 500 chars):", fullText.substring(Math.max(0, fullText.length - 500)));
+                    
+                    // Try to identify what's at the error position
+                    const posMatch = jsonErr.message.match(/position\s+(\d+)/i);
+                    if (posMatch) {
+                        const errorPos = parseInt(posMatch[1]);
+                        console.log(`Error at position ${errorPos}:`);
+                        console.log("  Context around error:", fullText.substring(Math.max(0, errorPos - 50), Math.min(fullText.length, errorPos + 100)));
+                        console.log("  Character at position:", JSON.stringify(fullText.charAt(errorPos)));
+                    }
                     
                     // Show error to user
                     targetElement.innerHTML = `

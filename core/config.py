@@ -11,7 +11,7 @@ import google.generativeai as genai
 
 from core.utils import get_api_key
 from core.session import SessionManager
-from core.cache import CacheManager
+from core.cache import CacheManager, DB_PATH
 
 # ============================================================================
 # LOGGING CONFIGURATION
@@ -55,7 +55,7 @@ def init_managers():
     """Initialize the session and cache managers. Call once at startup."""
     global session_manager, cache_manager
     session_manager = SessionManager(ttl_minutes=60)
-    cache_manager = CacheManager()
+    cache_manager = CacheManager(db_path=DB_PATH)
     logger.info("✅ Managers initialized")
 
 def get_session_manager() -> SessionManager:

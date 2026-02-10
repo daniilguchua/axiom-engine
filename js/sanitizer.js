@@ -34,6 +34,12 @@
         // Force LR layout - catch all variants (AGGRESSIVE)
         clean = clean.replace(/(graph|flowchart)\s+(TD|TB|BT|RL)\b/gi, "$1 LR");
         clean = clean.replace(/\b(TD|TB|BT|RL)\b(?=\s*[;\n])/gi, "LR");
+        
+        // Ensure LR direction exists - add if missing
+        if (!/flowchart\s+LR|graph\s+LR/i.test(clean)) {
+            clean = clean.replace(/^(flowchart|graph)\b/i, "$1 LR");
+            console.log("  ✓ Added missing LR direction");
+        }
 
         // Convert escaped newlines to real newlines
         const beforeNewlineConvert = clean;
@@ -53,6 +59,24 @@
 
         // Normalize quotes
         clean = clean.replace(/[""]/g, '"').replace(/['']/g, "'");
+
+        // Remove wrapper subgraphs that break LR orientation
+        // Mermaid ignores outer 'flowchart LR' when nodes are inside a subgraph
+        // Only remove subgraphs that contain ONLY node declarations (no edges)
+        const beforeSubgraphFix = clean;
+        clean = clean.replace(/subgraph\s+\w+\[[^\]]+\]\s*\n([\s\S]*?)\nend;?/gi, function(match, content) {
+            // Check if content has any edges (arrows)
+            const hasEdges = /-->|==>|---|<--|<==|o--|x--|o==/.test(content);
+            if (!hasEdges) {
+                console.log("  ✓ Removed wrapper subgraph (contains only nodes, blocks LR)");
+                return content; // Return just the node declarations without subgraph wrapper
+            }
+            return match; // Keep subgraphs that have edges (they're structural)
+        });
+        
+        if (beforeSubgraphFix !== clean) {
+            console.log("  ✓ Wrapper subgraph removal complete - LR orientation restored");
+        }
 
         // Remove markdown code block wrappers
         const beforeCodeBlock = clean;
@@ -202,6 +226,47 @@
             return nodeList.map(n => `class ${n} ${className};`).join('\n');
         });
         
+        // ═══════════════════════════════════════════════════════════════
+        // PHASE 6.5: REMOVE EMPTY EDGE LABELS
+        // ═══════════════════════════════════════════════════════════════
+        
+        console.log("🔄 PHASE 6.5: Remove empty edge labels");
+        const beforeEmptyLabels = clean;
+        
+        // Remove empty labels like -->\"|\"\"| or -->|''|
+        clean = clean.replace(/(-+>?)\|[\"\'\s]*[\"\']/g, "$1");
+        clean = clean.replace(/(<-+)\|[\"\'\s]*[\"\']/g, "$1");
+        clean = clean.replace(/([=<>-]+)\|[\"\'\s]*[\"\']/g, "$1");
+        
+        if (beforeEmptyLabels !== clean) {
+            console.log("  ✓ Removed empty edge labels");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // PHASE 6.75: REMOVE MALFORMED LINKSTYLE STATEMENTS
+        // ═══════════════════════════════════════════════════════════════
+
+        console.log("🔄 PHASE 6.75: Remove malformed linkStyle");
+        const beforeLinkStyleFix = clean;
+
+        // Remove linkStyle with corrupted unicode or invalid hex colors
+        // Valid: linkStyle 0 stroke:#FBBF24
+        // Invalid: linkStyle 0 stroke:ﬂ°FBBF24¶ß (corrupted characters)
+        clean = clean.replace(/^\s*linkStyle\s+.*[^\x00-\x7F]+.*$/gm, '');
+        console.log("  ✓ Removed linkStyle statements with unicode corruption");
+
+        // Remove linkStyle with malformed color codes (missing # or invalid chars)
+        clean = clean.replace(/^\s*linkStyle\s+\d+\s+stroke:[^#\s][^\s;]*\s*;?\s*$/gm, '');
+        console.log("  ✓ Removed linkStyle statements with invalid color codes");
+
+        // Optional: Remove ALL linkStyle statements since CSS handles edge styling
+        clean = clean.replace(/^\s*linkStyle\s+.*$/gm, '');
+        console.log("  ✓ Removed all linkStyle statements (CSS handles edge styling)");
+
+        if (beforeLinkStyleFix !== clean) {
+            console.log("  ✓ LinkStyle cleanup complete");
+        }
+
         // ═══════════════════════════════════════════════════════════════
         // PHASE 7: FIX CSS-LIKE PROPERTIES
         // ═══════════════════════════════════════════════════════════════

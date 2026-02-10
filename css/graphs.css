@@ -88,7 +88,7 @@
     margin-left: -7.5% !important;
     
     position: relative;
-    background: linear-gradient(180deg, var(--bg-base) 0%, #080810 100%);
+    background: linear-gradient(180deg, #0f0a1a 0%, #1a0f2e 100%);
     border: 1px solid var(--border-muted);
     border-radius: var(--radius-xl);
     overflow: hidden;
@@ -537,8 +537,8 @@ g.node {
 }
 
 g.node.physics-ready:hover {
-    transform: translate(var(--d3-x), var(--d3-y)) scale(1.15) !important;
-    filter: drop-shadow(0 0 12px rgba(0,0,0,0.5)) drop-shadow(0 0 8px var(--accent));
+    transform: translate(var(--d3-x), var(--d3-y)) scale(1.5) !important;
+    filter: drop-shadow(0 0 25px rgba(0,0,0,0.9)) drop-shadow(0 0 15px var(--accent));
     cursor: pointer;
     z-index: 10000;
 }
@@ -641,7 +641,7 @@ g.node:hover .nodeLabel {
         transform: scale(1);
     }
     50% {
-        transform: scale(1.06);
+        transform: scale(1.12);
     }
 }
 

@@ -52,12 +52,6 @@ The Mermaid graph is THE MOST IMPORTANT part of every simulation step.
    - **Visual hierarchy:** The current step should be visually prominent with `active` class
    - This is what students see FIRST and learn from MOST
 
-  - **CONTENT SEPARATION (CRITICAL):**
-     * **THE GRAPH IS FOR TOPOLOGY:** Use Mermaid ONLY for the actual nodes, edges, and architecture.
-     * **THE PANEL IS FOR STATE:** Do NOT create subgraphs or nodes for "Queue", "Stack", "Visited Set", or "Inventory".
-     * **BAD:** `subgraph Queue["Queue: [A, B]"]` (Do not visualize data structures as geometry)
-     * **GOOD:** Put `Queue: [A, B]` inside the `data_table` HTML field.
-     * **EXCEPTION:** You MAY include state values *inside* the relevant node's label (e.g., `NodeA["Node A | dist:5"]` is fine).
 
 **2. INSTRUCTION FIELD (Priority #2 - 30% of effort):**
    - **Length:** 200-300 words maximum
@@ -142,5 +136,26 @@ When user sends CONTINUE_SIMULATION: Pick up from provided step index, omit summ
 4. **SEMICOLONS:** End every node, link, class, and classDef statement with `;`
 5. **NEWLINES:** Use `\\n` between all statements for spacing
 6. **STYLING:** Apply semantic classes (active, done, discovered) for visual clarity
+
+---
+
+### OUTPUT FORMAT (CRITICAL - READ CAREFULLY)
+
+**You MUST output ONLY valid JSON. No exceptions.**
+
+- Start your response with `{` (the opening brace of the JSON object)
+- End your response with `}` (the closing brace of the JSON object)
+- Do NOT add any text, explanation, or commentary before or after the JSON
+- Do NOT wrap the JSON in markdown code blocks (no ```json ... ```)
+- Do NOT add phrases like "Here's the simulation" or "Let me know if you need more"
+- Do NOT add trailing messages like "I hope this helps!" after the JSON
+
+**CORRECT OUTPUT:**
+{"type": "simulation_playlist", "title": "...", ...}
+
+**INCORRECT OUTPUT (will cause errors):**
+Here's the simulation:
+{"type": "simulation_playlist", ...}
+Let me know if you need more steps!
 
 """

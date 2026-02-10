@@ -61,6 +61,8 @@ class CacheManager:
     
     def __init__(self, db_path=None):
         """Initialize all cache subsystems."""
+        if db_path is None:
+            db_path = DB_PATH
         self.database = CacheDatabase(db_path)
         self.semantic_cache = SemanticCache(self.database)
         self.repair_tracker = RepairTracker(self.database)
@@ -91,8 +93,7 @@ class CacheManager:
         """
         return self.semantic_cache.get_cached_simulation(
             prompt_key=prompt_key,
-            difficulty=difficulty,
-            is_broken_callback=self._is_simulation_broken
+            difficulty=difficulty
         )
     
     def save_simulation(
@@ -108,15 +109,17 @@ class CacheManager:
         Save a simulation to cache.
         Delegates to SemanticCache module.
         """
+        # Check if broken before saving
+        if self._is_simulation_broken(prompt, difficulty):
+            logger.info(f"Skipping cache save for broken simulation: {prompt[:40]}...")
+            return False
+        
         return self.semantic_cache.save_simulation(
             prompt=prompt,
             playlist_data=playlist_data,
             difficulty=difficulty,
             is_final_complete=is_final_complete,
-            client_verified=client_verified,
-            session_id=session_id,
-            is_broken_callback=self._is_simulation_broken,
-            clear_broken_callback=self.clear_broken_status
+            client_verified=client_verified
         )
     
     def _get_prompt_hash(self, prompt: str) -> str:

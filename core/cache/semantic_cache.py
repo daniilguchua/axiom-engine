@@ -31,65 +31,78 @@ class SemanticCache:
             database: CacheDatabase instance for DB operations
         """
         self.db = database
+        logger.info("📦 SemanticCache initialized")
     
     def get_cached_simulation(self, prompt_key: str, difficulty: str) -> Optional[Dict]:
         """Retrieve cached simulation by prompt_key and difficulty."""
         try:
-            cursor = self.db.get_connection().cursor()
-            cursor.execute(
-                """
-                SELECT simulation_json FROM simulation_cache
-                WHERE prompt_key = ? AND difficulty = ?
-                ORDER BY created_at DESC LIMIT 1
-                """,
-                (prompt_key, difficulty)
-            )
-            result = cursor.fetchone()
-            if result:
-                return json.loads(result[0])
-            return None
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT simulation_json FROM simulation_cache
+                    WHERE prompt_key = ? AND difficulty = ?
+                    ORDER BY created_at DESC LIMIT 1
+                    """,
+                    (prompt_key, difficulty)
+                )
+                result = cursor.fetchone()
+                if result:
+                    logger.info(f"✅ Cache hit for '{prompt_key[:40]}...' (difficulty={difficulty})")
+                    return json.loads(result[0])
+                logger.info(f"❌ Cache miss for '{prompt_key[:40]}...' (difficulty={difficulty})")
+                return None
         except Exception as e:
-            print(f"Cache retrieval error: {e}")
+            logger.error(f"Cache retrieval error: {e}")
             return None
     
-    def save_simulation(self, prompt_key: str, difficulty: str, simulation: Dict) -> bool:
-        """Save simulation to cache if not marked as broken."""
-        if not simulation.get("is_final_complete"):
-            return False
-        
-        # Check if broken
-        if self.is_broken_callback and self.is_broken_callback(prompt_key, difficulty):
+    def save_simulation(
+        self,
+        prompt: str,
+        playlist_data: Dict,
+        difficulty: str,
+        is_final_complete: bool,
+        client_verified: bool = False
+    ) -> bool:
+        """Save simulation to cache with proper validation."""
+        if not is_final_complete:
+            logger.info(f"Skipping cache save - simulation not final complete")
             return False
         
         try:
-            cursor = self.db.get_connection().cursor()
-            simulation_json = json.dumps(simulation)
+            prompt_key = self.get_prompt_hash(prompt)
+            simulation_json = json.dumps(playlist_data)
             
-            # Check for existing client-verified entry
-            cursor.execute(
-                """
-                SELECT id FROM simulation_cache
-                WHERE prompt_key = ? AND difficulty = ? AND client_verified = 1
-                """,
-                (prompt_key, difficulty)
-            )
-            if cursor.fetchone():
-                return False
-            
-            cursor.execute(
-                """
-                INSERT INTO simulation_cache (prompt_key, difficulty, simulation_json, client_verified)
-                VALUES (?, ?, ?, 0)
-                ON CONFLICT(prompt_key, difficulty) DO UPDATE SET
-                    simulation_json = excluded.simulation_json,
-                    created_at = CURRENT_TIMESTAMP
-                """,
-                (prompt_key, difficulty, simulation_json)
-            )
-            self.db.get_connection().commit()
-            return True
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Check for existing client-verified entry
+                cursor.execute(
+                    """
+                    SELECT id FROM simulation_cache
+                    WHERE prompt_key = ? AND difficulty = ? AND client_verified = 1
+                    """,
+                    (prompt_key, difficulty)
+                )
+                if cursor.fetchone():
+                    logger.info(f"Skipping save - client-verified entry exists")
+                    return False
+                
+                cursor.execute(
+                    """
+                    INSERT INTO simulation_cache (prompt_key, difficulty, simulation_json, client_verified)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(prompt_key, difficulty) DO UPDATE SET
+                        simulation_json = excluded.simulation_json,
+                        client_verified = excluded.client_verified,
+                        created_at = CURRENT_TIMESTAMP
+                    """,
+                    (prompt_key, difficulty, simulation_json, 1 if client_verified else 0)
+                )
+                logger.info(f"✅ Cached simulation: '{prompt[:40]}...' (difficulty={difficulty}, verified={client_verified})")
+                return True
         except Exception as e:
-            print(f"Cache save error: {e}")
+            logger.error(f"Cache save error: {e}")
             return False
     
     def _update_access_metrics(self, prompt_key: str) -> None:

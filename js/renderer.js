@@ -135,6 +135,20 @@
             }
         }
 
+        // Send sanitized graph back to backend for use in continuations
+        // CRITICAL: Always send, even if repaired - we want the working version
+        if (simId && stepIndex !== null) {
+            fetch(`${AXIOM.API_URL}/update-sanitized-graph`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: AXIOM.currentSessionId,
+                    step_index: stepIndex,
+                    sanitized_mermaid: code
+                })
+            }).catch(e => console.warn('[SANITIZE] Failed to send sanitized graph to backend:', e));
+        }
+        
         // Log for ML training
         AXIOM.api.logGraphToServer(code, simId, stepIndex, wasRepaired);
 
@@ -143,6 +157,7 @@
         if (svg) {
             console.log(`🎨 Attaching interactions to SVG`);
             AXIOM.interactions.setupZoomPan(wrapper, graphDiv);
+            console.log(`📍 Setting up node click handlers (${svg.querySelectorAll('.node').length} nodes found)`);
             AXIOM.interactions.setupNodeClicks(svg, wrapper);
             AXIOM.interactions.attachNodePhysics(wrapper);
         } else {

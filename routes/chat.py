@@ -272,9 +272,7 @@ def chat():
         if not cache_manager.has_pending_repair(session_id, cache_key):
             cached_data = cache_manager.get_cached_simulation(
                 cache_key,
-                difficulty=difficulty,  # Filter by difficulty
-                require_complete=True,
-                require_verified=True
+                difficulty=difficulty  # Filter by difficulty
             )
             
             if cached_data:
@@ -367,12 +365,22 @@ You are an Expert Engine. You know how {user_msg} works.
     elif mode == "CONTINUE_SIMULATION":
         expect_json = True
         last_context = "Start of simulation."
-        last_mermaid = ""
+        graph_progression = ""
         
         if user_db["current_sim_data"]:
             last = user_db["current_sim_data"][-1]
-            last_mermaid = last.get('mermaid', '')
             last_context = f"LAST STEP DATA: {last.get('data_table')}\nLAST LOGIC: {last.get('instruction')}"
+            
+            # Include last 3 graphs for pattern recognition (use sanitized versions if available)
+            recent_steps = user_db["current_sim_data"][-3:]
+            if len(recent_steps) >= 3:
+                graph_progression = "\n".join([
+                    f"**STEP {step.get('step', '?')} GRAPH:**\n```mermaid\n{step.get('mermaid_sanitized', step.get('mermaid', ''))}\n```"
+                    for step in recent_steps
+                ])
+            elif len(recent_steps) >= 1:
+                # Fallback if fewer than 3 steps exist
+                graph_progression = f"**PREVIOUS GRAPH:**\n```mermaid\n{recent_steps[-1].get('mermaid_sanitized', recent_steps[-1].get('mermaid', ''))}\n```"
         
         step_count = len(user_db["current_sim_data"])
         
@@ -380,7 +388,7 @@ You are an Expert Engine. You know how {user_msg} works.
         analysis_history = ""
         if user_db["current_sim_data"]:
             recent_analyses = []
-            for step in user_db["current_sim_data"][-6:]:
+            for step in user_db["current_sim_data"][-10:]:
                 sa = step.get('step_analysis', {})
                 if sa:
                     recent_analyses.append({
@@ -407,31 +415,55 @@ You are an Expert Engine. You know how {user_msg} works.
             "architect": "Include hardware context, tensor shapes, and scaling analysis."
         }
         
+        # Include original simulation request for context preservation
+        original_prompt_reminder = ""
+        if user_db.get("original_prompt"):
+            original_prompt_reminder = f"\n**ORIGINAL TASK:** {user_db['original_prompt']}\n"
+        
         final_system_instruction = f"""
 {SYSTEM_PROMPT}
 
 **MODE: CONTINUATION (JSON ONLY)**
 **TASK:** Resume the simulation from the Context below.
 **STYLE REMINDER:** {continuation_style.get(difficulty, '')}
+{original_prompt_reminder}
 {input_reminder}
 {analysis_history}
-**CRITICAL GRAPH INSTRUCTION:**
-Below is the MERMAID code from the previous step. You **MUST** use this exact code as your base template.
-1. **COPY** the Previous Graph structure (Nodes, Subgraphs, Styling).
-2. **MODIFY** only what has changed (Update text values, move arrows, highlight new active nodes).
-3. **DO NOT** reinvent the layout. Keep node IDs consistent.
 
-**PREVIOUS GRAPH TO ITERATE ON:**
-```mermaid
-{last_mermaid}
-```
+**CRITICAL INSTRUCTIONS FOR CONTINUATION:**
+
+1. **EXAMINE THE PROGRESSION BELOW** - These are the last 3 steps showing how the algorithm has evolved:
+
+{graph_progression}
+
+2. **YOUR TASK - GENERATE THE NEXT 3 NEW STEPS:**
+   - You will create Steps {step_count}, {step_count + 1}, and {step_count + 2}
+   - These are BRAND NEW steps that continue the algorithm forward
+   - Each step MUST show DIFFERENT state than all previous steps
+   - DO NOT regenerate or copy Step {step_count - 1} (the last step shown above)
+
+3. **HOW TO EVOLVE THE GRAPH:**
+   - Keep the same node IDs (if previous graphs use H1, H2... keep those exact IDs)
+   - UPDATE node labels to show new values (e.g., "H1 | z:0.8" → "H1 | z:0.9")
+   - MOVE the 'active' class to the next node being processed
+   - CHANGE edge styling if relationships evolve
+   - NO RUNTIME SUBGRAPHS - put Call Stack/Queue data in data_table HTML field
+
+4. **ALGORITHM MUST PROGRESS:**
+   - If last step processed Node A, next step processes Node B or a different phase
+   - If last step was "iteration 1", next step is "iteration 2" or "phase complete"
+   - Each of your 3 steps should show measurable forward progress
+   - FORBIDDEN: Outputting the same graph state 3 times with no changes
 
 **CONTEXT:** {last_context}
 
 **REQUIREMENTS:**
-1. Generate the NEXT 2 steps (Steps {step_count} and {step_count + 1}).
+1. **MANDATORY: Output EXACTLY 3 steps in your JSON array.**
+   Format: `[{{"step": {step_count}, ...}}, {{"step": {step_count + 1}, ...}}, {{"step": {step_count + 2}, ...}}]`
+   NOT 1 step. NOT 2 steps. EXACTLY 3 complete steps with different states.
 2. Maintain the depth and style of the {difficulty.upper()} mode.
-3. **FORMAT:** Output strictly the JSON 'steps' array. Do NOT output a 'summary' field.
+3. **ENDING CRITERIA:** Set `is_final: true` when algorithm reaches natural termination (array sorted, goal found, queue empty, all nodes visited). Target 8-12 total steps for engineer difficulty. Current step count: {step_count}.
+4. **FORMAT:** Output strictly the JSON 'steps' array. Do NOT output a 'summary' field.
 """
         
     elif mode == "CONTEXTUAL_QA":
@@ -476,7 +508,7 @@ Match the {difficulty.upper()} mode style in your response.
     # so using the raw frontend message would be redundant and bloats the prompt.
     if mode == "CONTINUE_SIMULATION":
         step_count_for_prompt = len(user_db["current_sim_data"])
-        user_msg_for_prompt = f"CONTINUE_SIMULATION from step {step_count_for_prompt}. Generate the next 2 steps as a JSON steps array."
+        user_msg_for_prompt = f"CONTINUE_SIMULATION from step {step_count_for_prompt}. Generate the next 3 steps as a JSON steps array."
     else:
         user_msg_for_prompt = user_msg
 
@@ -493,8 +525,13 @@ Match the {difficulty.upper()} mode style in your response.
     # =========================================================================
     
     def generate():
-        # Temperature per difficulty: explorer is more creative, architect is precise
-        temp_map = {"explorer": 0.55, "engineer": 0.4, "architect": 0.3}
+        # Temperature per difficulty: higher for continuations to prevent repetition
+        # Continuations need more creativity to avoid copying previous steps
+        if mode == "CONTINUE_SIMULATION":
+            temp_map = {"explorer": 0.7, "engineer": 0.6, "architect": 0.5}
+        else:
+            temp_map = {"explorer": 0.55, "engineer": 0.4, "architect": 0.3}
+        
         config = {
             "temperature": temp_map.get(difficulty, 0.4),
             "max_output_tokens": 14000,
@@ -563,6 +600,15 @@ Match the {difficulty.upper()} mode style in your response.
                     new_steps = data_obj["steps"]
                 elif isinstance(data_obj, list):
                     new_steps = data_obj
+                
+                # DEBUG: Log how many steps were generated and their step numbers
+                logger.info(f"🔢 LLM generated {len(new_steps)} step(s). Mode: {mode}")
+                if new_steps:
+                    step_numbers = [s.get('step', '?') for s in new_steps]
+                    logger.info(f"📊 Step numbers in response: {step_numbers}")
+                    if len(new_steps) == 1 and mode == "CONTINUE_SIMULATION":
+                        logger.warning(f"⚠️ Only 1 step generated for continuation (expected 3)")
+                        logger.warning(f"   Step number: {step_numbers[0]}, Expected to start at: {len(user_db.get('current_sim_data', []))}")
                 
                 if new_steps:
                     # GHOST DEBUG: Capture raw mermaid for testing (non-blocking)
@@ -639,6 +685,37 @@ Match the {difficulty.upper()} mode style in your response.
                 yield f"\n<!--AXIOM_INPUT_DATA:{json.dumps(stored)}-->"
     
     return Response(generate(), mimetype='text/plain')
+
+
+@chat_bp.route('/update-sanitized-graph', methods=['POST'])
+@validate_session
+def update_sanitized_graph():
+    """Store the sanitized Mermaid graph from frontend after successful render.
+    
+    This ensures continuations use working graphs instead of raw LLM output.
+    """
+    data = request.get_json()
+    session_id = g.session_id
+    step_index = data.get('step_index')
+    sanitized_code = data.get('sanitized_mermaid')
+    
+    if step_index is None or not sanitized_code:
+        return jsonify({"error": "Missing step_index or sanitized_mermaid"}), 400
+    
+    session_manager = get_session_manager()
+    user_db = session_manager.get_session(session_id)
+    
+    if not user_db or not user_db.get('current_sim_data'):
+        return jsonify({"error": "No simulation data found"}), 400
+    
+    if step_index >= len(user_db['current_sim_data']):
+        return jsonify({"error": "Invalid step_index"}), 400
+    
+    # Store sanitized version alongside raw LLM output
+    user_db['current_sim_data'][step_index]['mermaid_sanitized'] = sanitized_code
+    logger.debug(f"✅ Stored sanitized graph for step {step_index} ({len(sanitized_code)} chars)")
+    
+    return jsonify({"success": True})
 
 
 @chat_bp.route('/difficulty-info', methods=['GET'])
