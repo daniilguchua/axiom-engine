@@ -5,6 +5,37 @@
    ========================================= */
 
 /* =========================================
+   GRAPH SIZING & RESPONSIVE PADDING VARIABLES
+   ========================================= */
+:root {
+    /* Response/mobile-first defaults */
+    --graph-side-padding: 16px;
+    --graph-min-height: 400px;
+    --graph-max-height: 80vh;
+    --graph-top-margin: 16px;
+    --graph-bottom-margin: 16px;
+    --graph-internal-padding: 12px;
+}
+
+/* Tablet and up */
+@media (min-width: 768px) {
+    :root {
+        --graph-side-padding: 24px;
+        --graph-top-margin: 18px;
+        --graph-bottom-margin: 18px;
+    }
+}
+
+/* Desktop and up */
+@media (min-width: 1024px) {
+    :root {
+        --graph-side-padding: 32px;
+        --graph-top-margin: 20px;
+        --graph-bottom-margin: 20px;
+    }
+}
+
+/* =========================================
    1. SIMULATION CONTROLS
    ========================================= */
 .simulation-container {
@@ -83,17 +114,19 @@
    2. CINEMATIC GRAPH FRAME
    ========================================= */
 .graph-frame {
-    /* THE BREAKOUT */
-    width: 115% !important;
-    margin-left: -7.5% !important;
+    /* THE BREAKOUT: 115% + responsive side padding */
+    width: calc(115% + (var(--graph-side-padding) * 2)) !important;
+    margin-left: calc(-7.5% - var(--graph-side-padding)) !important;
+    padding-left: var(--graph-side-padding);
+    padding-right: var(--graph-side-padding);
     
     position: relative;
     background: linear-gradient(180deg, #0f0a1a 0%, #1a0f2e 100%);
     border: 1px solid var(--border-muted);
     border-radius: var(--radius-xl);
     overflow: hidden;
-    margin-top: 24px;
-    margin-bottom: 20px;
+    margin-top: var(--graph-top-margin);
+    margin-bottom: var(--graph-bottom-margin);
     z-index: 100;
     
     box-shadow: 
@@ -117,12 +150,14 @@
 /* CRITICAL: "Perfect Fit" alignment container - works with JS */
 .mermaid-wrapper {
     width: 100% !important;
-    height: 600px !important;
+    height: clamp(var(--graph-min-height), 60vh, var(--graph-max-height)) !important;
     position: relative;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: transparent !important;
     border: none !important;
     margin-top: 0 !important;
+    padding: var(--graph-internal-padding);
+    box-sizing: border-box;
     cursor: grab;
     /* Removed flex centering - JS handles positioning */
 }

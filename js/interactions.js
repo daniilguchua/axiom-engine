@@ -79,8 +79,8 @@
                         svg: `${svgWidth}x${svgHeight}`
                     });
 
-                    // Calculate scale to fit with padding
-                    const padding = 40;
+                    // Calculate scale to fit with padding (matches CSS responsive padding: 16px-32px)
+                    const padding = 32;
                     const availWidth = wrapperRect.width - (padding * 2);
                     const availHeight = wrapperRect.height - (padding * 2);
 
