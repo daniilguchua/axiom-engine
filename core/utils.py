@@ -151,7 +151,7 @@ def build_vector_index(
     try:
         api_key = get_api_key()
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
+            model="models/gemini-embedding-001",
             google_api_key=api_key
         )
         
@@ -193,9 +193,10 @@ def get_text_embedding(text: str) -> Optional[List[float]]:
     try:
         api_key = get_api_key()
         genai.configure(api_key=api_key)
+
         
         result = genai.embed_content(
-            model="models/embedding-001",
+            model="models/gemini-embedding-001",
             content=text,
             task_type="retrieval_query"
         )

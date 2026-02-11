@@ -41,22 +41,17 @@ def real_test_db(temp_db_path):
     conn.execute("PRAGMA journal_mode=WAL")
     cursor = conn.cursor()
     
-    # Create cache schema (matching core/cache.py - using correct table names)
+    # Create cache schema (matching production - core/cache/database.py)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS simulation_cache (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            prompt_key TEXT UNIQUE,
+            prompt_key TEXT NOT NULL,
             embedding TEXT,
-            playlist_json TEXT,
-            status TEXT DEFAULT 'complete',
-            step_count INTEGER DEFAULT 0,
-            is_final_complete BOOLEAN DEFAULT 0,
-            created_at TIMESTAMP,
-            last_accessed TIMESTAMP,
-            access_count INTEGER DEFAULT 0,
-            avg_rating REAL,
-            client_verified BOOLEAN DEFAULT 0,
-            difficulty TEXT DEFAULT 'engineer'
+            difficulty TEXT NOT NULL DEFAULT 'engineer',
+            simulation_json TEXT NOT NULL DEFAULT '{}',
+            client_verified INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(prompt_key, difficulty)
         )
     """)
     
@@ -110,13 +105,14 @@ def real_test_db(temp_db_path):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS broken_simulations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT,
-            prompt_key TEXT,
-            prompt_hash TEXT,
-            failed_step_index INTEGER,
+            prompt_hash TEXT NOT NULL,
+            difficulty TEXT NOT NULL,
             failure_reason TEXT,
-            created_at TIMESTAMP,
-            UNIQUE(prompt_hash)
+            failed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            retry_count INTEGER DEFAULT 1,
+            last_retry_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_permanently_broken INTEGER DEFAULT 0,
+            UNIQUE(prompt_hash, difficulty)
         )
     """)
     

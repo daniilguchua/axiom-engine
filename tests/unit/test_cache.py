@@ -40,8 +40,10 @@ class TestCacheManagerSetup:
         tables = {row[0] for row in cursor.fetchall()}
         
         assert "simulation_cache" in tables
+        assert "broken_simulations" in tables
         assert "repair_logs" in tables
         assert "repair_attempts" in tables
+        assert "pending_repairs" in tables
         conn.close()
 
 
@@ -70,23 +72,21 @@ class TestSemanticSearch:
                 playlist_data = {"steps": [{"code": "graph LR\n  A --> B"}]}
                 cursor.execute("""
                     INSERT INTO simulation_cache 
-                    (prompt_key, embedding, playlist_json, status, difficulty, is_final_complete)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (prompt_key, embedding, simulation_json, difficulty, client_verified)
+                    VALUES (?, ?, ?, ?, ?)
                 """, (
                     "cached-prompt",
                     json.dumps(db_embedding),
                     json.dumps(playlist_data),
-                    "complete",
                     "engineer",
                     1
                 ))
         
-        # Query should find it
-        with patch("core.cache.cosine_similarity", return_value=0.95):
+        # Query should find it via semantic similarity
+        with patch("core.cache.semantic_cache.cosine_similarity", return_value=0.95):
                 result = manager.get_cached_simulation(
                     "similar prompt",
-                    difficulty="engineer",
-                    require_complete=True
+                    difficulty="engineer"
                 )
         
         assert result is not None
@@ -105,19 +105,18 @@ class TestSemanticSearch:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO simulation_cache 
-                    (prompt_key, embedding, playlist_json, status, difficulty, is_final_complete)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (prompt_key, embedding, simulation_json, difficulty, client_verified)
+                    VALUES (?, ?, ?, ?, ?)
                 """, (
                     "cached-prompt",
                     json.dumps([0.0, 1.0, 0.0]),  # Orthogonal
                     json.dumps({"steps": []}),
-                    "complete",
                     "engineer",
                     1
                 ))
         
         # Query with low similarity should miss
-        with patch("core.cache.cosine_similarity", return_value=0.5):
+        with patch("core.cache.semantic_cache.cosine_similarity", return_value=0.5):
                 result = manager.get_cached_simulation(
                     "different prompt",
                     difficulty="engineer"
@@ -139,97 +138,90 @@ class TestSemanticSearch:
                 for difficulty in ["explorer", "engineer", "architect"]:
                     cursor.execute("""
                         INSERT INTO simulation_cache 
-                        (prompt_key, embedding, playlist_json, status, difficulty, is_final_complete)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        (prompt_key, embedding, simulation_json, difficulty, client_verified)
+                        VALUES (?, ?, ?, ?, ?)
                     """, (
                         f"prompt-{difficulty}",
                         json.dumps([1.0, 0.0, 0.0]),
                         json.dumps({"steps": []}),
-                        "complete",
                         difficulty,
                         1
                     ))
         
         # Query with specific difficulty
-        with patch("core.cache.cosine_similarity", return_value=0.95):
+        with patch("core.cache.semantic_cache.cosine_similarity", return_value=0.95):
                 result = manager.get_cached_simulation(
                     "test prompt",
-                    difficulty="explorer",
-                    require_complete=True
+                    difficulty="explorer"
                 )
         
         # Should only find explorer difficulty
-        # (This test validates the WHERE clause includes difficulty filter)
         assert result is not None
     
     @patch("core.cache.semantic_cache.get_text_embedding")
     def test_cache_requires_complete_status(self, mock_embed, temp_db_path, monkeypatch):
-        """Test that require_complete=True filters for complete status."""
+        """Test that unverified simulations are still returned (verification is optional)."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         mock_embed.return_value = [1.0, 0.0, 0.0]
         
         manager = CacheManager(db_path=temp_db_path)
         
-        # Insert partial simulation
+        # Insert an unverified simulation
         with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO simulation_cache 
-                    (prompt_key, embedding, playlist_json, status, difficulty, is_final_complete)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (prompt_key, embedding, simulation_json, difficulty, client_verified)
+                    VALUES (?, ?, ?, ?, ?)
                 """, (
                     "partial-prompt",
                     json.dumps([1.0, 0.0, 0.0]),
-                    json.dumps({"steps": []}),
-                    "partial",
+                    json.dumps({"steps": [{"code": "graph LR; A-->B"}]}),
                     "engineer",
                     0
                 ))
         
-        # Query with require_complete=True should miss
-        with patch("core.cache.cosine_similarity", return_value=0.95):
+        # Query should still find it (client_verified is not a blocker for retrieval)
+        with patch("core.cache.semantic_cache.cosine_similarity", return_value=0.95):
                 result = manager.get_cached_simulation(
                     "test prompt",
-                    difficulty="engineer",
-                    require_complete=True
+                    difficulty="engineer"
                 )
         
-        assert result is None
+        # Unverified simulations are still returned
+        assert result is not None
     
     @patch("core.cache.semantic_cache.get_text_embedding")
     def test_cache_requires_verified(self, mock_embed, temp_db_path, monkeypatch):
-        """Test that require_verified=True filters for verified status."""
+        """Test that unverified simulations with no embedding still get found via hash."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         mock_embed.return_value = [1.0, 0.0, 0.0]
         
         manager = CacheManager(db_path=temp_db_path)
         
-        # Insert unverified simulation
+        # Insert simulation without embedding (hash-only)
+        prompt_hash = manager._get_prompt_hash("test prompt")
         with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO simulation_cache 
-                    (prompt_key, embedding, playlist_json, status, difficulty, is_final_complete, client_verified)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (prompt_key, simulation_json, difficulty, client_verified)
+                    VALUES (?, ?, ?, ?)
                 """, (
-                    "unverified-prompt",
-                    json.dumps([1.0, 0.0, 0.0]),
-                    json.dumps({"steps": []}),
-                    "complete",
+                    prompt_hash,
+                    json.dumps({"steps": [{"code": "graph LR; X-->Y"}]}),
                     "engineer",
-                    1,
                     0
                 ))
         
-        # Query with require_verified=True should miss
-        with patch("core.cache.cosine_similarity", return_value=0.95):
-                result = manager.get_cached_simulation(
-                    "test prompt",
-                    difficulty="engineer",
-                    require_verified=True
-                )
+        # Exact hash match should find it even without embedding
+        result = manager.get_cached_simulation(
+            "test prompt",
+            difficulty="engineer"
+        )
         
-        assert result is None
+        assert result is not None
+        assert result["steps"][0]["code"] == "graph LR; X-->Y"
 
 
 # ============================================================================
@@ -258,16 +250,16 @@ class TestSimulationSaving:
                 playlist_data=playlist_data,
                 difficulty="engineer",
                 is_final_complete=True,
-                client_verified=True  # Required for new cache entries
+                client_verified=True
         )
         
         assert result is True
         
-        # Verify it was saved
+        # Verify it was saved with embedding
         with manager._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT COUNT(*) FROM simulation_cache WHERE status = 'verified'
+                    SELECT COUNT(*) FROM simulation_cache WHERE client_verified = 1
                 """)
                 count = cursor.fetchone()[0]
         
@@ -346,39 +338,32 @@ class TestRepairLogging:
 class TestAccessMetrics:
     """Test access tracking and metrics."""
     
-    def test_update_access_metrics(self, temp_db_path, monkeypatch):
-        """Test that access metrics are updated."""
+    @patch("core.cache.semantic_cache.get_text_embedding")
+    def test_save_and_retrieve_simulation(self, mock_embed, temp_db_path, monkeypatch):
+        """Test that a saved simulation can be retrieved."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        mock_embed.return_value = [1.0, 0.0, 0.0]
         
         manager = CacheManager(db_path=temp_db_path)
         
-        # Insert a simulation
-        with manager._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO simulation_cache 
-                    (prompt_key, playlist_json, status, difficulty, access_count)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    "test-prompt",
-                    json.dumps({"steps": []}),
-                    "complete",
-                    "engineer",
-                    1
-                ))
+        # Save a simulation
+        playlist_data = {"steps": [{"code": "graph LR; A-->B"}]}
+        manager.save_simulation(
+            prompt="test prompt for access",
+            playlist_data=playlist_data,
+            difficulty="engineer",
+            is_final_complete=True,
+            client_verified=True
+        )
         
-        # Update access metrics
-        manager._update_access_metrics("test-prompt")
+        # Retrieve it
+        result = manager.get_cached_simulation(
+            prompt="test prompt for access",
+            difficulty="engineer"
+        )
         
-        # Verify access count increased
-        with manager._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT access_count FROM simulation_cache WHERE prompt_key = 'test-prompt'
-                """)
-                count = cursor.fetchone()[0]
-        
-        assert count > 1
+        assert result is not None
+        assert result["steps"][0]["code"] == "graph LR; A-->B"
 
 
 # ============================================================================

@@ -61,22 +61,42 @@ class CacheDatabase:
         """Initialize database schema with migrations."""
         cursor = self.connection.cursor()
         
-        # Check if we need to migrate simulation_cache to composite key
+        # ---- simulation_cache: create or migrate ----
         cursor.execute("PRAGMA table_info(simulation_cache)")
         columns = [col[1] for col in cursor.fetchall()]
         
-        if 'prompt_key' in columns:
-            # Check if old UNIQUE constraint exists (single column)
+        if not columns:
+            # Fresh database - create table from scratch
+            cursor.execute("""
+                CREATE TABLE simulation_cache (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt_key TEXT NOT NULL,
+                    embedding TEXT,
+                    difficulty TEXT NOT NULL,
+                    simulation_json TEXT NOT NULL,
+                    client_verified INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(prompt_key, difficulty)
+                )
+            """)
+            logger.info("Created simulation_cache table")
+        else:
+            # Existing table - check if migration needed
+            needs_sim_migration = False
             cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='simulation_cache'")
             create_sql = cursor.fetchone()[0]
+            if 'embedding' not in columns:
+                needs_sim_migration = True
+            elif 'UNIQUE' in create_sql and '(prompt_key)' in create_sql:
+                needs_sim_migration = True
             
-            if 'UNIQUE' in create_sql and '(prompt_key)' in create_sql:
-                # Migrate to composite key
+            if needs_sim_migration:
                 cursor.execute("ALTER TABLE simulation_cache RENAME TO simulation_cache_old")
                 cursor.execute("""
                     CREATE TABLE simulation_cache (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         prompt_key TEXT NOT NULL,
+                        embedding TEXT,
                         difficulty TEXT NOT NULL,
                         simulation_json TEXT NOT NULL,
                         client_verified INTEGER DEFAULT 0,
@@ -84,32 +104,31 @@ class CacheDatabase:
                         UNIQUE(prompt_key, difficulty)
                     )
                 """)
-                cursor.execute("""
-                    INSERT INTO simulation_cache (prompt_key, difficulty, simulation_json, client_verified, created_at)
-                    SELECT prompt_key, COALESCE(difficulty, 'explorer'), simulation_json, client_verified, created_at
-                    FROM simulation_cache_old
-                """)
+                old_cols = [col[1] for col in cursor.execute("PRAGMA table_info(simulation_cache_old)").fetchall()]
+                if 'embedding' in old_cols:
+                    cursor.execute("""
+                        INSERT INTO simulation_cache (prompt_key, embedding, difficulty, simulation_json, client_verified, created_at)
+                        SELECT prompt_key, embedding, COALESCE(difficulty, 'explorer'), 
+                               COALESCE(simulation_json, playlist_json, '{}'), 
+                               COALESCE(client_verified, 0), created_at
+                        FROM simulation_cache_old
+                    """)
+                else:
+                    cursor.execute("""
+                        INSERT INTO simulation_cache (prompt_key, difficulty, simulation_json, client_verified, created_at)
+                        SELECT prompt_key, COALESCE(difficulty, 'explorer'), simulation_json, 
+                               COALESCE(client_verified, 0), created_at
+                        FROM simulation_cache_old
+                    """)
                 cursor.execute("DROP TABLE simulation_cache_old")
+                logger.info("Migrated simulation_cache with embedding column")
         
-        # Check if broken_simulations needs difficulty column and retry tracking
+        # ---- broken_simulations: create or migrate ----
         cursor.execute("PRAGMA table_info(broken_simulations)")
         columns = {col[1] for col in cursor.fetchall()}
         
-        needs_migration = False
-        if 'difficulty' not in columns:
-            needs_migration = True
-        elif 'retry_count' not in columns:
-            needs_migration = True
-        else:
-            # Check if old single-column UNIQUE exists
-            cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='broken_simulations'")
-            result = cursor.fetchone()
-            if result and 'UNIQUE(prompt_hash)' in result[0]:
-                needs_migration = True
-        
-        if needs_migration:
-            # Migrate to new schema with retry tracking
-            cursor.execute("ALTER TABLE broken_simulations RENAME TO broken_simulations_old")
+        if not columns:
+            # Fresh database - create table from scratch
             cursor.execute("""
                 CREATE TABLE broken_simulations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,21 +142,50 @@ class CacheDatabase:
                     UNIQUE(prompt_hash, difficulty)
                 )
             """)
-            cursor.execute("""
-                INSERT INTO broken_simulations 
-                (prompt_hash, difficulty, failure_reason, failed_at, retry_count, last_retry_at, is_permanently_broken)
-                SELECT 
-                    prompt_hash, 
-                    COALESCE(difficulty, 'explorer'), 
-                    failure_reason, 
-                    failed_at,
-                    1,
-                    failed_at,
-                    0
-                FROM broken_simulations_old
-            """)
-            cursor.execute("DROP TABLE broken_simulations_old")
-            logger.info("✅ Migrated broken_simulations table with retry tracking")
+            logger.info("Created broken_simulations table")
+        else:
+            # Existing table - check if migration needed
+            needs_migration = False
+            if 'difficulty' not in columns:
+                needs_migration = True
+            elif 'retry_count' not in columns:
+                needs_migration = True
+            else:
+                cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='broken_simulations'")
+                result = cursor.fetchone()
+                if result and 'UNIQUE(prompt_hash)' in result[0]:
+                    needs_migration = True
+            
+            if needs_migration:
+                cursor.execute("ALTER TABLE broken_simulations RENAME TO broken_simulations_old")
+                cursor.execute("""
+                    CREATE TABLE broken_simulations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        prompt_hash TEXT NOT NULL,
+                        difficulty TEXT NOT NULL,
+                        failure_reason TEXT,
+                        failed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        retry_count INTEGER DEFAULT 1,
+                        last_retry_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        is_permanently_broken INTEGER DEFAULT 0,
+                        UNIQUE(prompt_hash, difficulty)
+                    )
+                """)
+                cursor.execute("""
+                    INSERT INTO broken_simulations 
+                    (prompt_hash, difficulty, failure_reason, failed_at, retry_count, last_retry_at, is_permanently_broken)
+                    SELECT 
+                        prompt_hash, 
+                        COALESCE(difficulty, 'explorer'), 
+                        failure_reason, 
+                        failed_at,
+                        1,
+                        failed_at,
+                        0
+                    FROM broken_simulations_old
+                """)
+                cursor.execute("DROP TABLE broken_simulations_old")
+                logger.info("Migrated broken_simulations table with retry tracking")
         
         # Create llm_diagnostics table if not exists
         cursor.execute("PRAGMA table_info(llm_diagnostics)")
@@ -165,7 +213,116 @@ class CacheDatabase:
                 CREATE INDEX IF NOT EXISTS idx_llm_diagnostics_session 
                 ON llm_diagnostics(session_id)
             """)
-            logger.info("✅ Created llm_diagnostics table")
+            logger.info("Created llm_diagnostics table")
+        
+        # Create repair_logs table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS repair_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT,
+                original_prompt TEXT,
+                broken_code TEXT,
+                error_msg TEXT,
+                fixed_code TEXT,
+                repair_method TEXT,
+                was_successful BOOLEAN,
+                repair_duration_ms INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Create repair_attempts table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS repair_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT,
+                sim_id TEXT,
+                step_index INTEGER,
+                tier INTEGER,
+                tier_name TEXT,
+                attempt_number INTEGER,
+                input_code TEXT,
+                output_code TEXT,
+                error_before TEXT,
+                error_after TEXT,
+                was_successful BOOLEAN,
+                duration_ms INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Create pending_repairs table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pending_repairs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT,
+                prompt_key TEXT,
+                step_index INTEGER,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                resolved_at TIMESTAMP,
+                UNIQUE(session_id, prompt_key, step_index)
+            )
+        """)
+        
+        # Create repair_stats table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS repair_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                tier1_python_success INTEGER DEFAULT 0,
+                tier2_js_success INTEGER DEFAULT 0,
+                tier3_llm_success INTEGER DEFAULT 0,
+                total_failures INTEGER DEFAULT 0,
+                total_attempts INTEGER DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(date)
+            )
+        """)
+        
+        # Create graph_dataset table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS graph_dataset (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mermaid_code TEXT NOT NULL,
+                description_context TEXT,
+                source_type TEXT DEFAULT 'simulation',
+                was_repaired BOOLEAN DEFAULT 0,
+                quality_score REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Create feedback_logs table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS feedback_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT,
+                prompt TEXT,
+                rating INTEGER,
+                step_index INTEGER,
+                comment TEXT,
+                sim_data_json TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Create raw_mermaid_logs table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS raw_mermaid_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT,
+                sim_id TEXT,
+                step_index INTEGER,
+                raw_mermaid_code TEXT,
+                initial_render_success BOOLEAN DEFAULT 0,
+                initial_error_msg TEXT,
+                required_repair BOOLEAN DEFAULT 0,
+                repair_tier TEXT,
+                final_success BOOLEAN DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         
         # Clean up junk data
         cursor.execute("""

@@ -415,20 +415,17 @@ def chat():
         input_data = _enrich_simulation_input(user_msg)
     
     if is_new_sim:
-        # Use raw prompt for semantic search, difficulty as filter
-        cache_key = user_msg  # No longer prefix with difficulty
-        
-        if not cache_manager.has_pending_repair(session_id, cache_key):
+        if not cache_manager.has_pending_repair(session_id, user_msg):
             cached_data = cache_manager.get_cached_simulation(
-                cache_key,
-                difficulty=difficulty  # Filter by difficulty
+                prompt=user_msg,
+                difficulty=difficulty
             )
             
             if cached_data:
                 user_db["simulation_active"] = True
                 user_db["current_sim_data"] = cached_data.get('steps', [])
                 user_db["current_step_index"] = 0
-                user_db["original_prompt"] = cache_key
+                user_db["original_prompt"] = user_msg
                 user_db["original_difficulty"] = difficulty
                 user_db["input_data"] = input_data
                 

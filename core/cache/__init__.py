@@ -84,15 +84,22 @@ class CacheManager:
     
     def get_cached_simulation(
         self, 
-        prompt_key: str,
+        prompt: str,
         difficulty: str = "engineer"
     ) -> Optional[Dict[str, Any]]:
         """
         Retrieve a cached simulation using semantic similarity.
-        Delegates to SemanticCache module.
+        
+        Strategy:
+          1. Exact hash match (fast, no API call)
+          2. Semantic similarity search (cosine >= 0.80)
+        
+        Args:
+            prompt: Raw user prompt (hashed/embedded internally)
+            difficulty: Difficulty level filter
         """
         return self.semantic_cache.get_cached_simulation(
-            prompt_key=prompt_key,
+            prompt=prompt,
             difficulty=difficulty
         )
     
@@ -353,20 +360,14 @@ class CacheManager:
         with self.database.get_connection() as conn:
             cursor = conn.cursor()
             
-            cursor.execute("SELECT COUNT(*) FROM simulation_cache WHERE status IN ('complete', 'verified')")
-            complete_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM simulation_cache")
+            total_count = cursor.fetchone()[0]
             
             cursor.execute("SELECT COUNT(*) FROM simulation_cache WHERE client_verified = 1")
             verified_count = cursor.fetchone()[0]
             
-            cursor.execute("SELECT COUNT(*) FROM simulation_cache WHERE is_final_complete = 1")
-            final_count = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT SUM(access_count) FROM simulation_cache")
-            total_hits = cursor.fetchone()[0] or 0
-            
-            cursor.execute("SELECT AVG(avg_rating) FROM simulation_cache WHERE avg_rating IS NOT NULL")
-            avg_quality = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM simulation_cache WHERE embedding IS NOT NULL")
+            with_embeddings = cursor.fetchone()[0]
             
             cursor.execute("SELECT COUNT(*) FROM pending_repairs WHERE status = 'pending'")
             pending_repairs = cursor.fetchone()[0]
@@ -381,12 +382,10 @@ class CacheManager:
             broken_count = cursor.fetchone()[0]
             
             return {
-                "cached_simulations": complete_count,
+                "cached_simulations": total_count,
                 "verified_simulations": verified_count,
-                "final_simulations": final_count,
+                "with_embeddings": with_embeddings,
                 "broken_simulations": broken_count,
-                "total_cache_hits": total_hits,
-                "average_quality_rating": round(avg_quality, 2) if avg_quality else None,
                 "pending_repairs": pending_repairs,
                 "repair_success_rate": round(successful_repairs / total_repairs, 2) if total_repairs > 0 else None,
                 "total_repair_attempts": total_repairs,

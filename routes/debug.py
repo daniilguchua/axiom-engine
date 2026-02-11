@@ -30,7 +30,8 @@ def debug_cache():
         
         # Recent cached simulations
         cursor.execute("""
-            SELECT prompt_key, status, step_count, client_verified, access_count, created_at
+            SELECT prompt_key, difficulty, client_verified, 
+                   embedding IS NOT NULL as has_embedding, created_at
             FROM simulation_cache
             ORDER BY created_at DESC
             LIMIT 10
