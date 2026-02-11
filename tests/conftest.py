@@ -146,15 +146,22 @@ def mock_gemini_response():
 
 @pytest.fixture
 def mock_genai_client(monkeypatch, mock_gemini_response):
-    """Mock the google.generativeai client and GenerativeModel."""
-    mock_model = Mock()
-    mock_model.generate_content = Mock(return_value=mock_gemini_response())
+    """Mock the google-genai client returned by get_genai_client."""
+    mock_response = mock_gemini_response()
     
-    def mock_generative_model(model_name):
-        return mock_model
+    # Create a mock client with the proper .models API structure
+    mock_client = Mock()
+    mock_models = Mock()
+    mock_models.generate_content = Mock(return_value=mock_response)
+    mock_models.generate_content_stream = Mock(return_value=[mock_response])
+    # Mock embedding response: {embeddings: [{values: [...]}, ...]}
+    mock_embedding = Mock()
+    mock_embedding.values = [0.1, 0.2, 0.3] * 256  # 768-dim vector
+    mock_models.embed_content = Mock(return_value=Mock(embeddings=[mock_embedding]))
+    mock_client.models = mock_models
     
-    with patch("google.generativeai.GenerativeModel", mock_generative_model):
-        yield mock_model
+    with patch("core.config.get_genai_client", return_value=mock_client):
+        yield mock_client
 
 
 @pytest.fixture

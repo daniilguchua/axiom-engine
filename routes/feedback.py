@@ -6,7 +6,7 @@ Feedback and voting endpoints.
 import logging
 
 from flask import Blueprint, request, jsonify, g
-import google.generativeai as genai
+from google import genai
 
 from core.config import get_configured_api_key, get_session_manager, get_cache_manager
 from core.decorators import validate_session, rate_limit, require_configured_api_key
@@ -107,8 +107,16 @@ Use the COSTARA method to enhance this question: "{msg}".
 """
     
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(meta_prompt)
+        from core.config import get_genai_client
+        client = get_genai_client()
+        if not client:
+            logger.error("Gemini client not initialized")
+            return jsonify({"error": "Gemini API not configured"}), 500
+        
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=meta_prompt
+        )
         clean_text = response.text.strip().replace('```markdown', '').replace('```', '').strip()
         
         return jsonify({"enhanced_prompt": clean_text})

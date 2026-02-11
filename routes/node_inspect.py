@@ -4,7 +4,7 @@ Provides rich, context-aware explanations for clicked nodes in simulations.
 """
 
 import logging
-import google.generativeai as genai
+from google import genai
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
@@ -109,8 +109,16 @@ def inspect_node():
         
         # Generate response
         try:
-            model = genai.GenerativeModel('gemini-2.0-flash')
-            response = model.generate_content(prompt)
+            from core.config import get_genai_client
+            client = get_genai_client()
+            if not client:
+                logger.error("Gemini client not initialized")
+                return jsonify({"error": "Gemini API not configured"}), 500
+            
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt
+            )
             explanation = response.text
             
             logger.info(f"📍 Node inspection: {node_id} (difficulty: {difficulty})")

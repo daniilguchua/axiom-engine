@@ -8,7 +8,7 @@ import json
 import random
 
 from flask import Blueprint, request, jsonify, Response, g
-import google.generativeai as genai
+from google import genai
 
 from core.config import get_configured_api_key, get_session_manager, get_cache_manager
 from core.decorators import validate_session, rate_limit, require_configured_api_key
@@ -697,16 +697,25 @@ Match the {difficulty.upper()} mode style in your response.
             "response_mime_type": "application/json" if expect_json else "text/plain"
         }
         
-        # Use latest model as requested by user
-        model = genai.GenerativeModel('gemini-2.5-pro', generation_config=config)
+        # Get client and generate content with streaming
+        from core.config import get_genai_client
+        client = get_genai_client()
+        if not client:
+            logger.error("Gemini client not initialized")
+            yield "ERROR: Gemini API not initialized"
+            return
         
         full_response = ""
         
         try:
-            stream = model.generate_content(full_prompt, stream=True)
+            stream = client.models.generate_content_stream(
+                model='gemini-2.5-pro',
+                contents=full_prompt,
+                config=genai.types.GenerateContentConfig(**config)
+            )
             
             for chunk in stream:
-                if chunk.parts:
+                if chunk.text:
                     clean_chunk = chunk.text
                     full_response += clean_chunk
                     yield clean_chunk

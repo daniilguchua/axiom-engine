@@ -115,7 +115,13 @@ class TestDifficultyModes:
                     mock_sm.return_value = mock_manager
                     mock_cm.return_value = Mock()
                     
-                    with patch("routes.chat.genai.GenerativeModel"):
+                    with patch("core.config.get_genai_client") as mock_genai:
+                        mock_client = Mock()
+                        mock_models = Mock()
+                        mock_models.generate_content_stream = Mock(return_value=iter([Mock(text="test response")]))
+                        mock_client.models = mock_models
+                        mock_genai.return_value = mock_client
+                        
                         response = flask_client.post(
                             "/chat",
                             json={"message": "simulate this"},

@@ -12,7 +12,7 @@ import logging
 import time
 
 from flask import Blueprint, request, jsonify, g
-import google.generativeai as genai
+from google import genai
 
 from core.config import get_configured_api_key, get_session_manager, get_cache_manager
 from core.decorators import validate_session, require_configured_api_key
@@ -342,8 +342,17 @@ INSTRUCTIONS:
 
 OUTPUT ONLY THE MODIFIED MERMAID CODE. No explanation, no markdown blocks."""
             
-            model = genai.GenerativeModel('models/gemini-2.5-flash')
-            response = model.generate_content(fallback_prompt)
+            from core.config import get_genai_client
+            client = get_genai_client()
+            if not client:
+                logger.error("Gemini client not initialized")
+                fallback_response = {"status": "error", "message": "Gemini API not configured"}
+                return jsonify(fallback_response), 500
+            
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=fallback_prompt
+            )
 
             if "```" in response.text:
                 ai_fix = response.text.split("```")[1].replace("mermaid", "").strip()
@@ -413,12 +422,20 @@ Common Mermaid syntax issues to fix:
 
 OUTPUT ONLY THE FIXED MERMAID CODE. No explanation, no markdown code blocks."""
         
-        model_name = 'models/gemini-2.5-pro' if attempt_number >= 3 else 'models/gemini-2.5-flash'
+        model_name = 'gemini-2.5-pro' if attempt_number >= 3 else 'gemini-2.5-flash'
     
         logger.info(f"[REPAIR] Calling LLM ({model_name}) for attempt {attempt_number}...")
         
-        model = genai.GenerativeModel(model_name)
-        response = model.generate_content(repair_prompt)
+        from core.config import get_genai_client
+        client = get_genai_client()
+        if not client:
+            logger.error("Gemini client not initialized")
+            return None
+        
+        response = client.models.generate_content(
+            model=model_name,
+            contents=repair_prompt
+        )
         
         raw = response.text
         if "```mermaid" in raw:

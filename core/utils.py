@@ -16,7 +16,7 @@ import numpy as np
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-import google.generativeai as genai
+from google import genai
 
 logger = logging.getLogger(__name__)
 
@@ -191,16 +191,17 @@ def get_text_embedding(text: str) -> Optional[List[float]]:
         return None
     
     try:
-        api_key = get_api_key()
-        genai.configure(api_key=api_key)
-
+        from core.config import get_genai_client
+        client = get_genai_client()
+        if not client:
+            logger.error("Gemini client not initialized")
+            return None
         
-        result = genai.embed_content(
+        result = client.models.embed_content(
             model="models/gemini-embedding-001",
-            content=text,
-            task_type="retrieval_query"
+            content=text
         )
-        return result['embedding']
+        return list(result.embeddings[0].values)
         
     except Exception as e:
         logger.error(f"Embedding generation error: {e}")

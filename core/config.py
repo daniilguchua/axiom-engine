@@ -7,7 +7,7 @@ Central configuration module to avoid circular imports.
 import os
 import logging
 
-import google.generativeai as genai
+from google import genai
 
 from core.utils import get_api_key
 from core.session import SessionManager
@@ -27,18 +27,24 @@ logger = logging.getLogger(__name__)
 # API KEY SETUP
 # ============================================================================
 
+genai_client = None
 api_key = None
 
 def init_api_key():
-    """Initialize the Gemini API key. Call once at startup."""
-    global api_key
+    """Initialize the Gemini API key and create client. Call once at startup."""
+    global genai_client, api_key
     try:
         api_key = get_api_key()
-        genai.configure(api_key=api_key)
+        genai_client = genai.Client(api_key=api_key)
         logger.info("✅ Gemini API configured successfully")
     except EnvironmentError as e:
         logger.error(f"❌ {e}")
         api_key = None
+        genai_client = None
+
+def get_genai_client():
+    """Get the initialized Gemini client."""
+    return genai_client
 
 def get_configured_api_key():
     """Get the configured API key (may be None if not configured)."""
