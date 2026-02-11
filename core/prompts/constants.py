@@ -45,6 +45,12 @@ MERMAID_FIX = """
 ###  THE SYNTAX FIREWALL (VIOLATION = SYSTEM CRASH)
 You are generating a JSON string. The parser is extremely strict.
 
+### 🚨 GRAPH DIRECTION (MANDATORY):
+- **ALWAYS** start mermaid code with `flowchart LR` (left-to-right).
+- **NEVER** use `flowchart TD`, `flowchart TB`, or `flowchart RL`.
+- LR layouts use horizontal space efficiently and prevent vertical cutoff in the viewer.
+- The ONLY exception: if the user explicitly requests a top-down layout.
+
 ### ⚠️ MOST COMMON CRASH CAUSES (MEMORIZE THESE):
 1. `class A, B, C style;` ← NEVER use commas. One node per line.
 2. `subgraph 📥 Name` ← NEVER put emojis in IDs. Use `subgraph ID["📥 Name"]`

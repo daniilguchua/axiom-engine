@@ -10,8 +10,8 @@
 :root {
     /* Response/mobile-first defaults */
     --graph-side-padding: 16px;
-    --graph-min-height: 400px;
-    --graph-max-height: 80vh;
+    --graph-min-height: 500px;
+    --graph-max-height: 85vh;
     --graph-top-margin: 16px;
     --graph-bottom-margin: 16px;
     --graph-internal-padding: 12px;
@@ -150,7 +150,7 @@
 /* CRITICAL: "Perfect Fit" alignment container - works with JS */
 .mermaid-wrapper {
     width: 100% !important;
-    height: clamp(var(--graph-min-height), 60vh, var(--graph-max-height)) !important;
+    height: clamp(var(--graph-min-height), 70vh, var(--graph-max-height)) !important;
     position: relative;
     overflow: visible !important;
     background: transparent !important;

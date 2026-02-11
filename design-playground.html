@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AXIOM Design Playground</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Sora:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f0f14;
+            color: #1a1a1f;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #playground-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== CONTROL BAR ========== */
+        .control-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 68px;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            z-index: 1000;
+            padding: 0 32px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+
+        .control-label {
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6b6b7b;
+            margin-right: 12px;
+        }
+
+        .design-btn {
+            padding: 9px 18px;
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 7px;
+            color: #6b6b7b;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .design-btn:hover {
+            background: rgba(139, 92, 246, 0.12);
+            border-color: rgba(139, 92, 246, 0.35);
+            color: #522e8b;
+        }
+
+        .design-btn.active {
+            background: #8B5CF6;
+            border-color: #8B5CF6;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+        }
+
+        /* ========== CONTENT ========== */
+        .content-wrapper {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            margin-top: 68px;
+        }
+
+        .design-section {
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 24px;
+            gap: 48px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .design-section.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ========== SHARED STYLES ========== */
+        .hero-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            max-width: 720px;
+            width: 100%;
+        }
+
+        .hero-title {
+            font-family: 'Sora', sans-serif;
+            text-align: center;
+            line-height: 1.2;
+            font-weight: 700;
+        }
+
+        .hero-desc {
+            text-align: center;
+            line-height: 1.7;
+            font-size: 16px;
+            font-weight: 400;
+        }
+
+        /* ========== DESIGN 1: PROFESSIONAL MINIMAL ========== */
+        #design-minimal {
+            background: linear-gradient(135deg, #ffffff 0%, #f9f8ff 100%);
+        }
+
+        .design-minimal .hero-title {
+            font-size: 48px;
+            color: #1a1a1f;
+            letter-spacing: -0.02em;
+        }
+
+        .design-minimal .hero-title .accent {
+            color: #8B5CF6;
+            font-weight: 700;
+        }
+
+        .design-minimal .hero-desc {
+            color: #5a5a68;
+            max-width: 580px;
+        }
+
+        .design-minimal .cards-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            width: 100%;
+            max-width: 740px;
+        }
+
+        .design-minimal .action-card {
+            padding: 32px;
+            background: #fff;
+            border: 1px solid #e8e8ed;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.2, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .design-minimal .action-card:hover {
+            border-color: #8B5CF6;
+            box-shadow: 0 12px 24px rgba(139, 92, 246, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .design-minimal .card-icon {
+            font-size: 32px;
+        }
+
+        .design-minimal .card-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: #1a1a1f;
+        }
+
+        .design-minimal .card-desc {
+            font-size: 14px;
+            color: #7a7a88;
+            line-height: 1.6;
+        }
+
+        /* ========== DESIGN 2: ENTERPRISE PREMIUM ========== */
+        #design-enterprise {
+            background: linear-gradient(135deg, #f5f3ff 0%, #faf9ff 100%);
+        }
+
+        .design-enterprise .hero-title {
+            font-size: 52px;
+            color: #1a1a1f;
+            letter-spacing: -0.02em;
+        }
+
+        .design-enterprise .hero-title .accent {
+            color: #7d5bad;
+            font-weight: 700;
+        }
+
+        .design-enterprise .hero-desc {
+            color: #5a5a68;
+            max-width: 600px;
+            font-size: 16px;
+        }
+
+        .design-enterprise .cards-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 28px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .design-enterprise .action-card {
+            padding: 36px;
+            background: #fff;
+            border: 1px solid #e0dce8;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.35s cubic-bezier(0.2, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 18px;
+            box-shadow: 0 4px 12px rgba(125, 91, 173, 0.08);
+        }
+
+        .design-enterprise .action-card:hover {
+            border-color: #8B5CF6;
+            box-shadow: 0 16px 32px rgba(139, 92, 246, 0.15);
+            transform: translateY(-3px);
+            background: #fafbff;
+        }
+
+        .design-enterprise .card-icon {
+            font-size: 36px;
+        }
+
+        .design-enterprise .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1f;
+        }
+
+        .design-enterprise .card-desc {
+            font-size: 15px;
+            color: #6a6a78;
+            line-height: 1.7;
+        }
+
+        /* ========== DESIGN 3: MODERN ELEGANT ========== */
+        #design-modern {
+            background: linear-gradient(135deg, #1a1a1f 0%, #252530 100%);
+        }
+
+        .design-modern .hero-title {
+            font-size: 50px;
+            color: #f8f8fa;
+            letter-spacing: -0.02em;
+        }
+
+        .design-modern .hero-title .accent {
+            background: linear-gradient(135deg, #b794f6 0%, #8B5CF6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+
+        .design-modern .hero-desc {
+            color: #c0bfc8;
+            max-width: 600px;
+            font-size: 16px;
+        }
+
+        .design-modern .cards-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 26px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .design-modern .action-card {
+            padding: 36px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.2, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 18px;
+            backdrop-filter: blur(20px);
+        }
+
+        .design-modern .action-card:hover {
+            border-color: rgba(139, 92, 246, 0.4);
+            background: rgba(139, 92, 246, 0.08);
+            box-shadow: 0 12px 40px rgba(139, 92, 246, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .design-modern .card-icon {
+            font-size: 36px;
+        }
+
+        .design-modern .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #f8f8fa;
+        }
+
+        .design-modern .card-desc {
+            font-size: 15px;
+            color: #a8a7b0;
+            line-height: 1.7;
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 768px) {
+            .control-bar {
+                height: auto;
+                padding: 14px 20px;
+                flex-wrap: wrap;
+                gap: 12px;
+                justify-content: center;
+            }
+
+            .content-wrapper {
+                margin-top: 0;
+                padding-top: 20px;
+            }
+
+            .design-minimal .hero-title,
+            .design-enterprise .hero-title,
+            .design-modern .hero-title {
+                font-size: 36px;
+            }
+
+            .design-minimal .cards-row,
+            .design-enterprise .cards-row,
+            .design-modern .cards-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="playground-container">
+        <!-- CONTROL BAR -->
+        <div class="control-bar">
+            <span class="control-label">Design Mode:</span>
+            <button class="design-btn active" data-design="minimal">Minimal</button>
+            <button class="design-btn" data-design="bold">Bold</button>
+            <button class="design-btn" data-design="refined">Refined</button>
+        </div>
+
+        <!-- CONTENT WRAPPER -->
+        <div class="content-wrapper">
+            <!-- DESIGN 1: MINIMAL -->
+            <div class="design-section design-minimal active" id="design-minimal">
+                <div class="hero-container">
+                    <div class="hero-title">
+                        See Algorithms <span class="accent">Evolving</span>
+                    </div>
+                    <p class="hero-desc">
+                        Clean, interactive algorithm visualization. Watch concepts transform into actionable, step-by-step learning experiences.
+                    </p>
+                </div>
+
+                <div class="cards-row">
+                    <div class="action-card">
+                        <div class="card-icon">⚡</div>
+                        <div class="card-title">Start Simulation</div>
+                        <div class="card-desc">Type any algorithm. Watch it execute step by step.</div>
+                    </div>
+                    <div class="action-card">
+                        <div class="card-icon">📄</div>
+                        <div class="card-title">Load Context</div>
+                        <div class="card-desc">Upload a PDF to analyze with AI-powered responses.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DESIGN 2: BOLD -->
+            <div class="design-section design-bold" id="design-bold">
+                <div class="hero-container">
+                    <div class="hero-title">
+                        See Algorithms <span class="accent">Evolving</span>
+                    </div>
+                    <p class="hero-desc">
+                        Transform complex concepts into interactive, step-by-step visualizations you can explore and learn from.
+                    </p>
+                </div>
+
+                <div class="cards-row">
+                    <div class="action-card">
+                        <div class="card-icon">⚡</div>
+                        <div class="card-title">Start Simulation</div>
+                        <div class="card-desc">Type any algorithm or concept. Watch it come alive with interactive visualizations and real-time execution.</div>
+                    </div>
+                    <div class="action-card">
+                        <div class="card-icon">📄</div>
+                        <div class="card-title">Load Context</div>
+                        <div class="card-desc">Upload a PDF to analyze. Ask questions with document-aware AI responses and insights.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DESIGN 3: CURRENT-REFINED -->
+            <div class="design-section design-refined" id="design-refined">
+                <div class="hero-container">
+                    <div class="hero-title">
+                        See Algorithms <span class="accent">Think</span>
+                    </div>
+                    <p class="hero-desc">
+                        Interactive algorithm visualization engine powered by AI. Transform complex concepts into step-by-step simulations you can explore.
+                    </p>
+                </div>
+
+                <div class="cards-row">
+                    <div class="action-card">
+                        <div class="card-icon">⚡</div>
+                        <div class="card-title">Start Simulation</div>
+                        <div class="card-desc">Type any algorithm or concept. Watch it come alive with interactive visualizations.</div>
+                    </div>
+                    <div class="action-card">
+                        <div class="card-icon">📄</div>
+                        <div class="card-title">Load Context</div>
+                        <div class="card-desc">Upload a PDF to analyze. Ask questions with document-aware responses.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Design switcher
+        const designButtons = document.querySelectorAll('.design-btn');
+        const designSections = document.querySelectorAll('.design-section');
+
+        designButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const design = button.getAttribute('data-design');
+
+                // Update buttons
+                designButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+
+                // Update sections
+                designSections.forEach(section => section.classList.remove('active'));
+                document.getElementById(`design-${design}`).classList.add('active');
+
+                // Log for reference
+                console.log(`Switched to: ${design.toUpperCase()} design`);
+            });
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', e => {
+            if (e.key === '1') designButtons[0].click();
+            if (e.key === '2') designButtons[1].click();
+            if (e.key === '3') designButtons[2].click();
+        });
+    </script>
+</body>
+
+</html>
