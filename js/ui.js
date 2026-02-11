@@ -237,7 +237,8 @@
         toggleGraphTheme,
         startProcessingEffects,
         stopProcessingEffects,
-        toggleStepSummary
+        toggleStepSummary,
+        openInputDataEditor
     };
     
     // =========================================================================
@@ -274,6 +275,286 @@
             overlay.classList.add('collapsed');
             button.classList.add('collapsed');
         }
+    }
+    
+    // =========================================================================
+    // INPUT DATA EDITOR
+    // =========================================================================
+    
+    function openInputDataEditor(inputData, simId) {
+        if (!inputData) return;
+        
+        const { type, label, value } = inputData;
+        
+        // Create modal overlay
+        const modal = document.createElement('div');
+        modal.className = 'input-data-modal-overlay';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        `;
+        
+        // Create modal content
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: #0a0a0f;
+            border: 2px solid rgba(188, 19, 254, 0.4);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+        `;
+        
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = `Edit Input Data: ${label}`;
+        title.style.cssText = `
+            color: #bc13fe;
+            margin: 0 0 20px 0;
+            font-size: 1.4em;
+        `;
+        content.appendChild(title);
+        
+        // Original data display
+        const origSection = document.createElement('div');
+        origSection.style.cssText = `
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        `;
+        const origLabel = document.createElement('div');
+        origLabel.textContent = 'Original:';
+        origLabel.style.color = '#888';
+        origLabel.style.marginBottom = '5px';
+        origSection.appendChild(origLabel);
+        
+        const origValue = document.createElement('div');
+        origValue.textContent = JSON.stringify(value);
+        origValue.style.cssText = `
+            word-break: break-all;
+            color: #00f3ff;
+        `;
+        origSection.appendChild(origValue);
+        content.appendChild(origSection);
+        
+        // Edit section
+        const editLabel = document.createElement('label');
+        editLabel.textContent = 'Your Input (edit below):';
+        editLabel.style.cssText = `
+            display: block;
+            color: #bc13fe;
+            margin-bottom: 8px;
+            font-weight: bold;
+        `;
+        content.appendChild(editLabel);
+        
+        // Format value for editing based on type
+        let editableValue = '';
+        switch(type) {
+            case 'array':
+            case 'tree':
+            case 'linkedlist':
+            case 'search':
+                editableValue = Array.isArray(value.array || value) 
+                    ? (value.array || value).join(', ') 
+                    : JSON.stringify(value);
+                break;
+            case 'graph':
+            case 'dp':
+            case 'hashtable':
+            default:
+                editableValue = JSON.stringify(value, null, 2);
+        }
+        
+        const textarea = document.createElement('textarea');
+        textarea.value = editableValue;
+        textarea.style.cssText = `
+            width: 100%;
+            min-height: 150px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(188, 19, 254, 0.3);
+            border-radius: 6px;
+            color: #00f3ff;
+            padding: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            resize: vertical;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        `;
+        content.appendChild(textarea);
+        
+        // Comment section
+        const commentLabel = document.createElement('label');
+        commentLabel.textContent = 'Comment (optional):';
+        commentLabel.style.cssText = `
+            display: block;
+            color: #bc13fe;
+            margin-bottom: 8px;
+            font-weight: bold;
+        `;
+        content.appendChild(commentLabel);
+        
+        const commentInput = document.createElement('input');
+        commentInput.type = 'text';
+        commentInput.placeholder = 'What should I focus on? (e.g., "Show worst case" or "Already sorted")';
+        commentInput.style.cssText = `
+            width: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(188, 19, 254, 0.3);
+            border-radius: 6px;
+            color: #00f3ff;
+            padding: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        `;
+        content.appendChild(commentInput);
+        
+        // Buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        `;
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = `
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #888;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        `;
+        cancelBtn.addEventListener('mouseover', () => {
+            cancelBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+        });
+        cancelBtn.addEventListener('mouseout', () => {
+            cancelBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        });
+        cancelBtn.addEventListener('click', () => {
+            modal.remove();
+        });
+        buttonContainer.appendChild(cancelBtn);
+        
+        const applyBtn = document.createElement('button');
+        applyBtn.textContent = 'Apply & Re-simulate';
+        applyBtn.style.cssText = `
+            background: linear-gradient(135deg, #bc13fe, #9d06ff);
+            border: none;
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        `;
+        applyBtn.addEventListener('mouseover', () => {
+            applyBtn.style.opacity = '0.9';
+        });
+        applyBtn.addEventListener('mouseout', () => {
+            applyBtn.style.opacity = '1';
+        });
+        applyBtn.addEventListener('click', async () => {
+            const userInput = textarea.value.trim();
+            const comment = commentInput.value.trim();
+            
+            if (!userInput) {
+                showToast('⚠️ Input cannot be empty');
+                return;
+            }
+            
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Processing...';
+            
+            // Parse edited input based on type
+            let parsedInput = null;
+            try {
+                switch(type) {
+                    case 'array':
+                    case 'tree':
+                    case 'linkedlist':
+                        parsedInput = userInput.split(',').map(x => {
+                            const num = parseInt(x.trim());
+                            return isNaN(num) ? 0 : num;
+                        });
+                        break;
+                    case 'search':
+                        // Try JSON first, fallback to simple parsing
+                        try {
+                            parsedInput = JSON.parse(userInput);
+                        } catch {
+                            const parts = userInput.split(/[,;]/);
+                            const arr = parts.slice(0, -1).map(x => parseInt(x.trim())).filter(x => !isNaN(x));
+                            const target = parseInt(parts[parts.length - 1].trim());
+                            parsedInput = { array: arr, target: isNaN(target) ? arr[0] : target };
+                        }
+                        break;
+                    default:
+                        parsedInput = JSON.parse(userInput);
+                }
+                
+                // Create edited input data object
+                const editedInputData = {
+                    type,
+                    label,
+                    value: parsedInput
+                };
+                
+                // Call re-simulate function
+                if (AXIOM.api && AXIOM.api.reSimulateWithEditedInput) {
+                    await AXIOM.api.reSimulateWithEditedInput(editedInputData, comment, simId);
+                    modal.remove();
+                    showToast('✅ Re-generating with your input...');
+                } else {
+                    showToast('❌ Re-simulate function not available');
+                }
+            } catch (e) {
+                showToast('❌ Error parsing input: ' + e.message);
+            } finally {
+                applyBtn.disabled = false;
+                applyBtn.textContent = 'Apply & Re-simulate';
+            }
+        });
+        buttonContainer.appendChild(applyBtn);
+        
+        content.appendChild(buttonContainer);
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+        // Focus textarea
+        textarea.focus();
+        textarea.select();
     }
     
     // Also expose toggleGraphTheme, toggleStepSummary, and toggleGraphDataOverlay globally for onclick handlers

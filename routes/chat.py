@@ -382,6 +382,9 @@ def chat():
                     "show", "create", "demonstrate"]
     triggers_continue = ["next", "continue", "proceed", "go on", "more"]
     
+    # Check for regeneration trigger (user edited input data)
+    is_regenerate = "REGENERATE_SIMULATION_WITH_NEW_INPUT" in user_msg
+    
     is_new_sim = any(t in user_msg.lower() for t in triggers_new)
     
     if any(t in user_msg.lower() for t in ["more", "next"]):
@@ -406,15 +409,45 @@ def chat():
         logger.warning(f"⚠️ Session lost but got explicit CONTINUE_SIMULATION, re-activating")
     
     # =========================================================================
+    # HANDLE INPUT DATA REGENERATION
+    # =========================================================================
+    
+    if is_regenerate:
+        # Extract edited input data from message
+        try:
+            # Message format: REGENERATE_SIMULATION_WITH_NEW_INPUT: {...json...}
+            import re
+            match = re.search(r'REGENERATE_SIMULATION_WITH_NEW_INPUT:\s*(.*?)(?:\nUser comment:|$)', user_msg, re.DOTALL)
+            if match:
+                json_str = match.group(1).strip()
+                edited_input = json.loads(json_str)
+                user_db["input_data"] = edited_input  # Override with edited version
+                logger.info(f"🔄 Input data regeneration detected: {edited_input.get('type', 'unknown')} type")
+            
+            # Force new simulation mode
+            is_new_sim = True
+            is_continue = False
+            is_explicit_continue = False
+        except Exception as e:
+            logger.error(f"Failed to parse input data regeneration: {e}")
+            # Fall back to treating it as a regular new simulation
+            is_new_sim = True
+            is_continue = False
+    
+    # =========================================================================
     # CACHE CHECK (Only for new simulations, only if VERIFIED complete)
     # =========================================================================
     
-    # Generate concrete input data for simulations
+    # Generate concrete input data for simulations (unless regenerating with edited input)
     input_data = None
-    if is_new_sim:
+    if is_new_sim and not is_regenerate:
         input_data = _enrich_simulation_input(user_msg)
+    elif is_new_sim and is_regenerate:
+        # Input data already set from regeneration handler above
+        input_data = user_db.get("input_data")
     
-    if is_new_sim:
+    # Skip cache check if regenerating (user is intentionally trying new input)
+    if is_new_sim and not is_regenerate:
         if not cache_manager.has_pending_repair(session_id, user_msg):
             cached_data = cache_manager.get_cached_simulation(
                 prompt=user_msg,

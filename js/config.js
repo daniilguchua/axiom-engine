@@ -42,7 +42,8 @@ AXIOM.simulation = {
     currentStepIndex: 0,
     activeSimId: null,
     validatedSteps: new Set(),
-    lastWorkingMermaid: {}
+    lastWorkingMermaid: {},
+    inputData: {}        // simId -> input data object
 };
 
 // =============================================================================

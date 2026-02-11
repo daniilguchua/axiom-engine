@@ -311,14 +311,27 @@
                     // Step 8: Calculate which index to render
                     const startIndex = isNewSimulation ? 0 : AXIOM.simulation.store[simId].length - newSteps.length;
                     
-                    // Step 9: Remove loading overlay if present
+                    // Step 9: Extract input data from trailing marker
+                    const inputDataMatch = fullText.match(/<!--AXIOM_INPUT_DATA:(.*?)-->/);
+                    if (inputDataMatch) {
+                        try {
+                            const inputData = JSON.parse(inputDataMatch[1]);
+                            AXIOM.simulation.inputData = AXIOM.simulation.inputData || {};
+                            AXIOM.simulation.inputData[simId] = inputData;
+                            console.log('[AXIOM] Extracted input data:', inputData);
+                        } catch (e) {
+                            console.warn('[AXIOM] Failed to parse input data marker:', e);
+                        }
+                    }
+                    
+                    // Step 10: Remove loading overlay if present
                     const loader = targetElement.querySelector('.generation-loader');
                     if (loader) loader.remove();
                     
                     const axiomLoader = targetElement.querySelector('.axiom-loader');
                     if (axiomLoader) axiomLoader.remove();
                     
-                    // Step 10: Render the FIRST of the new steps
+                    // Step 11: Render the FIRST of the new steps
                     await AXIOM.renderer.renderPlaylistStep(simId, startIndex, targetElement);
                     
                     return;
