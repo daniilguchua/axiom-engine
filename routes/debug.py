@@ -350,3 +350,261 @@ def clear_test_database():
     except Exception as e:
         logger.error(f"[GHOST] Error clearing test database: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# =============================================================================
+# LLM DIAGNOSTICS VIEWER
+# =============================================================================
+
+@debug_bp.route('/debug/llm-diagnostics', methods=['GET'])
+def llm_diagnostics():
+    """
+    Interactive HTML page showing LLM diagnostic information for a session.
+    Displays raw LLM responses, validation flow, and database state changes.
+    """
+    import json
+    from flask import g
+    from core.decorators import validate_session
+    
+    session_id = request.args.get('session_id')
+    if not session_id:
+        return jsonify({"error": "session_id required"}), 400
+    
+    try:
+        cache_manager = get_cache_manager()
+        diagnostics = cache_manager._database.get_latest_diagnostics(session_id, limit=20)
+        
+        # Convert JSON strings back to dicts for display
+        for diag in diagnostics:
+            if diag.get('storage_before_json'):
+                try:
+                    diag['storage_before'] = json.loads(diag['storage_before_json'])
+                except:
+                    diag['storage_before'] = []
+            if diag.get('storage_after_json'):
+                try:
+                    diag['storage_after'] = json.loads(diag['storage_after_json'])
+                except:
+                    diag['storage_after'] = []
+            
+            # Truncate raw LLM response for display
+            if diag.get('llm_raw_response'):
+                diag['llm_raw_preview'] = diag['llm_raw_response'][:500]
+    except Exception as e:
+        logger.error(f"Error retrieving diagnostics: {e}")
+        diagnostics = []
+    
+    # Generate HTML page
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>LLM Diagnostics - Session {session_id[:16]}</title>
+        <style>
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #f5f5f5;
+                margin: 0;
+                padding: 20px;
+            }}
+            .container {{
+                max-width: 1200px;
+                margin: 0 auto;
+                background: white;
+                border-radius: 8px;
+                padding: 20px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }}
+            h1 {{
+                color: #333;
+                margin-top: 0;
+            }}
+            .session-info {{
+                background: #f9f9f9;
+                padding: 10px 15px;
+                border-left: 4px solid #4CAF50;
+                margin-bottom: 20px;
+                border-radius: 4px;
+                font-family: monospace;
+                font-size: 12px;
+            }}
+            .diagnostic-entry {{
+                border: 1px solid #ddd;
+                margin-bottom: 20px;
+                border-radius: 6px;
+                overflow: hidden;
+            }}
+            .diagnostic-header {{
+                background: #f0f7ff;
+                padding: 15px;
+                border-bottom: 1px solid #ddd;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }}
+            .mode-badge {{
+                display: inline-block;
+                padding: 4px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 12px;
+                margin-right: 10px;
+            }}
+            .mode-badge.new {{
+                background: #4CAF50;
+                color: white;
+            }}
+            .mode-badge.continue {{
+                background: #2196F3;
+                color: white;
+            }}
+            .mode-badge.qa {{
+                background: #FF9800;
+                color: white;
+            }}
+            .timestamp {{
+                color: #666;
+                font-size: 12px;
+            }}
+            .diagnostic-body {{
+                padding: 15px;
+            }}
+            .metric {{
+                display: grid;
+                grid-template-columns: 200px 1fr;
+                gap: 15px;
+                margin-bottom: 15px;
+                padding: 10px;
+                background: #fafafa;
+                border-radius: 4px;
+            }}
+            .metric-label {{
+                font-weight: bold;
+                color: #333;
+            }}
+            .metric-value {{
+                color: #666;
+                font-family: monospace;
+                font-size: 13px;
+            }}
+            .step-flow {{
+                background: #e8f5e9;
+                padding: 15px;
+                border-radius: 4px;
+                margin: 15px 0;
+                font-family: monospace;
+                font-size: 13px;
+            }}
+            .storage-state {{
+                background: #f3e5f5;
+                padding: 15px;
+                border-radius: 4px;
+                margin: 15px 0;
+            }}
+            .storage-label {{
+                font-weight: bold;
+                color: #7b1fa2;
+                margin-bottom: 8px;
+            }}
+            .storage-items {{
+                font-family: monospace;
+                font-size: 12px;
+                background: white;
+                padding: 10px;
+                border-radius: 3px;
+                overflow-x: auto;
+            }}
+            .llm-response {{
+                background: #fff3e0;
+                padding: 15px;
+                border-radius: 4px;
+                margin: 15px 0;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                max-height: 400px;
+                overflow-y: auto;
+                border: 1px solid #ffe0b2;
+            }}
+            .success {{
+                color: #4CAF50;
+            }}
+            .warning {{
+                color: #FF9800;
+            }}
+            .error {{
+                color: #f44336;
+            }}
+            .integrity-check {{
+                padding: 10px 15px;
+                border-radius: 4px;
+                margin: 15px 0;
+            }}
+            .integrity-pass {{
+                background: #c8e6c9;
+                color: #2e7d32;
+                border: 1px solid #81c784;
+            }}
+            .integrity-fail {{
+                background: #ffcdd2;
+                color: #c62828;
+                border: 1px solid #ef5350;
+            }}
+            .empty-message {{
+                text-align: center;
+                color: #999;
+                padding: 40px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔍 LLM Diagnostics Viewer</h1>
+            <div class="session-info">
+                Session ID: {session_id}
+            </div>
+            
+            {''.join(f'''
+            <div class="diagnostic-entry">
+                <div class="diagnostic-header">
+                    <div>
+                        <span class="mode-badge {diag['mode'].split('_')[0].lower()}">
+                            {diag['mode']}
+                        </span>
+                        <strong>{diag['difficulty']}</strong>
+                    </div>
+                    <div class="timestamp">{diag['created_at']}</div>
+                </div>
+                <div class="diagnostic-body">
+                    <div class="step-flow">
+                        <span class="{'success' if diag['validation_output_count'] == diag['validation_input_count'] else 'warning'}">
+                            LLM generated: {diag['llm_step_count']} steps
+                        </span>
+                        → Validation: {diag['validation_input_count']} → {diag['validation_output_count']} steps
+                        → Stored {diag['validation_output_count']} new step(s)
+                    </div>
+                    
+                    <div class="metric">
+                        <div class="metric-label">Storage Before:</div>
+                        <div class="metric-value">{diag.get('storage_before_json', '[]')[:100]}...</div>
+                    </div>
+                    
+                    <div class="metric">
+                        <div class="metric-label">Storage After:</div>
+                        <div class="metric-value">{diag.get('storage_after_json', '[]')[:100]}...</div>
+                    </div>
+                    
+                    <div class="integrity-check {'integrity-pass' if diag['integrity_check_pass'] else 'integrity-fail'}">
+                        {'✅ Integrity OK' if diag['integrity_check_pass'] else f'❌ Integrity Failed: {diag['integrity_error']}'}
+                    </div>
+                    
+                    {'<div class="llm-response"><strong>Raw LLM Response (first 500 chars):</strong><pre>' + diag.get('llm_raw_preview', '(empty)').replace('<', '&lt;').replace('>', '&gt;') + '</pre></div>' if diag.get('llm_raw_preview') else ''}
+                </div>
+            </div>
+            ''' for diag in diagnostics) if diagnostics else '<div class="empty-message">No diagnostics found for this session.</div>'}
+        </div>
+    </body>
+    </html>
+    """
+    
+    from flask import Response
+    return Response(html, mimetype='text/html')

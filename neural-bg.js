@@ -133,7 +133,8 @@ function generateScatter(count) {
 
 const canvas = document.getElementById('neural-canvas');
 if (!canvas) {
-    console.error('Neural canvas element not found!');
+    // Canvas element required for neural background
+    throw new Error('Neural canvas element not found');
 }
 
 const scene = new THREE.Scene();
@@ -758,7 +759,6 @@ window.neuralCanvas = {
     },
 
     spellText(text) {
-        console.log(`✨ Spelling: ${text}`);
         state.phase = 'text';
 
         const textCoords = textGenerator.generatePoints(text, 140, particleCount);
@@ -863,6 +863,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Start animation loop
 animate();
-
-console.log('🧠 AXIOM Neural Canvas v3.0 — Enhanced Edition');
-console.log('💡 Try: neuralCanvas.spellText("HELLO") or neuralCanvas.playIntro()');

@@ -94,13 +94,11 @@
         // Priority 3: Any working graph from any simulation (recent)
         for (const sid of Object.keys(AXIOM.simulation.lastWorkingMermaid)) {
             if (AXIOM.simulation.lastWorkingMermaid[sid]) {
-                console.log(`[REPAIR] Using working graph from different simulation: ${sid}`);
                 return AXIOM.simulation.lastWorkingMermaid[sid];
             }
         }
         
         // Priority 4: Default template for step 0 failures
-        console.log("[REPAIR] Using default mermaid template");
         return AXIOM.DEFAULT_MERMAID_TEMPLATE;
     }
     
@@ -424,9 +422,6 @@
     // =========================================================================
     
     async function verifyFix(wrapper, fixedCode, simId, stepIndex) {
-        console.log(`🔍 [verifyFix] Testing fixed code...`);
-        console.log(`  Code length: ${fixedCode.length}`);
-        console.log(`  Newlines: ${(fixedCode.match(/\n/g) || []).length}`);
 
         // 1. Test in hidden container (safe - won't break UI)
         const testContainer = document.createElement('div');
@@ -440,39 +435,30 @@
 
         try {
             // 2. Try to render
-            console.log(`  ⏳ Testing render in hidden container...`);
             await mermaid.run({ nodes: [testDiv] });
-
-            console.log(`  ✅ Hidden test PASSED`);
 
             // 3. SUCCESS! Clean up test container
             testContainer.remove();
 
             // 4. Now render for real in the actual wrapper
-            console.log(`  🎨 Rendering in actual wrapper...`);
             wrapper.innerHTML = '';
             const graphDiv = AXIOM.renderer.createGraphDiv(fixedCode);
             wrapper.appendChild(AXIOM.renderer.createOverlay());
             wrapper.appendChild(graphDiv);
             await mermaid.run({ nodes: [graphDiv] });
 
-            console.log(`  ✅ Real render PASSED`);
-
             // 5. Update the playlist with FIXED code (CRITICAL!)
             if (simId && AXIOM.simulation.store[simId]?.[stepIndex]) {
-                console.log(`  💾 Updating playlist with fixed code`);
                 AXIOM.simulation.store[simId][stepIndex].mermaid = fixedCode;
             }
 
             // 6. Track success, enable interactions
             AXIOM.renderer.onRenderSuccess(wrapper, graphDiv, fixedCode, simId, stepIndex, true);
 
-            console.log(`  🎉 verifyFix COMPLETE - success!`);
             return { success: true };
 
         } catch (error) {
-            console.error(`  ❌ verifyFix FAILED:`, error.message);
-            console.log(`  🔍 Failed code preview:`, fixedCode.substring(0, 200));
+            console.error(`[verifyFix] FAILED:`, error.message);
             testContainer.remove();
             return { success: false, error: error.message };
         }
@@ -532,11 +518,9 @@
     // =========================================================================
     
     async function startRepairProcess(wrapper, badCode, errorMsg, simId, stepIndex) {
-        console.group("🔧 [REPAIR SYSTEM] Starting Tiered Repair Process");
-
         // Prevent concurrent repairs
         if (AXIOM.repair.isActive) {
-            console.warn(`⚠️ Repair already active, waiting for completion...`);
+            console.warn(`Repair already active, waiting for completion...`);
             await waitForRepairComplete();
         }
 
@@ -558,15 +542,6 @@
         let currentCode = badCode;
         let currentError = errorMsg;
 
-        console.log(`📊 REPAIR CONTEXT:`);
-        console.log(`  SimId: ${simId}`);
-        console.log(`  Step: ${stepIndex}`);
-        console.log(`  Original error: ${currentError}`);
-        console.log(`  Bad code length: ${badCode.length}`);
-        console.log(`  Bad code newlines: ${(badCode.match(/\n/g) || []).length}`);
-        console.log(`  Bad code preview:`, badCode.substring(0, 150));
-        console.log(`  Has previous working: ${!!previousWorking}`);
-        
         // Show initial diagnostic phase
         renderRepairUI(wrapper, {
             phase: RepairPhase.DIAGNOSING,
@@ -581,7 +556,6 @@
         // TIER 1: Python Sanitizer Only (via /quick-fix)
         // =====================================================================
 
-        console.log(`\n🐍 === TIER 1: PYTHON SANITIZER (Fast & Free) ===`);
         const tier1Start = Date.now();
         
         renderRepairUI(wrapper, {
@@ -597,9 +571,6 @@
             
             if (quickFixResult.success && quickFixResult.fixedCode) {
                 const tier1Code = quickFixResult.fixedCode;
-                const tier1Newlines = (tier1Code.match(/\n/g) || []).length;
-                console.log(`  ✓ Tier 1 returned code: ${tier1Code.length} chars, ${tier1Newlines} newlines, ${tier1Duration}ms`);
-                console.log(`  🔍 Preview:`, tier1Code.substring(0, 150));
 
                 // Try to render
                 renderRepairUI(wrapper, {
@@ -612,7 +583,6 @@
                 const tier1Verify = await verifyFix(wrapper, tier1Code, simId, stepIndex);
 
                 if (tier1Verify.success) {
-                    console.log(`  🎉 TIER 1 SUCCESS! Fixed in ${tier1Duration}ms`);
                     AXIOM.repair.isActive = false;
                     clearRepairTimer();
 
@@ -620,19 +590,18 @@
                     reportTierResult(simId, stepIndex, 1, 'TIER1_PYTHON', currentCode, tier1Code, currentError, null, true, tier1Duration);
 
                     AXIOM.ui.showToast(`✓ Fixed by Tier 1 (Python) in ${tier1Duration}ms`);
-                    console.groupEnd();
                     return;
                 }
 
                 // Tier 1 fix didn't render
-                console.warn(`  ❌ Tier 1 fix failed to render: ${tier1Verify.error}`);
+                console.warn(`Tier 1 fix failed to render: ${tier1Verify.error}`);
                 currentCode = tier1Code; // Use Tier 1 output for Tier 2
                 currentError = tier1Verify.error;
 
                 // Report failure
                 reportTierResult(simId, stepIndex, 1, 'TIER1_PYTHON', badCode, tier1Code, errorMsg, tier1Verify.error, false, tier1Duration);
             } else {
-                console.warn(`  ❌ Tier 1 returned no fix or failed`);
+                console.warn(`Tier 1 returned no fix or failed`);
                 reportTierResult(simId, stepIndex, 1, 'TIER1_PYTHON', badCode, null, errorMsg, quickFixResult.error || 'No fix returned', false, tier1Duration);
             }
         } catch (tier1Error) {
@@ -644,7 +613,6 @@
         // TIER 2: Python + JS Sanitizer (apply JS sanitizer to Tier 1 output)
         // =====================================================================
 
-        console.log(`\n⚡ === TIER 2: PYTHON + JS SANITIZER (Fast & Free) ===`);
         const tier2Start = Date.now();
         
         renderRepairUI(wrapper, {
@@ -659,8 +627,6 @@
             const tier2Code = AXIOM.sanitizer.sanitizeMermaidString(currentCode);
             const tier2Duration = Date.now() - tier2Start;
             
-            console.log(`[REPAIR] Tier 2 JS sanitizer applied (${tier2Duration}ms)`);
-            
             // Try to render
             renderRepairUI(wrapper, {
                 phase: RepairPhase.VERIFYING,
@@ -672,7 +638,6 @@
             const tier2Verify = await verifyFix(wrapper, tier2Code, simId, stepIndex);
             
             if (tier2Verify.success) {
-                console.log(`[REPAIR] TIER 2 SUCCESS! Fixed in ${tier2Duration}ms`);
                 AXIOM.repair.isActive = false;
                 clearRepairTimer();
                 
@@ -684,7 +649,6 @@
             }
             
             // Tier 2 fix didn't render
-            console.log(`[REPAIR] Tier 2 fix failed to render: ${tier2Verify.error}`);
             currentError = tier2Verify.error;
             
             // Report failure
@@ -699,16 +663,12 @@
         // TIER 3: LLM Repair (with retry loop, up to MAX_ATTEMPTS)
         // =====================================================================
 
-        console.log(`\n🤖 === TIER 3: LLM REPAIR (Slow, Costs $) ===`);
-        
         // Reset to original bad code for LLM - it needs to see the actual problem
         currentCode = badCode;
         currentError = errorMsg;
         
         for (let attempt = 1; attempt <= RepairConfig.MAX_ATTEMPTS; attempt++) {
             const tier3Start = Date.now();
-            
-            console.log(`[REPAIR] Tier 3, Attempt ${attempt}/${RepairConfig.MAX_ATTEMPTS}`);
             
             renderRepairUI(wrapper, {
                 phase: RepairPhase.TIER3_LLM,
@@ -733,7 +693,6 @@
                 
                 if (llmResult.success && llmResult.fixedCode) {
                     const tier3Code = llmResult.fixedCode;
-                    console.log(`[REPAIR] LLM returned code (${tier3Code.length} chars, ${tier3Duration}ms)`);
                     
                     // Try to render LLM output directly
                     renderRepairUI(wrapper, {
@@ -747,7 +706,6 @@
                     const tier3Verify = await verifyFix(wrapper, tier3Code, simId, stepIndex);
                     
                     if (tier3Verify.success) {
-                        console.log(`[REPAIR] TIER 3 SUCCESS! Fixed in ${tier3Duration}ms (attempt ${attempt})`);
                         AXIOM.repair.isActive = false;
                         clearRepairTimer();
                         
@@ -758,8 +716,7 @@
                         return;
                     }
                     
-                    // LLM fix didn't render - try Tier 4
-                    console.log(`[REPAIR] Tier 3 fix failed to render: ${tier3Verify.error}`);
+                    // LLM fix didn't render — try Tier 4
                     
                     // Report Tier 3 failure
                     reportTierResult(simId, stepIndex, 3, 'TIER3_LLM', currentCode, tier3Code, currentError, tier3Verify.error, false, tier3Duration);
@@ -768,7 +725,6 @@
                     // TIER 4: Apply JS sanitizer to LLM output
                     // =========================================================
                     
-                    console.log(`[REPAIR] === TIER 4: LLM + JS SANITIZER ===`);
                     const tier4Start = Date.now();
                     
                     renderRepairUI(wrapper, {
@@ -793,7 +749,6 @@
                     const tier4Verify = await verifyFix(wrapper, tier4Code, simId, stepIndex);
                     
                     if (tier4Verify.success) {
-                        console.log(`[REPAIR] TIER 4 SUCCESS! Fixed in ${tier3Duration + tier4Duration}ms`);
                         AXIOM.repair.isActive = false;
                         clearRepairTimer();
                         
@@ -805,7 +760,6 @@
                     }
                     
                     // Tier 4 also failed
-                    console.log(`[REPAIR] Tier 4 fix failed to render: ${tier4Verify.error}`);
                     reportTierResult(simId, stepIndex, 4, 'TIER4_LLM_JS', tier3Code, tier4Code, tier3Verify.error, tier4Verify.error, false, tier4Duration);
                     
                     // Update error for next LLM attempt
@@ -813,7 +767,6 @@
                     currentError = tier4Verify.error;
                     
                 } else {
-                    console.log(`[REPAIR] LLM returned no fix or failed`);
                     reportTierResult(simId, stepIndex, 3, 'TIER3_LLM', currentCode, null, currentError, llmResult.error || 'No fix returned', false, tier3Duration);
                 }
                 
@@ -828,7 +781,6 @@
                     RepairConfig.BASE_DELAY_MS * Math.pow(2, attempt - 1),
                     RepairConfig.MAX_DELAY_MS
                 );
-                console.log(`[REPAIR] Waiting ${backoffMs}ms before next LLM attempt...`);
                 
                 renderRepairUI(wrapper, {
                     phase: 'WAITING',
@@ -847,8 +799,6 @@
         // FALLBACK: Try previous working graph
         // =====================================================================
 
-        console.log(`\n🔄 === FALLBACK RECOVERY ===`);
-        
         if (previousWorking) {
             renderRepairUI(wrapper, {
                 phase: RepairPhase.FALLBACK,
@@ -860,7 +810,6 @@
             const fallbackResult = await attemptFallbackRecovery(wrapper, previousWorking, simId, stepIndex, context);
             
             if (fallbackResult.success) {
-                console.log(`[REPAIR] FALLBACK SUCCESS!`);
                 AXIOM.repair.isActive = false;
                 clearRepairTimer();
                 AXIOM.ui.showToast('⚠ Recovered using previous graph state');
@@ -872,10 +821,9 @@
         // FATAL: All options exhausted
         // =====================================================================
 
-        console.error(`\n🛑 === FATAL: ALL REPAIR OPTIONS EXHAUSTED ===`);
+        console.error(`[REPAIR] ALL REPAIR OPTIONS EXHAUSTED`);
         console.error(`  Final error: ${currentError}`);
-        console.error(`  Attempts made: Tier 1, Tier 2, Tier 3 (${RepairConfig.MAX_ATTEMPTS} attempts), Fallback`);
-        console.log(`  🔍 Final failed code:`, badCode.substring(0, 300));
+        console.error(`  Attempts: Tier 1-4 + Fallback`);
 
         AXIOM.repair.phase = RepairPhase.FATAL;
         AXIOM.repair.isActive = false;
@@ -883,8 +831,6 @@
 
         renderFatalError(wrapper, badCode, currentError, simId, stepIndex);
         AXIOM.api.reportFailureToServer(simId, stepIndex, badCode, currentError);
-
-        console.groupEnd();
     }
     
     // =========================================================================
@@ -921,5 +867,4 @@
         clearRepairTimer
     };
     
-    console.log('✅ AXIOM Tiered Repair System v3.0 loaded');
 })();

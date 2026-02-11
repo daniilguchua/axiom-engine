@@ -109,108 +109,85 @@
             // =====================================================================
             
             if (isJsonResponse) {
-                console.group("📋 [JSON PARSING] Processing simulation response");
                 let parsed = null;
 
                 try {
                     // Step 1: Extract JSON from markdown code blocks if present
                     let cleanJson = fullText.trim();
-                    console.log("📥 STEP 1: Extract from markdown blocks");
-                    console.log(`  Original length: ${fullText.length}`);
 
                     const codeBlockMatch = fullText.match(/```(?:json)?\s*([\s\S]*?)```/);
                     if (codeBlockMatch) {
                         cleanJson = codeBlockMatch[1].trim();
-                        console.log(`  ✓ Extracted from code block, new length: ${cleanJson.length}`);
-                    } else {
-                        console.log(`  ⏭️  No code block found, using raw text`);
                     }
 
                     // Step 2: Repair common LLM JSON errors
-                    console.log("🔧 STEP 2: Repair common LLM JSON errors");
                     const beforeRepair = cleanJson;
                     cleanJson = AXIOM.sanitizer.repairLLMJson(cleanJson);
-                    if (beforeRepair !== cleanJson) {
-                        console.log(`  ✓ JSON repaired (changed: ${beforeRepair.length} → ${cleanJson.length} chars)`);
-                    }
 
                     // Step 2.5: Strip leading/trailing non-JSON content
-                    console.log("✂️ STEP 2.5: Strip leading/trailing non-JSON content");
-                    const firstBrace = cleanJson.indexOf('{');
-                    
-                    console.log(`  First '{' at position: ${firstBrace}`);
-                    console.log(`  Total length: ${cleanJson.length}`);
-                    
-                    // Find the matching closing brace by counting braces, not just using lastIndexOf
-                    // This prevents finding braces inside trailing HTML comments or text
+                    // Detect whether the JSON starts with [ (array) or { (object)
+                    const trimmedForDetection = cleanJson.trimStart();
+                    const isArray = trimmedForDetection[0] === '[';
+                    const openChar = isArray ? '[' : '{';
+                    const closeChar = isArray ? ']' : '}';
+                    const firstBrace = cleanJson.indexOf(openChar);
+
+                    // Find the matching closing bracket/brace by counting, not just using lastIndexOf
+                    // This prevents finding brackets inside trailing HTML comments or text
                     let lastBrace = -1;
                     if (firstBrace !== -1) {
-                        let braceCount = 0;
+                        let depth = 0;
                         let inString = false;
                         let escapeNext = false;
-                        
+
                         for (let i = firstBrace; i < cleanJson.length; i++) {
                             const char = cleanJson[i];
-                            
+
                             if (escapeNext) {
                                 escapeNext = false;
                                 continue;
                             }
-                            
+
                             if (char === '\\') {
                                 escapeNext = true;
                                 continue;
                             }
-                            
+
                             if (char === '"') {
                                 inString = !inString;
                                 continue;
                             }
-                            
+
                             if (!inString) {
-                                if (char === '{') {
-                                    braceCount++;
-                                } else if (char === '}') {
-                                    braceCount--;
-                                    if (braceCount === 0) {
+                                if (char === openChar) {
+                                    depth++;
+                                } else if (char === closeChar) {
+                                    depth--;
+                                    if (depth === 0) {
                                         lastBrace = i;
-                                        break; // Found the matching closing brace
+                                        break; // Found the matching closing bracket/brace
                                     }
                                 }
                             }
                         }
                     }
-                    
-                    console.log(`  Last '}' (matched) at position: ${lastBrace}`);
-                    
+
                     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
                         const leading = cleanJson.substring(0, firstBrace).trim();
                         const trailing = cleanJson.substring(lastBrace + 1).trim();
-                        
-                        if (leading) {
-                            console.warn(`  ⚠️ Truncating leading content: "${leading.substring(0, 100)}${leading.length > 100 ? '...' : ''}"`);
-                        }
-                        if (trailing) {
-                            console.warn(`  ⚠️ Truncating trailing content: "${trailing.substring(0, 100)}${trailing.length > 100 ? '...' : ''}"`);
-                        }
-                        
+
                         if (leading || trailing) {
                             cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
-                            console.log(`  ✓ Extracted JSON from position ${firstBrace} to ${lastBrace + 1}`);
                         }
                     } else {
-                        console.error(`  ❌ Could not find valid JSON boundaries! This may indicate incomplete/malformed response.`);
-                        console.log(`  Last 200 chars: ${cleanJson.substring(Math.max(0, cleanJson.length - 200))}`);
+                        console.error(`Could not find valid JSON boundaries`);
                     }
 
-                    // Step 3: Try parsing DIRECTLY first (works for cached/properly-encoded JSON)
-                    console.log("🔍 STEP 3: Attempt JSON.parse() directly");
+                    // Step 3: Try parsing DIRECTLY first
                     try {
                         parsed = JSON.parse(cleanJson);
-                        console.log(`  ✅ JSON parsed successfully (clean path — cached or well-formed)`);
                     } catch (firstParseErr) {
-                        console.warn("  ⚠️ Direct parse failed:", firstParseErr.message);
-                        console.log("  🔧 STEP 3.5: Applying mermaid field escaping (LLM raw output fallback)");
+                        console.warn("JSON direct parse failed:", firstParseErr.message);
 
                         // The mermaid regex fixes broken JSON from fresh LLM output
                         // (literal newlines and unescaped quotes inside mermaid string values).
@@ -220,7 +197,6 @@
                             /"mermaid"\s*:\s*"([\s\S]*?)"(?=\s*,\s*"(?:data_table|step|instruction|is_final))/g,
                             (match, content) => {
                                 mermaidFieldsFound++;
-                                console.log(`  🔍 Mermaid field #${mermaidFieldsFound}: ${content.length} chars`);
 
                                 const escaped = content
                                     .replace(/\\/g, '\\\\')
@@ -233,35 +209,27 @@
                         );
 
                         if (mermaidFieldsFound === 0) {
-                            console.warn(`  ⚠️ No mermaid fields found to fix`);
-                        } else {
-                            console.log(`  ✓ Escaped ${mermaidFieldsFound} mermaid field(s)`);
+                            console.warn(`No mermaid fields found to fix`);
                         }
 
                         // Retry parse after mermaid escaping
                         try {
                             parsed = JSON.parse(cleanJson);
-                            console.log(`  ✅ JSON parsed successfully after mermaid escaping`);
                         } catch (secondParseErr) {
-                            console.error("  ❌ JSON parse failed even after escaping:", secondParseErr.message);
-                            console.log("  🔍 First 500 chars:", cleanJson.substring(0, 500));
+                            console.error("JSON parse failed even after escaping:", secondParseErr.message);
                             throw secondParseErr;
                         }
                     }
                     
                     // Step 4: Validate structure and extract steps
-                    console.log("📦 STEP 4: Extract steps from parsed JSON");
                     let newSteps = [];
                     if (Array.isArray(parsed)) {
                         newSteps = parsed;
-                        console.log(`  ✓ JSON is array with ${newSteps.length} items`);
                     } else if (parsed && typeof parsed === 'object') {
                         if (Array.isArray(parsed.steps)) {
                             newSteps = parsed.steps;
-                            console.log(`  ✓ Found 'steps' array with ${newSteps.length} items`);
                         } else if (typeof parsed.step !== 'undefined' && parsed.instruction) {
                             newSteps = [parsed];
-                            console.log(`  ✓ Single step object found`);
                         }
                     }
 
@@ -280,52 +248,37 @@
                                     .replace(/\\"/g, '"')      // \" → quote
                                     .replace(/\\t/g, '\t')     // \t → tab
                                     .replace(/\\r/g, '\r');    // \r → CR
-                                console.log(`  🔧 Step ${i}: Cleaned literal escapes from mermaid`);
                             }
                         }
                     }
 
                     // Step 5: Validate we have usable steps
-                    console.log("✅ STEP 5: Validate steps");
                     if (newSteps.length === 0) {
-                        console.error("  ❌ No valid steps found in parsed JSON");
-                        console.log("  🔍 Parsed object:", parsed);
+                        console.error("No valid steps found in parsed JSON");
                         throw new Error("No valid steps found in parsed JSON");
                     }
-
-                    console.log(`  📊 Validating ${newSteps.length} step(s)...`);
 
                     // Validate each step has required fields
                     for (let i = 0; i < newSteps.length; i++) {
                         const step = newSteps[i];
-                        console.log(`    Step ${i}:`);
 
                         if (typeof step.step === 'undefined') {
-                            console.warn(`      ⚠️ Missing 'step' field, adding it`);
                             step.step = i;
                         }
                         if (!step.instruction) {
-                            console.warn(`      ⚠️ Missing 'instruction' field, using default`);
                             step.instruction = "Step " + step.step;
                         }
                         if (!step.mermaid) {
-                            console.error(`      ❌ CRITICAL: Missing 'mermaid' field!`);
-                            console.log(`      🔍 Step object:`, step);
+                            console.error(`Step ${i} missing required 'mermaid' field!`);
                             throw new Error(`Step ${i} missing required 'mermaid' field`);
                         }
 
-                        // Log mermaid field stats
                         const mermaidNewlines = (step.mermaid.match(/\n/g) || []).length;
-                        console.log(`      ✓ Mermaid: ${step.mermaid.length} chars, ${mermaidNewlines} newlines`);
 
                         if (mermaidNewlines === 0) {
-                            console.warn(`      ⚠️ WARNING: Mermaid has NO newlines! Might be malformed.`);
-                            console.log(`      🔍 Preview:`, step.mermaid.substring(0, 100));
+                            console.warn(`Step ${i}: Mermaid has NO newlines, might be malformed.`);
                         }
                     }
-
-                    console.log(`  ✅ All ${newSteps.length} steps validated`);
-                    console.groupEnd();
                     
                     // Step 6: Determine simulation scope
                     let simId = AXIOM.simulation.activeSimId;
@@ -338,8 +291,7 @@
                         AXIOM.simulation.state[simId] = 0;
                         AXIOM.simulation.validatedSteps = new Set();
                         AXIOM.simulation.lastWorkingMermaid[simId] = null;
-                        AXIOM.simulation.difficulty = difficulty; // Store difficulty with simulation
-                        console.log(`🆕 NEW SIMULATION (${difficulty}):`, simId);
+                        AXIOM.simulation.difficulty = difficulty;
                     } else if (!simId) {
                         simId = 'sim_cont_' + Date.now();
                         AXIOM.simulation.activeSimId = simId;
@@ -347,7 +299,6 @@
                         AXIOM.simulation.state[simId] = 0;
                         AXIOM.simulation.validatedSteps = new Set();
                         AXIOM.simulation.lastWorkingMermaid[simId] = null;
-                        console.log("🔄 CONTINUATION (new scope):", simId);
                     }
                     
                     // Step 7: Merge steps into store
@@ -356,8 +307,6 @@
                     } else {
                         AXIOM.simulation.store[simId] = AXIOM.simulation.store[simId].concat(newSteps);
                     }
-                    
-                    console.log(`📊 Simulation ${simId}: ${AXIOM.simulation.store[simId].length} total steps`);
                     
                     // Step 8: Calculate which index to render
                     const startIndex = isNewSimulation ? 0 : AXIOM.simulation.store[simId].length - newSteps.length;
@@ -376,17 +325,11 @@
                     
                 } catch (jsonErr) {
                     console.error("❌ JSON Processing Failed:", jsonErr.message);
-                    console.log("Raw text length:", fullText.length);
-                    console.log("Raw text (first 500 chars):", fullText.substring(0, 500));
-                    console.log("Raw text (last 500 chars):", fullText.substring(Math.max(0, fullText.length - 500)));
                     
                     // Try to identify what's at the error position
                     const posMatch = jsonErr.message.match(/position\s+(\d+)/i);
                     if (posMatch) {
                         const errorPos = parseInt(posMatch[1]);
-                        console.log(`Error at position ${errorPos}:`);
-                        console.log("  Context around error:", fullText.substring(Math.max(0, errorPos - 50), Math.min(fullText.length, errorPos + 100)));
-                        console.log("  Character at position:", JSON.stringify(fullText.charAt(errorPos)));
                     }
                     
                     // Show error to user
@@ -496,7 +439,6 @@
     
     function retryLastMessage() {
         if (AXIOM.state.lastUserMessage) {
-            console.log("🔄 Retrying:", AXIOM.state.lastUserMessage.substring(0, 50) + "...");
             // Clear tracking so it can be re-evaluated if needed
             AXIOM.state.lastPromptedForDifficulty = null;
             // Skip difficulty prompt on retry - use current difficulty
@@ -654,9 +596,5 @@
     // =========================================================================
     // INITIALIZATION COMPLETE
     // =========================================================================
-    
-    console.log('✅ AXIOM Engine initialized');
-    console.log('📦 Modules loaded:', Object.keys(AXIOM).filter(k => typeof AXIOM[k] === 'object').join(', '));
-    console.log('🎯 Default difficulty:', AXIOM.difficulty.current);
     
 })();

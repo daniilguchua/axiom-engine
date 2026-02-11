@@ -29,7 +29,6 @@
                     session_id: AXIOM.currentSessionId
                 })
             });
-            console.log("Feedback sent:", rating);
         } catch (e) {
             console.error("Vote failed", e);
         }
@@ -131,8 +130,7 @@
         
         // Now make the actual repair request
         try {
-            console.log(`ðŸ“¡ [REPAIR] Sending repair request...`);
-            
+
             const response = await fetch(`${API_URL}/repair`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -150,7 +148,7 @@
             });
             
             const elapsed = Date.now() - startTime;
-            console.log(`ðŸ“¡ [REPAIR] Response received in ${elapsed}ms, status: ${response.status}`);
+
             
             if (!response.ok) {
                 const errorText = await response.text().catch(() => 'Unknown error');
@@ -196,11 +194,8 @@
         
         const lastStep = playlist[playlist.length - 1];
         if (!lastStep.is_final) {
-            console.log("Simulation not final, skipping confirmation");
             return;
         }
-        
-        console.log(`âœ… Confirming simulation complete: ${simId} (${playlist.length} steps)`);
         
         try {
             const response = await fetch(`${API_URL}/confirm-complete`, {
@@ -217,11 +212,8 @@
             const data = await response.json();
             
             if (data.status === 'cached') {
-                console.log(`ðŸ’¾ Simulation cached successfully: ${data.prompt}`);
-                AXIOM.ui.showToast('âœ“ Simulation saved to cache');
-            } else if (data.status === 'skipped') {
-                console.log(`â­ï¸ Cache skipped: ${data.reason}`);
-            } else {
+                AXIOM.ui.showToast('✓ Simulation saved to cache');
+            } else if (data.status !== 'skipped') {
                 console.warn('Cache response:', data);
             }
         } catch (err) {
@@ -324,7 +316,7 @@
     
     async function resetSession() {
         if (AXIOM.currentSessionId) {
-            console.log("ðŸ’€ TERMINATING SESSION...");
+
             try {
                 await fetch(`${API_URL}/reset`, {
                     method: 'POST',
@@ -397,10 +389,6 @@
         // Don't block the main flow - run in background
         setTimeout(async () => {
             try {
-                console.log(`🔍 [GHOST] Starting automatic capture for ${rawMermaid.length} chars`);
-                console.log(`🔍 [GHOST] API URL: ${API_URL}/debug/capture-raw`);
-                console.log(`🔍 [GHOST] Session ID: ${AXIOM.currentSessionId || 'unknown'}`);
-
                 // Step 1: Capture raw and get pipeline versions
                 const captureResponse = await fetch(`${API_URL}/debug/capture-raw`, {
                     method: 'POST',
@@ -414,8 +402,6 @@
                     })
                 });
 
-                console.log(`🔍 [GHOST] Capture response status: ${captureResponse.status}`);
-
                 if (!captureResponse.ok) {
                     const errorText = await captureResponse.text();
                     console.error(`❌ [GHOST] Capture failed: ${captureResponse.status}`, errorText);
@@ -423,13 +409,10 @@
                 }
 
                 const captureData = await captureResponse.json();
-                console.log(`✅ [GHOST] Capture successful:`, captureData);
 
                 if (!captureData.success) {
                     throw new Error(captureData.error || 'Capture failed');
                 }
-
-                console.log(`✅ [GHOST] Captured raw output, testing through 5 pipelines...`);
 
                 // Step 2: Apply transformations for each pipeline
                 const pipelineCode = {
@@ -447,14 +430,6 @@
                     pipelineCode.js_then_python = jsSanitized;
                 }
 
-                console.log(`📊 [GHOST] Pipeline transformations applied:`, {
-                    raw_length: pipelineCode.raw.length,
-                    python_length: pipelineCode.python.length,
-                    mermaidjs_length: pipelineCode.mermaidjs.length,
-                    python_then_js_length: pipelineCode.python_then_js.length,
-                    js_then_python_length: pipelineCode.js_then_python.length
-                });
-
                 // Step 3: Test each pipeline
                 const testResults = {};
                 const pipelines = ['raw', 'python', 'mermaidjs', 'python_then_js', 'js_then_python'];
@@ -463,10 +438,7 @@
                     const code = pipelineCode[pipeline];
                     const result = await testMermaidRendering(code, pipeline);
                     testResults[pipeline] = result;
-                    console.log(`  ${pipeline}: ${result.rendered ? '✓ Success' : '✗ Failed'} ${result.error ? '(' + result.error + ')' : ''}`);
                 }
-
-                console.log(`📊 [GHOST] Test results:`, testResults);
 
                 // Step 3: Log to database
                 await fetch(`${API_URL}/debug/log-test-results`, {
@@ -481,8 +453,6 @@
                         test_results: testResults
                     })
                 });
-
-                console.log(`✅ [GHOST] Test complete and logged to database`);
 
             } catch (error) {
                 console.warn(`⚠️ [GHOST] Background testing failed (non-critical):`, error);
@@ -571,5 +541,5 @@
         clearAllPendingRepairs
     };
     
-    console.log('âœ… AXIOM API loaded');
+
 })();

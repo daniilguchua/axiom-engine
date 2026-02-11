@@ -16,20 +16,11 @@
             return 'flowchart LR\nA["Empty"]';
         }
 
-        console.group("🧹 SANITIZER PIPELINE");
-        console.log("📥 INPUT LENGTH:", raw.length);
-        console.log("📥 INPUT HAS NEWLINES:", raw.includes('\n'));
-        console.log("📥 NEWLINE COUNT:", (raw.match(/\n/g) || []).length);
-        console.log("📥 ESCAPED NEWLINE COUNT (\\n):", (raw.match(/\\n/g) || []).length);
-        console.log("📥 FIRST 300 CHARS:", raw.substring(0, 300));
-
         let clean = raw;
         
         // ═══════════════════════════════════════════════════════════════
         // PHASE 1: UNESCAPE & NORMALIZE
         // ═══════════════════════════════════════════════════════════════
-
-        console.log("🔄 PHASE 1: Unescape & Normalize");
 
         // Force LR layout - catch all variants (AGGRESSIVE)
         clean = clean.replace(/(graph|flowchart)\s+(TD|TB|BT|RL)\b/gi, "$1 LR");
@@ -38,24 +29,18 @@
         // Ensure LR direction exists - add if missing
         if (!/flowchart\s+LR|graph\s+LR/i.test(clean)) {
             clean = clean.replace(/^(flowchart|graph)\b/i, "$1 LR");
-            console.log("  ✓ Added missing LR direction");
         }
 
         // Convert escaped newlines to real newlines
         const beforeNewlineConvert = clean;
         clean = clean.replace(/\\n/g, "\n");
-        if (beforeNewlineConvert !== clean) {
-            console.log("  ✓ Converted escaped newlines (\\n → actual newlines)");
-            console.log("  ✓ NEW NEWLINE COUNT:", (clean.match(/\n/g) || []).length);
-        }
+
 
         // CRITICAL FIX: Convert escaped quotes to real quotes
         // LLMs sometimes return \" instead of " in their JSON
         const beforeQuoteConvert = clean;
         clean = clean.replace(/\\"/g, '"');
-        if (beforeQuoteConvert !== clean) {
-            console.log("  ✓ Converted escaped quotes (\\\" → actual quotes)");
-        }
+
 
         // Normalize quotes
         clean = clean.replace(/[""]/g, '"').replace(/['']/g, "'");
@@ -68,25 +53,17 @@
             // Check if content has any edges (arrows)
             const hasEdges = /-->|==>|---|<--|<==|o--|x--|o==/.test(content);
             if (!hasEdges) {
-                console.log("  ✓ Removed wrapper subgraph (contains only nodes, blocks LR)");
                 return content; // Return just the node declarations without subgraph wrapper
             }
             return match; // Keep subgraphs that have edges (they're structural)
         });
         
-        if (beforeSubgraphFix !== clean) {
-            console.log("  ✓ Wrapper subgraph removal complete - LR orientation restored");
-        }
+
 
         // Remove markdown code block wrappers
         const beforeCodeBlock = clean;
         clean = clean.replace(/^```mermaid\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "");
-        if (beforeCodeBlock !== clean) {
-            console.log("  ✓ Removed markdown code blocks");
-        }
-
         clean = clean.trim();
-        console.log("  ✓ After Phase 1 - Newline count:", (clean.match(/\n/g) || []).length);
 
         // ═══════════════════════════════════════════════════════════════
         // EMERGENCY FIX: BRACKET CORRUPTION & UNICODE GARBAGE
@@ -230,7 +207,6 @@
         // PHASE 6.5: REMOVE EMPTY EDGE LABELS
         // ═══════════════════════════════════════════════════════════════
         
-        console.log("🔄 PHASE 6.5: Remove empty edge labels");
         const beforeEmptyLabels = clean;
         
         // Remove empty labels like -->\"|\"\"| or -->|''|
@@ -238,34 +214,24 @@
         clean = clean.replace(/(<-+)\|[\"\'\s]*[\"\']/g, "$1");
         clean = clean.replace(/([=<>-]+)\|[\"\'\s]*[\"\']/g, "$1");
         
-        if (beforeEmptyLabels !== clean) {
-            console.log("  ✓ Removed empty edge labels");
-        }
+
 
         // ═══════════════════════════════════════════════════════════════
         // PHASE 6.75: REMOVE MALFORMED LINKSTYLE STATEMENTS
         // ═══════════════════════════════════════════════════════════════
 
-        console.log("🔄 PHASE 6.75: Remove malformed linkStyle");
         const beforeLinkStyleFix = clean;
 
         // Remove linkStyle with corrupted unicode or invalid hex colors
         // Valid: linkStyle 0 stroke:#FBBF24
         // Invalid: linkStyle 0 stroke:ﬂ°FBBF24¶ß (corrupted characters)
         clean = clean.replace(/^\s*linkStyle\s+.*[^\x00-\x7F]+.*$/gm, '');
-        console.log("  ✓ Removed linkStyle statements with unicode corruption");
 
         // Remove linkStyle with malformed color codes (missing # or invalid chars)
         clean = clean.replace(/^\s*linkStyle\s+\d+\s+stroke:[^#\s][^\s;]*\s*;?\s*$/gm, '');
-        console.log("  ✓ Removed linkStyle statements with invalid color codes");
 
         // Optional: Remove ALL linkStyle statements since CSS handles edge styling
         clean = clean.replace(/^\s*linkStyle\s+.*$/gm, '');
-        console.log("  ✓ Removed all linkStyle statements (CSS handles edge styling)");
-
-        if (beforeLinkStyleFix !== clean) {
-            console.log("  ✓ LinkStyle cleanup complete");
-        }
 
         // ═══════════════════════════════════════════════════════════════
         // PHASE 7: FIX CSS-LIKE PROPERTIES
@@ -281,25 +247,18 @@
         // PHASE 8: ENSURE SEMICOLONS & LINE BREAKS
         // ═══════════════════════════════════════════════════════════════
 
-        console.log("🔄 PHASE 8: Ensure semicolons & line breaks");
-        console.log("  📊 Newlines before line processing:", (clean.match(/\n/g) || []).length);
-
         // CRITICAL FIX: Ensure newlines after graph statements BEFORE splitting
         // This prevents run-on statements like "A --> B;C --> D;" from becoming "GraphA --> B;C --> D;"
         clean = clean.replace(/;([A-Za-z0-9_]+)/g, ';\n$1');
-        console.log("  ✓ Injected newlines after semicolons before node IDs");
 
         // Split into lines for processing
         const beforeSplit = clean;
         let lines = clean.split('\n').map(l => l.trim()).filter(l => l);
-        console.log("  📊 Lines after split & filter:", lines.length);
 
         if (lines.length === 0) {
-            console.error("  ❌ CRITICAL: All lines were filtered out!");
-            console.log("  🔍 Content before split:", beforeSplit.substring(0, 200));
+            console.error("SANITIZER: All lines were filtered out!");
             // Fallback: don't filter empty lines, just trim
             lines = beforeSplit.split('\n').map(l => l.trim());
-            console.log("  🔄 Fallback: Kept all lines, count:", lines.length);
         }
         
         lines = lines.map(line => {
@@ -341,18 +300,9 @@
         const beforeEmptyRemoval = clean;
         clean = clean.split('\n').filter(l => l.trim()).join('\n');
 
-        console.log("🔄 PHASE 10 COMPLETE: Final cleanup");
-        console.log("📤 OUTPUT LENGTH:", clean.length);
-        console.log("📤 OUTPUT HAS NEWLINES:", clean.includes('\n'));
-        console.log("📤 FINAL NEWLINE COUNT:", (clean.match(/\n/g) || []).length);
-        console.log("📤 FIRST 300 CHARS:", clean.substring(0, 300));
-
         if ((clean.match(/\n/g) || []).length < 3) {
-            console.error("⚠️ WARNING: Very few newlines in output! Possible newline stripping bug.");
-            console.log("🔍 Before empty line removal had:", (beforeEmptyRemoval.match(/\n/g) || []).length, "newlines");
+            console.error("SANITIZER: Very few newlines in output — possible stripping bug.");
         }
-
-        console.groupEnd();
 
         return clean;
     }
@@ -393,5 +343,4 @@
         repairLLMJson
     };
     
-    console.log('✅ AXIOM Sanitizer loaded');
 })();

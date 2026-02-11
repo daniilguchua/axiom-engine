@@ -125,10 +125,9 @@ def _enrich_simulation_input(user_msg):
         if any(kw in msg_lower for kw in config["keywords"]):
             try:
                 data = config["generator"]()
-                logger.info(f"📊 Generated {category} input data: {data['label']}")
                 return data
             except Exception as e:
-                logger.warning(f"Input generation failed for {category}: {e}")
+                logger.error(f"Failed to generate {category} input: {e}")
                 return None
     
     return None
@@ -183,6 +182,158 @@ Operate on these specific values step by step. Show how each element changes thr
 """
 
 
+# ============================================================================
+# STEP VALIDATION AND DEDUPLICATION
+# ============================================================================
+
+def validate_and_clean_steps(new_steps, current_sim_data, mode):
+    """
+    Validate and clean new steps before storing.
+    
+    Detects and removes:
+    - Duplicate step numbers
+    - Out-of-order steps
+    - Steps with missing required fields
+    
+    Args:
+        new_steps: List of step dicts from LLM
+        current_sim_data: Current list of steps in session
+        mode: Either "NEW_SIMULATION" or "CONTINUE_SIMULATION"
+    
+    Returns:
+        Tuple of (cleaned_steps, warnings)
+    """
+    warnings = []
+    cleaned = []
+    seen_step_nums = set()
+    
+    # Get existing step numbers
+    if current_sim_data:
+        existing_nums = {s.get('step', -1) for s in current_sim_data}
+    else:
+        existing_nums = set()
+    
+    for step in new_steps:
+        step_num = step.get('step')
+        
+        # Validation 1: Must have step number
+        if step_num is None:
+            warnings.append(f"Step missing 'step' field: {step.get('instruction', '')[:30]}...")
+            continue
+        
+        # Validation 2: Duplicate within new response
+        if step_num in seen_step_nums:
+            warnings.append(f"Duplicate step number {step_num} in response (removing second occurrence)")
+            continue
+        
+        # Validation 3: Duplicate with existing steps
+        if step_num in existing_nums:
+            warnings.append(f"Step {step_num} already exists in array (removing duplicate)")
+            continue
+        
+        # Validation 4: Required fields present
+        required_fields = ['step', 'instruction', 'mermaid']
+        missing = [f for f in required_fields if f not in step]
+        if missing:
+            warnings.append(f"Step {step_num} missing fields: {', '.join(missing)}")
+            step.update({f: "" for f in missing})
+        
+        seen_step_nums.add(step_num)
+        cleaned.append(step)
+    
+    # Log validation results
+    if warnings:
+        logger.warning(f"⚠️ VALIDATION: {len(new_steps)} → {len(cleaned)} steps ({len(warnings)} issues)")
+    
+    return cleaned, warnings
+
+
+def get_max_step_number(sim_data):
+    """
+    Get the highest step number from simulation data.
+    Uses step field, not array length.
+    Returns -1 if empty.
+    """
+    if not sim_data:
+        return -1
+    return max([s.get('step', -1) for s in sim_data])
+
+
+def get_last_unique_step(sim_data):
+    """
+    Get the last step with a UNIQUE step number.
+    Skips duplicates at the end of array.
+    Returns None if empty.
+    """
+    if not sim_data:
+        return None
+
+    # Count occurrences of each step number
+    from collections import Counter
+    step_counts = Counter(s.get('step', -1) for s in sim_data)
+
+    # Walk backwards and return the first step whose number appears exactly once
+    for step in reversed(sim_data):
+        step_num = step.get('step', -1)
+        if step_counts[step_num] == 1:
+            return step
+
+    # All steps are duplicates; return the last one as fallback
+    return sim_data[-1]
+
+
+def _log_diagnostic(cache_manager, session_id, mode, difficulty, llm_raw, new_steps, cleaned_steps, 
+                    storage_before, storage_after, integrity_pass, integrity_error):
+    """
+    Log diagnostic information for LLM request to database.
+    Provides centralized diagnostic tracking for debugging.
+    
+    Args:
+        cache_manager: Cache manager instance with database
+        session_id: Session ID
+        mode: Request mode (NEW_SIMULATION, CONTINUE_SIMULATION, etc)
+        difficulty: Difficulty level
+        llm_raw: Raw LLM response string
+        new_steps: Steps parsed from LLM (before validation)
+        cleaned_steps: Steps after validation
+        storage_before: DB state before storing (list of step dicts)
+        storage_after: DB state after storing (list of step dicts)
+        integrity_pass: Boolean indicating integrity check passed
+        integrity_error: Error message if integrity failed
+    """
+    try:
+        import json
+        
+        # Log to console (one line, structured)
+        step_diff = len(cleaned_steps) - len(storage_before)
+        console_msg = f"[{mode[:4]}] LLM: {len(new_steps)} → {len(cleaned_steps)} (stored), DB: {len(storage_before)} → {len(storage_after)}"
+        
+        if len(cleaned_steps) == 1 and mode == "CONTINUE_SIMULATION":
+            logger.warning(f"⚠️ {console_msg} (expected 3 steps!)")
+        else:
+            logger.info(console_msg)
+        
+        # Log to database
+        diagnostic_data = {
+            'mode': mode,
+            'difficulty': difficulty,
+            'llm_raw_response': llm_raw[:5000] if llm_raw else '',
+            'llm_step_count': len(new_steps),
+            'validation_input_count': len(new_steps),
+            'validation_output_count': len(cleaned_steps),
+            'validation_warnings': '',
+            'storage_before_json': json.dumps([{'step': s.get('step'), 'instr': s.get('instruction', '')[:50]} for s in storage_before]),
+            'storage_after_json': json.dumps([{'step': s.get('step'), 'instr': s.get('instruction', '')[:50]} for s in storage_after]),
+            'integrity_check_pass': integrity_pass,
+            'integrity_error': integrity_error or ''
+        }
+        
+        if hasattr(cache_manager, '_database') and cache_manager._database:
+            cache_manager._database.save_llm_diagnostic(session_id, diagnostic_data)
+    except Exception as e:
+        logger.error(f"Failed to log diagnostic: {e}")
+
+
 @chat_bp.route('/chat', methods=['POST'])
 @require_configured_api_key
 @validate_session
@@ -222,8 +373,6 @@ def chat():
     
     # Store difficulty preference in session
     user_db["difficulty"] = difficulty
-    
-    logger.info(f"📊 Difficulty: {difficulty.upper()} | Message: {user_msg[:50]}...")
     
     # =========================================================================
     # INTENT DETECTION
@@ -287,7 +436,6 @@ def chat():
                 if input_data:
                     cached_data["input_data"] = input_data
                 
-                logger.info(f"⚡ Cache hit for: {user_msg[:40]}... (difficulty: {difficulty})")
                 return jsonify(cached_data)
     
     # =========================================================================
@@ -368,7 +516,10 @@ You are an Expert Engine. You know how {user_msg} works.
         graph_progression = ""
         
         if user_db["current_sim_data"]:
-            last = user_db["current_sim_data"][-1]
+            # FIX #3: Find last UNIQUE step, not just array[-1]
+            last = get_last_unique_step(user_db["current_sim_data"])
+            if last is None:
+                last = user_db["current_sim_data"][-1]
             last_context = f"LAST STEP DATA: {last.get('data_table')}\nLAST LOGIC: {last.get('instruction')}"
             
             # Include last 3 graphs for pattern recognition (use sanitized versions if available)
@@ -380,9 +531,14 @@ You are an Expert Engine. You know how {user_msg} works.
                 ])
             elif len(recent_steps) >= 1:
                 # Fallback if fewer than 3 steps exist
-                graph_progression = f"**PREVIOUS GRAPH:**\n```mermaid\n{recent_steps[-1].get('mermaid_sanitized', recent_steps[-1].get('mermaid', ''))}\n```"
+                # FIX #6: Warn if using non-sanitized mermaid
+                fallback_step = recent_steps[-1]
+                mermaid_code = fallback_step.get('mermaid_sanitized', fallback_step.get('mermaid', ''))
+                graph_progression = f"**PREVIOUS GRAPH:**\n```mermaid\n{mermaid_code}\n```"
         
-        step_count = len(user_db["current_sim_data"])
+        # FIX #2: Use max step number, not array length
+        max_step = get_max_step_number(user_db["current_sim_data"])
+        step_count = max_step + 1
         
         # Build cumulative algorithm history from step_analysis fields
         analysis_history = ""
@@ -458,12 +614,17 @@ You are an Expert Engine. You know how {user_msg} works.
 **CONTEXT:** {last_context}
 
 **REQUIREMENTS:**
-1. **MANDATORY: Output EXACTLY 3 steps in your JSON array.**
-   Format: `[{{"step": {step_count}, ...}}, {{"step": {step_count + 1}, ...}}, {{"step": {step_count + 2}, ...}}]`
-   NOT 1 step. NOT 2 steps. EXACTLY 3 complete steps with different states.
+1. **CRITICAL - EXACTLY 3 STEPS REQUIRED:**
+   - Your output MUST be a JSON object with a "steps" array containing EXACTLY 3 step objects
+   - Format: `{{"steps": [{{"step": {step_count}, ...}}, {{"step": {step_count + 1}, ...}}, {{"step": {step_count + 2}, ...}}]}}`
+   - Step numbers MUST be {step_count}, {step_count + 1}, {step_count + 2}
+   - ❌ WRONG: `{{"steps": [{{"step": {step_count}}}]}}` (only 1 step)
+   - ❌ WRONG: `{{"steps": [{{"step": {step_count - 1}, ...}}]}}` (regenerating old step)
+   - ✅ CORRECT: Object with "steps" array containing 3 distinct step objects with ascending numbers
+   - VIOLATION = SYSTEM CRASH. You MUST output exactly 3 steps.
 2. Maintain the depth and style of the {difficulty.upper()} mode.
 3. **ENDING CRITERIA:** Set `is_final: true` when algorithm reaches natural termination (array sorted, goal found, queue empty, all nodes visited). Target 8-12 total steps for engineer difficulty. Current step count: {step_count}.
-4. **FORMAT:** Output strictly the JSON 'steps' array. Do NOT output a 'summary' field.
+4. **FORMAT:** Output strictly a JSON object with a "steps" key containing the array. Do NOT output a 'summary' field.
 """
         
     elif mode == "CONTEXTUAL_QA":
@@ -507,8 +668,9 @@ Match the {difficulty.upper()} mode style in your response.
     # The backend already builds its own context from user_db["current_sim_data"],
     # so using the raw frontend message would be redundant and bloats the prompt.
     if mode == "CONTINUE_SIMULATION":
-        step_count_for_prompt = len(user_db["current_sim_data"])
-        user_msg_for_prompt = f"CONTINUE_SIMULATION from step {step_count_for_prompt}. Generate the next 3 steps as a JSON steps array."
+        # Use max step number (not array length) to match system prompt
+        max_step = get_max_step_number(user_db["current_sim_data"])
+        user_msg_for_prompt = f"CONTINUE_SIMULATION from step {max_step}. Generate the next 3 steps as a JSON steps array starting with step {max_step + 1}."
     else:
         user_msg_for_prompt = user_msg
 
@@ -575,7 +737,11 @@ Match the {difficulty.upper()} mode style in your response.
                     parts = clean_json.split("```")
                     if len(parts) >= 3:
                         inner = parts[1].strip()
-    
+                        # Strip optional language tag (e.g. "json\n{...}" -> "{...")
+                        if inner and '\n' in inner and inner.split('\n', 1)[0].strip().isalpha():
+                            inner = inner.split('\n', 1)[1].strip()
+                        clean_json = inner
+
                 
                 clean_json = clean_json.strip()
                 
@@ -589,7 +755,7 @@ Match the {difficulty.upper()} mode style in your response.
                     'python\n', 'javascript\n', 'java\n'  # Markdown language tags
                 )
                 stripped = clean_json.lstrip()
-                if stripped.startswith(code_patterns) or not stripped.startswith('{'):
+                if stripped.startswith(code_patterns) or not (stripped.startswith('{') or stripped.startswith('[')):
                     logger.error(f"❌ AI output is not JSON. First 200 chars: {clean_json[:200]}")
                     raise ValueError("AI generated code/text instead of JSON. Please retry.")
                 
@@ -601,48 +767,72 @@ Match the {difficulty.upper()} mode style in your response.
                 elif isinstance(data_obj, list):
                     new_steps = data_obj
                 
-                # DEBUG: Log how many steps were generated and their step numbers
-                logger.info(f"🔢 LLM generated {len(new_steps)} step(s). Mode: {mode}")
-                if new_steps:
+                if not new_steps:
+                    logger.error("❌ LLM returned empty/invalid steps")
+                    # Log diagnostic with empty steps
+                    storage_before = user_db.get('current_sim_data', [])
+                    _log_diagnostic(cache_manager, session_id, mode, difficulty, 
+                                   full_response, [], [], storage_before, storage_before, False, "Empty steps")
+                else:
                     step_numbers = [s.get('step', '?') for s in new_steps]
-                    logger.info(f"📊 Step numbers in response: {step_numbers}")
-                    if len(new_steps) == 1 and mode == "CONTINUE_SIMULATION":
-                        logger.warning(f"⚠️ Only 1 step generated for continuation (expected 3)")
-                        logger.warning(f"   Step number: {step_numbers[0]}, Expected to start at: {len(user_db.get('current_sim_data', []))}")
-                
-                if new_steps:
-                    # GHOST DEBUG: Capture raw mermaid for testing (non-blocking)
-                    try:
-                        for step_idx, step in enumerate(new_steps):
-                            if 'mermaid' in step:
-                                # Fire-and-forget: log raw mermaid for debugging
-                                # This happens BEFORE any sanitization
-                                logger.debug(f"[GHOST] Captured raw mermaid from step {step_idx} ({len(step['mermaid'])} chars)")
-                                # Note: Actual testing happens client-side via debug.html
-                    except Exception as debug_err:
-                        # Don't let debug capture break the main flow
-                        logger.warning(f"[GHOST] Debug capture failed: {debug_err}")
-
-                    if mode == "NEW_SIMULATION":
-                        user_db["current_sim_data"] = new_steps
+                    
+                    # FIX #1: Validate and clean steps before storing
+                    storage_before = user_db.get('current_sim_data', [])
+                    
+                    cleaned_steps, validation_warnings = validate_and_clean_steps(
+                        new_steps,
+                        storage_before,
+                        mode
+                    )
+                    
+                    if not cleaned_steps:
+                        logger.warning(f"⚠️ All {len(new_steps)} steps rejected during validation")
+                        _log_diagnostic(cache_manager, session_id, mode, difficulty,
+                                       full_response, new_steps, [], storage_before, storage_before, False, "Validation rejected all")
                     else:
-                        user_db["current_sim_data"].extend(new_steps)
+                        # Store steps
+                        if mode == "NEW_SIMULATION":
+                            user_db["current_sim_data"] = cleaned_steps
+                            action = "REPLACED"
+                        else:
+                            user_db["current_sim_data"].extend(cleaned_steps)
+                            action = "EXTENDED"
+                        
+                        storage_after = user_db["current_sim_data"]
 
-                    user_db["current_step_index"] = len(user_db["current_sim_data"]) - 1
+                        user_db["current_step_index"] = len(user_db["current_sim_data"]) - 1
 
-                    last_step = user_db["current_sim_data"][-1]
-                    is_final = last_step.get("is_final", False)
+                        # FIX #4: Add integrity check
+                        max_step = get_max_step_number(storage_after)
+                        array_len = len(storage_after)
+                        expected_len = max_step + 1
+                        
+                        final_steps = [s.get('step', '?') for s in storage_after]
+                        
+                        integrity_pass = (array_len == expected_len)
+                        integrity_error = ""
+                        
+                        if not integrity_pass:
+                            integrity_error = f"length {array_len} != max+1 {expected_len}"
+                            logger.error(f"❌ INTEGRITY FAILED: {integrity_error}")
+                        
+                        # Log diagnostic to database
+                        _log_diagnostic(cache_manager, session_id, mode, difficulty,
+                                       full_response, new_steps, cleaned_steps, 
+                                       storage_before, storage_after, integrity_pass, integrity_error)
 
-                    if is_final:
-                        logger.info(f"⏳ Simulation complete, awaiting client verification...")
-                        user_db["awaiting_verification"] = True
-                    else:
-                        logger.info(f"⏳ Step complete (not final). Total: {len(user_db['current_sim_data'])}")
+                        last_step = storage_after[-1]
+                        is_final = last_step.get("is_final", False)
+
+                        if is_final:
+                            logger.info(f"🏁 Simulation complete ({len(storage_after)} steps)")
+                            user_db["awaiting_verification"] = True
                 
             except json.JSONDecodeError as e:
-                logger.error(f"JSON parse error: {e}")
+                logger.error(f"JSON decode error: {e}")
             except Exception as e:
                 logger.exception(f"Post-processing error: {e}")
+        
         
         # Update chat history
         # For continuations and JSON responses, store clean summaries instead of
@@ -674,6 +864,11 @@ Match the {difficulty.upper()} mode style in your response.
                 f"- {s.get('source', 'Unknown')}" for s in sources
             ])
             yield source_text
+        
+        # Yield final confirmation to frontend
+        if expect_json and user_db.get('current_sim_data'):
+            db_steps = [s.get('step', '?') for s in user_db.get('current_sim_data', [])]
+            yield f"\n<!--DB_STATE:{json.dumps({'total': len(user_db['current_sim_data']), 'steps': db_steps})}-->"
         
         # Yield input_data as trailing marker so frontend can display the badge
         if expect_json and input_data:
@@ -713,7 +908,6 @@ def update_sanitized_graph():
     
     # Store sanitized version alongside raw LLM output
     user_db['current_sim_data'][step_index]['mermaid_sanitized'] = sanitized_code
-    logger.debug(f"✅ Stored sanitized graph for step {step_index} ({len(sanitized_code)} chars)")
     
     return jsonify({"success": True})
 

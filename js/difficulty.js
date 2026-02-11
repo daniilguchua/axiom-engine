@@ -52,7 +52,6 @@
         
         // Prevent duplicate modal opens
         if (isModalOpen) {
-            console.log('Difficulty modal already open, ignoring duplicate request');
             return;
         }
         
@@ -68,15 +67,6 @@
         
         // Add animation class
         modal.classList.add('modal-open');
-        
-        // Clear the backdrop if it persists
-        const backdrop = document.querySelector('dialog::backdrop');
-        if (backdrop) {
-            backdrop.style.opacity = '0';
-            backdrop.style.pointerEvents = 'none';
-        }
-        
-        console.log('✅ Difficulty modal shown');
     }
     
     function hideDifficultyModal() {
@@ -84,18 +74,10 @@
         if (modal) {
             modal.classList.remove('modal-open');
             modal.close();
-            isModalOpen = false; // Clear flag when modal is closed
-            
-            // Ensure backdrop is removed
-            const backdrop = document.querySelector('dialog::backdrop');
-            if (backdrop) {
-                backdrop.style.opacity = '0';
-                backdrop.style.pointerEvents = 'none';
-            }
+            isModalOpen = false;
         }
         pendingPrompt = null;
         pendingCallback = null;
-        console.log('✅ Difficulty modal hidden');
     }
     
     function updateConfirmButton() {
@@ -134,8 +116,6 @@
         
         // Update confirm button (for modal)
         updateConfirmButton();
-        
-        console.log('📊 Difficulty selected:', difficulty);
     }
     
     function updateDifficultyBadge() {
@@ -163,17 +143,14 @@
     // =========================================================================
     
     function confirmDifficulty() {
-        console.log('✅ Difficulty confirmed:', currentDifficulty);
         hideDifficultyModal();
         
         if (pendingCallback) {
-            console.log('📞 Calling difficulty callback with:', currentDifficulty);
             pendingCallback(currentDifficulty);
         }
     }
     
     function cancelDifficulty() {
-        console.log('❌ Difficulty selection cancelled');
         hideDifficultyModal();
         
         // Restore lobby input if it was cleared prematurely
@@ -310,8 +287,6 @@
         updateDifficultyBadge();
         updateDropdownTrigger(currentDifficulty);
         updateDropdownOptions(currentDifficulty);
-        
-        console.log('✅ AXIOM Difficulty System initialized');
     }
     
     function updateDropdownTrigger(difficulty) {
@@ -387,5 +362,4 @@
         initDifficultySystem();
     }
     
-    console.log('✅ AXIOM Difficulty module loaded');
 })();

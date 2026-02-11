@@ -16,7 +16,16 @@ class RepairTracker:
     """
     Tracks broken simulations and pending repairs.
     Prevents caching of broken content and coordinates repair workflow.
+    
+    Changes in Phase 1 + Phase 2-Lite:
+    - Removed callback parameter (handles hashing internally)
+    - Added retry count tracking
+    - Distinguishes temporary vs permanent broken status
+    - Smarter expiration logic based on retry attempts
     """
+    
+    MAX_RETRY_COUNT = 3  # After 3 failures, mark as permanently broken
+    RETRY_COOLDOWN_HOURS = 24  # Wait 24 hours between retries
     
     def __init__(self, database):
         """
@@ -26,47 +35,63 @@ class RepairTracker:
             database: CacheDatabase instance for DB operations
         """
         self.db = database
+        logger.info("🔧 RepairTracker initialized with smart retry logic")
     
-    def is_simulation_broken(self, prompt: str, difficulty: str = "medium", max_age_hours: int = 24, get_hash_callback=None) -> bool:
+    def _get_prompt_hash(self, prompt: str) -> str:
+        """Generate consistent hash for prompt."""
+        return hashlib.sha256(prompt.strip().lower().encode()).hexdigest()
+    
+    def is_simulation_broken(self, prompt: str, difficulty: str = "medium") -> bool:
         """
         Check if a simulation is marked as broken.
-        Broken status expires after max_age_hours to allow retries.
+        
+        Logic:
+        - If permanently broken (retry_count >= MAX_RETRY_COUNT): return True
+        - If temporarily broken but cooldown expired: return False (allow retry)
+        - If temporarily broken within cooldown: return True
         
         Args:
             prompt: The user prompt to check
             difficulty: The difficulty level of the simulation
-            max_age_hours: Hours before broken status expires
-            get_hash_callback: Callback to get prompt hash
             
         Returns:
-            True if broken and not expired, False otherwise
+            True if broken and should not be cached/retrieved, False otherwise
         """
-        if not get_hash_callback:
-            return False
-            
-        prompt_hash = get_hash_callback(prompt)
+        prompt_hash = self._get_prompt_hash(prompt)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT created_at FROM broken_simulations 
+                SELECT retry_count, last_retry_at, is_permanently_broken 
+                FROM broken_simulations 
                 WHERE prompt_hash = ? AND difficulty = ?
             """, (prompt_hash, difficulty))
             row = cursor.fetchone()
         
             if not row:
                 return False
-        
-            # Check if the broken status has expired
-            created_at = datetime.fromisoformat(row[0]) if isinstance(row[0], str) else row[0]
-            age = datetime.now() - created_at
-        
-            if age.total_seconds() > max_age_hours * 3600:
-                # Expired - clean it up
-                cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ?", (prompt_hash,))
+            
+            retry_count, last_retry_str, is_permanently_broken = row
+            
+            # If permanently broken, always return True
+            if is_permanently_broken:
+                logger.debug(f"❌ Simulation permanently broken: {prompt[:40]}... (retries: {retry_count})")
+                return True
+            
+            # Check if cooldown period has expired
+            last_retry_at = datetime.fromisoformat(last_retry_str) if isinstance(last_retry_str, str) else last_retry_str
+            age = datetime.now() - last_retry_at
+            
+            if age.total_seconds() > self.RETRY_COOLDOWN_HOURS * 3600:
+                # Cooldown expired - allow retry by removing temporary broken status
+                cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ? AND difficulty = ?", 
+                             (prompt_hash, difficulty))
                 conn.commit()
-                logger.info(f"🕐 Broken status expired for prompt hash {prompt_hash[:16]}...")
+                logger.info(f"🔄 Retry cooldown expired for: {prompt[:40]}... (attempt {retry_count}/{self.MAX_RETRY_COUNT})")
                 return False
-        
+            
+            # Still within cooldown - keep blocked
+            hours_remaining = (self.RETRY_COOLDOWN_HOURS * 3600 - age.total_seconds()) / 3600
+            logger.debug(f"⏳ Simulation in cooldown: {prompt[:40]}... ({hours_remaining:.1f}h remaining)")
             return True
     
     def mark_simulation_broken(
@@ -76,7 +101,10 @@ class RepairTracker:
         reason: str = ""
     ) -> bool:
         """
-        Mark a simulation as broken with difficulty awareness.
+        Mark a simulation as broken with smart retry tracking.
+        
+        After MAX_RETRY_COUNT failures, marks as permanently broken.
+        Otherwise increments retry count and updates last_retry_at.
         
         Args:
             prompt: The user prompt
@@ -87,29 +115,62 @@ class RepairTracker:
             True if marked broken, False otherwise
         """
         try:
-            prompt_hash = hashlib.sha256(prompt.strip().lower().encode()).hexdigest()
-            cursor = self.db.get_connection().cursor()
+            prompt_hash = self._get_prompt_hash(prompt)
             
-            cursor.execute(
-                """
-                INSERT INTO broken_simulations (prompt_hash, difficulty, failure_reason)
-                VALUES (?, ?, ?)
-                ON CONFLICT(prompt_hash, difficulty) DO UPDATE SET
-                    failure_reason = excluded.failure_reason,
-                    failed_at = CURRENT_TIMESTAMP
-                """,
-                (prompt_hash, difficulty, reason)
-            )
-            self.db.get_connection().commit()
-            return True
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Check current retry count
+                cursor.execute("""
+                    SELECT retry_count FROM broken_simulations 
+                    WHERE prompt_hash = ? AND difficulty = ?
+                """, (prompt_hash, difficulty))
+                row = cursor.fetchone()
+                
+                if row:
+                    # Existing entry - increment retry count
+                    current_retry_count = row[0]
+                    new_retry_count = current_retry_count + 1
+                    is_permanent = 1 if new_retry_count >= self.MAX_RETRY_COUNT else 0
+                    
+                    cursor.execute("""
+                        UPDATE broken_simulations 
+                        SET retry_count = ?,
+                            last_retry_at = CURRENT_TIMESTAMP,
+                            failure_reason = ?,
+                            is_permanently_broken = ?
+                        WHERE prompt_hash = ? AND difficulty = ?
+                    """, (new_retry_count, reason, is_permanent, prompt_hash, difficulty))
+                    
+                    if is_permanent:
+                        logger.warning(f"💀 PERMANENTLY BROKEN after {new_retry_count} attempts: {prompt[:40]}...")
+                    else:
+                        logger.warning(f"⚠️  Marked broken (attempt {new_retry_count}/{self.MAX_RETRY_COUNT}): {prompt[:40]}...")
+                else:
+                    # New entry - first failure
+                    cursor.execute("""
+                        INSERT INTO broken_simulations 
+                        (prompt_hash, difficulty, failure_reason, retry_count, last_retry_at, is_permanently_broken)
+                        VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, 0)
+                    """, (prompt_hash, difficulty, reason))
+                    logger.warning(f"⚠️  Marked broken (attempt 1/{self.MAX_RETRY_COUNT}): {prompt[:40]}...")
+                
+                conn.commit()
+                return True
+                
         except Exception as e:
-            print(f"Error marking simulation broken: {e}")
+            logger.error(f"Error marking simulation broken: {e}")
             return False
     
     def clear_broken_status(self, prompt: str, difficulty: str = "medium") -> bool:
         """
-        Clear the broken status for a simulation (admin function).
-        Use if the simulation has been fixed and should be re-cached.
+        Clear the broken status for a simulation.
+        
+        Called when:
+        1. Client successfully verifies the simulation (in confirm-complete)
+        2. Admin manually clears the status
+        
+        This resets retry count and allows the simulation to be cached.
         
         Args:
             prompt: The prompt to clear
@@ -121,13 +182,13 @@ class RepairTracker:
         if not difficulty:
             return False
             
-        prompt_hash = hashlib.sha256(prompt.strip().lower().encode()).hexdigest()
+        prompt_hash = self._get_prompt_hash(prompt)
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ? AND difficulty = ?", (prompt_hash, difficulty))
             deleted = cursor.rowcount > 0
             if deleted:
-                logger.info(f"✅ Broken status cleared for: '{prompt[:40]}...'")
+                logger.info(f"✅ Broken status cleared for: '{prompt[:40]}...' (difficulty={difficulty})")
             return deleted
     
     def mark_repair_pending(

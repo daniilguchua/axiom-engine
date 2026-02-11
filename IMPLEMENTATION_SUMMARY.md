@@ -1,5 +1,38 @@
 # GHOST Engine: Implementation Summary
 
+## Latest Update: Feb 10, 2026 - Logging Refactor
+
+### ✅ Three-Tier Logging System Implemented
+
+**What Changed:**
+1. **Database Schema** - New `llm_diagnostics` table with 15 columns
+2. **Console Logging** - Removed noise, kept signal (1-2 lines per request)
+3. **Diagnostic Helper** - `_log_diagnostic()` function for structured logging
+4. **Debug Dashboard** - `/debug/llm-diagnostics` endpoint with HTML viewer
+
+**Key Features:**
+- ✅ Persistent history of 20 latest requests per session
+- ✅ Raw LLM response visible in interactive dashboard
+- ✅ Before/after database state snapshots
+- ✅ One-line console summary: `[CONT] LLM: 1 → 1 (stored), DB: 3 → 4`
+- ✅ Color-coded mode badges in dashboard
+- ✅ Integrity check status tracking
+
+**Test Results:** 3/3 tests passing ✨
+
+**Files Modified:**
+- `core/cache/database.py` - Added schema + helper methods
+- `routes/chat.py` - Refactored logging + added helper
+- `routes/debug.py` - Added diagnostics dashboard
+- `test_diagnostics.py` - Comprehensive test suite
+
+**To Use:**
+1. Generate a simulation
+2. Check console for: `[CONT] LLM: 1 → 1 (stored)...`
+3. Open: `http://localhost:5000/debug/llm-diagnostics?session_id=ABC`
+
+---
+
 ## ✅ All Tasks Completed
 
 ### 1. Graph Alignment Fix (interactions.js)

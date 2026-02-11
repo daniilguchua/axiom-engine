@@ -188,7 +188,6 @@
     function handleLobbyInit() {
         // Don't process if already in chat mode
         if (AXIOM.state.appMode === 'CHAT') {
-            console.log('Already in chat mode, ignoring lobby init');
             return;
         }
         
@@ -249,24 +248,16 @@
         const content = button.nextElementSibling;
         const icon = button.querySelector('.toggle-icon');
         
-        console.log('[UI] toggleStepSummary:', { 
-            content, 
-            currentDisplay: content.style.display,
-            hasExpanded: content.classList.contains('expanded')
-        });
-        
         if (content.style.display === 'none' || content.style.display === '') {
             content.style.display = 'block';
             icon.textContent = '▼';
             button.classList.add('expanded');
             content.classList.add('expanded');
-            console.log('[UI] Expanded step summary');
         } else {
             content.style.display = 'none';
             icon.textContent = '▶';
             button.classList.remove('expanded');
             content.classList.remove('expanded');
-            console.log('[UI] Collapsed step summary');
         }
     }
     
@@ -279,11 +270,9 @@
         if (isCollapsed) {
             overlay.classList.remove('collapsed');
             button.classList.remove('collapsed');
-            console.log('[UI] Expanded graph data overlay');
         } else {
             overlay.classList.add('collapsed');
             button.classList.add('collapsed');
-            console.log('[UI] Collapsed graph data overlay');
         }
     }
     
@@ -292,8 +281,7 @@
     window.toggleStepSummary = toggleStepSummary;
     window.toggleGraphDataOverlay = toggleGraphDataOverlay;
     
-    console.log('✅ AXIOM UI loaded');
-    
+
     // NOTE: Event listeners removed from here. 
     // They are handled in main.js to prevent double-firing bugs.
 })();

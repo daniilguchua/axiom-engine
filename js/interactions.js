@@ -22,10 +22,6 @@
             const hasValidClient = svg.clientWidth > 10 && svg.clientHeight > 10;
             
             if (hasValidRect || hasValidClient) {
-                console.log(`✅ [ZOOM] SVG dimensions ready after ${i} attempts:`, {
-                    rect: `${rect.width}x${rect.height}`,
-                    client: `${svg.clientWidth}x${svg.clientHeight}`
-                });
                 return { width: rect.width || svg.clientWidth, height: rect.height || svg.clientHeight };
             }
             
@@ -64,7 +60,6 @@
                 return;
             }
             
-            console.log('[ZOOM] Starting dimension detection...');
             const dimensions = await waitForSvgDimensions(svg);
             
             // Use requestAnimationFrame to ensure layout is complete
@@ -74,15 +69,21 @@
                     const svgWidth = dimensions.width;
                     const svgHeight = dimensions.height;
 
-                    console.log('[ZOOM] Calculating fit:', {
-                        wrapper: `${wrapperRect.width}x${wrapperRect.height}`,
-                        svg: `${svgWidth}x${svgHeight}`
-                    });
+                    // Read actual CSS padding (responsive: 12px default via --graph-internal-padding)
+                    const wrapperStyle = getComputedStyle(wrapper);
+                    const padLeft = parseFloat(wrapperStyle.paddingLeft) || 0;
+                    const padTop = parseFloat(wrapperStyle.paddingTop) || 0;
+                    const padRight = parseFloat(wrapperStyle.paddingRight) || 0;
+                    const padBottom = parseFloat(wrapperStyle.paddingBottom) || 0;
 
-                    // Calculate scale to fit with padding (matches CSS responsive padding: 16px-32px)
-                    const padding = 32;
-                    const availWidth = wrapperRect.width - (padding * 2);
-                    const availHeight = wrapperRect.height - (padding * 2);
+                    // Content area = wrapper minus padding (graphDiv lives here)
+                    const contentWidth = wrapperRect.width - padLeft - padRight;
+                    const contentHeight = wrapperRect.height - padTop - padBottom;
+
+                    // Extra breathing room beyond CSS padding so graph doesn't touch edges
+                    const breathingRoom = 20;
+                    const availWidth = contentWidth - (breathingRoom * 2);
+                    const availHeight = contentHeight - (breathingRoom * 2);
 
                     const scaleX = availWidth / svgWidth;
                     const scaleY = availHeight / svgHeight;
@@ -93,16 +94,12 @@
                     // Constrain to 10%-150% (low min allows wide LR diagrams to fit)
                     scale = Math.max(0.1, Math.min(1.5, scale));
 
-                    // Calculate centered position
+                    // Calculate centered position within content area,
+                    // then subtract padding so the visual result is centered in the wrapper
                     const scaledWidth = svgWidth * scale;
                     const scaledHeight = svgHeight * scale;
-                    pointX = (wrapperRect.width - scaledWidth) / 2;
-                    pointY = (wrapperRect.height - scaledHeight) / 2;
-
-                    console.log('[ZOOM] Applied transform:', {
-                        scale: scale.toFixed(3),
-                        translate: `${pointX.toFixed(1)}, ${pointY.toFixed(1)}`
-                    });
+                    pointX = (wrapperRect.width - scaledWidth) / 2 - padLeft;
+                    pointY = (wrapperRect.height - scaledHeight) / 2 - padTop;
 
                     // Apply transform and reveal (graph starts at opacity 0)
                     graphDiv.style.transformOrigin = '0 0';
@@ -487,5 +484,5 @@
         togglePanelCollapse
     };
     
-    console.log('âœ… AXIOM Interactions loaded');
+
 })();

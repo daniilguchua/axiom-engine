@@ -186,4 +186,3 @@ AXIOM.delay = function(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 };
 
-console.log('âœ… AXIOM Config loaded');

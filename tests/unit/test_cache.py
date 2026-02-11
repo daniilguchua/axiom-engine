@@ -394,17 +394,26 @@ class TestBrokenSimulationTracking:
         
         manager = CacheManager(db_path=temp_db_path)
         
-        manager.mark_simulation_broken(
-                session_id="session-1",
-                prompt_key="test-prompt",
-                step_index=2,
-                failure_reason="Syntax error in node declaration"
+        # Mark simulation as broken (Phase 1 + Phase 2-Lite API)
+        result = manager.mark_simulation_broken(
+            prompt="test-prompt",
+            difficulty="engineer",
+            reason="Syntax error in node declaration"
         )
         
-        # Verify it was marked
-        is_broken = manager._is_simulation_broken("test-prompt")
-        # May return True if implemented, or may need to check differently
-        assert isinstance(is_broken, bool)
+        assert result is True
+        
+        # Verify it was marked as broken
+        is_broken = manager._is_simulation_broken("test-prompt", "engineer")
+        assert is_broken is True
+        
+        # Clear broken status and verify
+        cleared = manager.clear_broken_status("test-prompt", "engineer")
+        assert cleared is True
+        
+        # Should no longer be broken
+        is_broken_after = manager._is_simulation_broken("test-prompt", "engineer")
+        assert is_broken_after is False
 
 
 # ============================================================================

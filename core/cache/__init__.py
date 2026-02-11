@@ -131,7 +131,7 @@ class CacheManager:
     # =========================================================================
     
     def _is_simulation_broken(self, prompt: str, difficulty: str) -> bool:
-        """Check if simulation is marked broken."""
+        """Check if simulation is marked broken (fixed bug: no longer needs callback)."""
         return self.repair_tracker.is_simulation_broken(prompt, difficulty)
     
     def mark_simulation_broken(

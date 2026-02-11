@@ -13,13 +13,11 @@
     function mermaidNodeClick(nodeId, wrapperElement) {
         if (!nodeId || AXIOM.state.isProcessing) return;
         const cleanId = nodeId.trim();
-        console.log("Clicked Node:", cleanId);
 
         if (wrapperElement) {
             const parentMsg = wrapperElement.closest('.msg.model');
             if (parentMsg) {
                 AXIOM.state.lastBotMessageDiv = parentMsg;
-                console.log("🎯 Context Restored to Simulation Container via Node Click");
             }
         }
 
@@ -50,22 +48,21 @@
         }
         
         if (cleanId === 'CMD_NEXT') {
-            const nextIndex = AXIOM.simulation.currentStepIndex + 1;
-            if (nextIndex < window.simulationPlaylist.length) {
-                AXIOM.renderer.renderPlaylistStep(nextIndex);
+            const simId = AXIOM.simulation.activeSimId;
+            const playlist = simId && AXIOM.simulation.store[simId];
+            if (!playlist) return;
+
+            const currentIndex = AXIOM.simulation.state[simId] || 0;
+            const nextIndex = currentIndex + 1;
+
+            if (nextIndex < playlist.length) {
+                const target = wrapperElement ? wrapperElement.closest('.msg-body') : null;
+                AXIOM.renderer.renderPlaylistStep(simId, nextIndex, target);
                 return;
             }
-            triggerSimulationUpdate(`(Calculating Steps ${nextIndex}-${nextIndex + 2}...)`);
-            
-            const lastStepData = window.simulationPlaylist[AXIOM.simulation.currentStepIndex];
-            const continuePrompt = `
-COMMAND: CONTINUE_SIMULATION
-CURRENT_STATE_CONTEXT:
-- Last Step Index: ${lastStepData.step}
-- Last Data Snapshot: ${lastStepData.data_table}
-- Last Logic: ${lastStepData.instruction}
-TASK: Generate NEXT 3 steps.`;
-            AXIOM.sendMessage(continuePrompt);
+
+            // Delegate to the GENERATE_MORE handler
+            handleSimNav(simId, 'GENERATE_MORE', wrapperElement);
             return;
         }
         
@@ -94,8 +91,6 @@ TASK: Generate NEXT 3 steps.`;
                 // Get the current step index for this simulation
                 const stepIndex = AXIOM.simulation.state?.[simId] ?? playlist.length - 1;
                 currentStep = playlist[Math.min(stepIndex, playlist.length - 1)];
-                
-                console.log(`📍 Node Click: simId=${simId}, stepIndex=${stepIndex}, nodeId=${cleanId}`);
             }
         }
         
@@ -251,10 +246,8 @@ TASK: Generate NEXT 3 steps.`;
             const context = {
                 node_id: nodeId,
                 step_data: currentStep,
-                difficulty: AXIOM.state.currentDifficulty || 'engineer'
+                difficulty: AXIOM.difficulty.current || 'engineer'
             };
-            
-            console.log(`📍 Requesting node inspection for ${nodeId}...`);
             
             const response = await fetch('/node-inspect', {
                 method: 'POST',
@@ -364,5 +357,4 @@ TASK: Generate NEXT 3 steps.`;
     window.mermaidNodeClick = mermaidNodeClick;
     window.handleSimNav = handleSimNav;
     
-    console.log('✅ AXIOM Controllers loaded');
 })();
