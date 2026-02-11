@@ -13,70 +13,39 @@
     
     function formatInputDataBadge(inputData) {
         if (!inputData) return '';
-        
-        const { type, label, value } = inputData;
-        let displayText = '';
-        
+
+        const { type, value } = inputData;
+
         switch(type) {
-            case 'array':
-                {
-                    const arr = Array.isArray(value) ? value : [];
-                    const maxShow = 5;
-                    const display = arr.slice(0, maxShow).join(', ');
-                    const suffix = arr.length > maxShow ? `... (${arr.length} total)` : '';
-                    displayText = `📥 Array: [${display}${suffix}]`;
-                }
-                break;
-            case 'tree':
-                {
-                    const arr = Array.isArray(value) ? value : [];
-                    const maxShow = 5;
-                    const display = arr.slice(0, maxShow).join(', ');
-                    const suffix = arr.length > maxShow ? `... (${arr.length} total)` : '';
-                    displayText = `🌳 Tree: Insert [${display}${suffix}]`;
-                }
-                break;
-            case 'linkedlist':
-                {
-                    const arr = Array.isArray(value) ? value : [];
-                    const maxShow = 5;
-                    const display = arr.slice(0, maxShow).join(' → ');
-                    const suffix = arr.length > maxShow ? ` → ...` : '';
-                    displayText = `🔗 List: ${display}${suffix}`;
-                }
-                break;
-            case 'graph':
-                {
-                    const nodes = value && typeof value === 'object' ? Object.keys(value) : [];
-                    const nodeList = nodes.slice(0, 4).join(', ');
-                    const suffix = nodes.length > 4 ? `, ...` : '';
-                    displayText = `🗺️ Graph (${nodes.length} nodes): ${nodeList}${suffix}`;
-                }
-                break;
-            case 'search':
-                {
-                    const arr = value.array || [];
-                    const target = value.target;
-                    displayText = `🔍 Search: [${arr.slice(0, 5).join(', ')}] → target: ${target}`;
-                }
-                break;
+            case 'array': {
+                const n = Array.isArray(value) ? value.length : 0;
+                return `📥 Input Array \u00B7 ${n} elements`;
+            }
+            case 'tree': {
+                const n = Array.isArray(value) ? value.length : 0;
+                return `🌳 BST Input \u00B7 ${n} nodes`;
+            }
+            case 'linkedlist': {
+                const n = Array.isArray(value) ? value.length : 0;
+                return `🔗 Linked List \u00B7 ${n} nodes`;
+            }
+            case 'graph': {
+                const n = value && typeof value === 'object' ? Object.keys(value).length : 0;
+                return `🗺️ Graph \u00B7 ${n} nodes`;
+            }
+            case 'search': {
+                const target = value && value.target;
+                return `🔍 Search \u00B7 target: ${target}`;
+            }
             case 'dp':
-                {
-                    displayText = `⚡ DP Problem`;
-                }
-                break;
-            case 'hashtable':
-                {
-                    const keys = value.keys || [];
-                    const tableSize = value.table_size || 7;
-                    displayText = `#️⃣ Hash: [${keys.slice(0, 5).join(', ')}] (size: ${tableSize})`;
-                }
-                break;
+                return `⚡ DP Instance`;
+            case 'hashtable': {
+                const size = (value && value.table_size) || 7;
+                return `#️⃣ Hash Table \u00B7 size ${size}`;
+            }
             default:
-                displayText = `📥 ${label || 'Input Data'}`;
+                return `📥 Input Data`;
         }
-        
-        return displayText;
     }
     
     // =========================================================================
@@ -400,22 +369,23 @@
                     inputDataForBadge = inputData;
                     const badgeText = formatInputDataBadge(inputData);
                     badgeHtml = `
-                        <div class="input-data-badge" id="badge-${simId}" style="
-                            display: inline-block;
-                            padding: 8px 12px;
-                            background: rgba(188, 19, 254, 0.15);
-                            border: 1px solid rgba(188, 19, 254, 0.4);
-                            border-radius: 6px;
-                            color: #bc13fe;
-                            font-size: 0.9em;
-                            font-weight: 600;
-                            margin-bottom: 12px;
-                            cursor: pointer;
-                            transition: all 0.2s ease;
-                            font-family: 'JetBrains Mono', monospace;
-                            user-select: none;
-                        " title="Click to edit input data">
-                            ${AXIOM.escapeHtml(badgeText)}
+                        <div style="text-align: center; margin-bottom: 12px;">
+                            <div class="input-data-badge" id="badge-${simId}" style="
+                                display: inline-block;
+                                padding: 8px 12px;
+                                background: rgba(188, 19, 254, 0.15);
+                                border: 1px solid rgba(188, 19, 254, 0.4);
+                                border-radius: 6px;
+                                color: #bc13fe;
+                                font-size: 0.9em;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                font-family: 'JetBrains Mono', monospace;
+                                user-select: none;
+                            " title="Click to edit input data">
+                                ${AXIOM.escapeHtml(badgeText)}
+                            </div>
                         </div>
                     `;
                 }

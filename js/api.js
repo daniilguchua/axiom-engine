@@ -510,19 +510,38 @@
     async function reSimulateWithEditedInput(editedInputData, comment, simId) {
         /**
          * Trigger re-simulation with edited input data.
-         * This clears the old simulation and starts fresh with the new input.
+         * Updates the existing message in-place instead of creating a new one.
          */
         try {
-            // Build a special prompt that tells the backend this is a regeneration with edited input
             const prompt = `REGENERATE_SIMULATION_WITH_NEW_INPUT: ${JSON.stringify(editedInputData)}${comment ? '\nUser comment: ' + comment : ''}`;
-            
-            // Get the current difficulty (fallback to engineer if not set)
             const difficulty = AXIOM.difficulty ? AXIOM.difficulty.current : 'engineer';
-            
-            // Call sendMessageWithDifficulty with the special regeneration prompt
-            // This will be detected in the backend and trigger a fresh simulation
+
+            // Find the existing simulation message and set update mode
+            const badge = document.getElementById(`badge-${simId}`);
+            const existingMsg = badge ? badge.closest('.msg.model') : AXIOM.state.lastBotMessageDiv;
+
+            if (existingMsg) {
+                AXIOM.state.isSimulationUpdate = true;
+                AXIOM.state.lastBotMessageDiv = existingMsg;
+
+                // Show loading state in existing message
+                const msgBody = existingMsg.querySelector('.msg-body');
+                if (msgBody) {
+                    const diffLevel = AXIOM.difficulty.levels[difficulty];
+                    msgBody.innerHTML = `
+                    <div class="axiom-loader">
+                        <div class="loader-spinner"></div>
+                        <div class="loader-content">
+                            <div class="loader-text">RECALCULATING UNIVERSE...</div>
+                            <div class="loader-difficulty">${diffLevel.icon} ${diffLevel.name} Mode</div>
+                            <div class="loader-bar-bg"><div class="loader-bar-fill"></div></div>
+                        </div>
+                    </div>`;
+                }
+            }
+
             await AXIOM.sendMessageWithDifficulty(prompt, difficulty);
-            
+
         } catch (error) {
             console.error('[API] Re-simulation failed:', error);
             AXIOM.ui.showToast('❌ Re-simulation failed: ' + error.message);

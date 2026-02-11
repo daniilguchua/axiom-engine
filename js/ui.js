@@ -524,11 +524,11 @@
                     value: parsedInput
                 };
                 
-                // Call re-simulate function
+                // Close modal immediately, then fire off re-simulation
                 if (AXIOM.api && AXIOM.api.reSimulateWithEditedInput) {
-                    await AXIOM.api.reSimulateWithEditedInput(editedInputData, comment, simId);
                     modal.remove();
                     showToast('✅ Re-generating with your input...');
+                    await AXIOM.api.reSimulateWithEditedInput(editedInputData, comment, simId);
                 } else {
                     showToast('❌ Re-simulate function not available');
                 }

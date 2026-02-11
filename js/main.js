@@ -312,16 +312,21 @@
                     const startIndex = isNewSimulation ? 0 : AXIOM.simulation.store[simId].length - newSteps.length;
                     
                     // Step 9: Extract input data from trailing marker
+                    AXIOM.simulation.inputData = AXIOM.simulation.inputData || {};
                     const inputDataMatch = fullText.match(/<!--AXIOM_INPUT_DATA:(.*?)-->/);
                     if (inputDataMatch) {
                         try {
                             const inputData = JSON.parse(inputDataMatch[1]);
-                            AXIOM.simulation.inputData = AXIOM.simulation.inputData || {};
                             AXIOM.simulation.inputData[simId] = inputData;
                             console.log('[AXIOM] Extracted input data:', inputData);
                         } catch (e) {
                             console.warn('[AXIOM] Failed to parse input data marker:', e);
                         }
+                    }
+                    // Fallback: check parsed JSON for input_data field (cached responses)
+                    if (!AXIOM.simulation.inputData[simId] && parsed && parsed.input_data) {
+                        AXIOM.simulation.inputData[simId] = parsed.input_data;
+                        console.log('[AXIOM] Extracted input data from cached response:', parsed.input_data);
                     }
                     
                     // Step 10: Remove loading overlay if present

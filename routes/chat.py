@@ -32,7 +32,9 @@ _ALGO_PATTERNS = [
     # Order matters! More specific patterns first.
     ("sort", {
         "keywords": ["sort", "quicksort", "mergesort", "merge sort", "heapsort", "heap sort",
-                     "bubblesort", "bubble sort", "insertion sort", "selection sort", "radix"],
+                     "bubblesort", "bubble sort", "insertion sort", "selection sort", "radix",
+                     "counting sort", "bucket sort", "shell sort", "tim sort", "sorting",
+                     "topological sort"],
         "generator": lambda: {
             "type": "array",
             "label": "Input Array",
@@ -42,7 +44,8 @@ _ALGO_PATTERNS = [
     ("tree", {
         "keywords": ["bst", "binary search tree", "binary tree", "avl", "red-black",
                      "tree insertion", "tree deletion", "tree traversal", "inorder",
-                     "preorder", "postorder", "heap"],
+                     "preorder", "postorder", "heap", "trie", "b-tree", "segment tree",
+                     "fenwick", "huffman", "tree rotation", "splay", "level order"],
         "generator": lambda: {
             "type": "tree",
             "label": "Insert Sequence (BST)",
@@ -52,7 +55,10 @@ _ALGO_PATTERNS = [
     ("graph", {
         "keywords": ["dijkstra", "bfs", "breadth first", "dfs", "depth first",
                      "bellman", "prim", "kruskal", "shortest path", "spanning tree",
-                     "topological", "graph traversal"],
+                     "topological", "graph traversal", "tarjan", "strongly connected",
+                     "scc", "floyd", "warshall", "all pairs", "a*", "astar",
+                     "minimum spanning", "union find", "connected components",
+                     "bipartite", "network flow", "max flow", "min cut"],
         "generator": lambda: {
             "type": "graph",
             "label": "Weighted Graph (Adjacency List)",
@@ -69,7 +75,8 @@ _ALGO_PATTERNS = [
     }),
     ("search", {
         "keywords": ["binary search", "linear search", "search algorithm",
-                     "search a sorted", "searching"],
+                     "search a sorted", "searching", "interpolation search",
+                     "ternary search", "exponential search", "jump search"],
         "generator": lambda: {
             "type": "search",
             "label": "Sorted Array + Target",
@@ -79,7 +86,8 @@ _ALGO_PATTERNS = [
     }),
     ("dp", {
         "keywords": ["dynamic programming", "knapsack", "fibonacci", "longest common",
-                     "lcs", "edit distance", "coin change", "memoization", "tabulation"],
+                     "lcs", "edit distance", "coin change", "memoization", "tabulation",
+                     "subsequence", "rod cutting", "matrix chain", "partition"],
         "generator": lambda: {
             "type": "dp",
             "label": "Problem Instance",
@@ -93,7 +101,8 @@ _ALGO_PATTERNS = [
     }),
     ("linkedlist", {
         "keywords": ["linked list", "singly linked", "doubly linked", "reverse linked",
-                     "cycle detection", "linked list merge"],
+                     "cycle detection", "linked list merge", "list reversal",
+                     "two pointer", "slow fast pointer"],
         "generator": lambda: {
             "type": "linkedlist",
             "label": "Linked List Values",
