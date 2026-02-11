@@ -191,17 +191,13 @@ def get_text_embedding(text: str) -> Optional[List[float]]:
         return None
     
     try:
-        from core.config import get_genai_client
-        client = get_genai_client()
-        if not client:
-            logger.error("Gemini client not initialized")
-            return None
-        
-        result = client.models.embed_content(
+        api_key = get_api_key()
+        embeddings = GoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
-            content=text
+            google_api_key=api_key
         )
-        return list(result.embeddings[0].values)
+        result = embeddings.embed_query(text)
+        return result
         
     except Exception as e:
         logger.error(f"Embedding generation error: {e}")
