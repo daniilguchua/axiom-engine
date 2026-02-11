@@ -94,12 +94,32 @@
                     // Constrain to 10%-150% (low min allows wide LR diagrams to fit)
                     scale = Math.max(0.1, Math.min(1.5, scale));
 
-                    // Calculate centered position within content area,
-                    // then subtract padding so the visual result is centered in the wrapper
+                    // Detect content offset within SVG viewBox (Mermaid often adds asymmetric padding)
+                    let contentCorrectionX = 0;
+                    let contentCorrectionY = 0;
+                    try {
+                        const bbox = svg.getBBox();
+                        const vb = svg.viewBox?.baseVal;
+                        if (vb && vb.width > 0 && vb.height > 0) {
+                            const contentCenterX = bbox.x + bbox.width / 2;
+                            const contentCenterY = bbox.y + bbox.height / 2;
+                            const viewBoxCenterX = vb.x + vb.width / 2;
+                            const viewBoxCenterY = vb.y + vb.height / 2;
+
+                            const svgToPixelX = svgWidth / vb.width;
+                            const svgToPixelY = svgHeight / vb.height;
+                            contentCorrectionX = (contentCenterX - viewBoxCenterX) * svgToPixelX;
+                            contentCorrectionY = (contentCenterY - viewBoxCenterY) * svgToPixelY;
+                        }
+                    } catch (e) {
+                        // getBBox can fail on unrendered SVGs — skip correction
+                    }
+
+                    // Calculate centered position, correcting for content offset within SVG
                     const scaledWidth = svgWidth * scale;
                     const scaledHeight = svgHeight * scale;
-                    pointX = (wrapperRect.width - scaledWidth) / 2 - padLeft;
-                    pointY = (wrapperRect.height - scaledHeight) / 2 - padTop;
+                    pointX = (wrapperRect.width - scaledWidth) / 2 - padLeft - contentCorrectionX * scale;
+                    pointY = (wrapperRect.height - scaledHeight) / 2 - padTop - contentCorrectionY * scale;
 
                     // Apply transform and reveal (graph starts at opacity 0)
                     graphDiv.style.transformOrigin = '0 0';
