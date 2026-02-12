@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AXIOM Engine — Visualize Algorithms</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e8;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #app {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== NAV ========== */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 48px;
+            z-index: 100;
+        }
+
+        .nav-brand {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            color: #fff;
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            padding: 7px 14px;
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: 5px;
+            color: #999;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(139, 92, 246, 0.12);
+            border-color: rgba(139, 92, 246, 0.25);
+        }
+
+        .control-btn.active {
+            background: #8B5CF6;
+            border-color: #8B5CF6;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+        }
+
+        /* ========== MAIN ========== */
+        .main {
+            flex: 1;
+            margin-top: 56px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .view {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .view.active {
+            display: flex;
+            position: relative;
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        /* ========== VIEW 1: SPLIT LAYOUT ========== */
+        #view-split {
+            background: linear-gradient(135deg, #0a0a0f 0%, #12091f 100%);
+        }
+
+        #view-split::before {
+            content: '';
+            position: absolute;
+            width: 900px;
+            height: 900px;
+            background: conic-gradient(from 0deg, #8B5CF6, #60A5FA, #34D399, #8B5CF6);
+            border-radius: 50%;
+            top: -200px;
+            right: -300px;
+            filter: blur(120px);
+            opacity: 0.1;
+            z-index: 0;
+        }
+
+        #view-split::after {
+            content: '';
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle at center, rgba(244, 114, 182, 0.1) 0%, transparent 70%);
+            bottom: -100px;
+            left: -100px;
+            filter: blur(100px);
+            z-index: 0;
+        }
+
+        .split-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding: 60px 48px;
+            gap: 80px;
+        }
+
+        .split-content {
+            flex: 1;
+            max-width: 480px;
+        }
+
+        .split-visual {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .split-title {
+            font-size: 48px;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: -0.025em;
+            margin-bottom: 24px;
+            color: #fff;
+        }
+
+        .split-accent {
+            background: linear-gradient(90deg, #8B5CF6, #60A5FA, #34D399, #FBBF24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .split-desc {
+            font-size: 16px;
+            color: #a0a0a8;
+            line-height: 1.8;
+            margin-bottom: 36px;
+        }
+
+        .split-ctas {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-rounded {
+            padding: 13px 26px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-gradient {
+            background: linear-gradient(135deg, #8B5CF6, #60A5FA);
+            color: #fff;
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-gradient:hover {
+            box-shadow: 0 12px 36px rgba(139, 92, 246, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid rgba(139, 92, 246, 0.35);
+            color: #ccc;
+        }
+
+        .btn-outline:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: #8B5CF6;
+            color: #fff;
+        }
+
+        .visual-box {
+            width: 320px;
+            height: 320px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(96, 165, 250, 0.08));
+            border: 1.5px solid rgba(139, 92, 246, 0.25);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .visual-box::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, transparent 100%);
+            border-radius: 20px;
+        }
+
+        .visual-label {
+            position: relative;
+            z-index: 2;
+            font-size: 12px;
+            font-weight: 700;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .visual-sort {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+            height: 120px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .sort-bar {
+            width: 12px;
+            border-radius: 4px;
+            background: linear-gradient(180deg, #8B5CF6, #60A5FA);
+            position: relative;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .sort-bar:nth-child(1) { 
+            height: 40%; 
+            animation: sort-jump 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            animation-delay: 0s;
+        }
+        .sort-bar:nth-child(2) { 
+            height: 70%; 
+            animation: sort-jump 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            animation-delay: 0.3s;
+        }
+        .sort-bar:nth-child(3) { 
+            height: 50%; 
+            animation: sort-jump 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            animation-delay: 0.6s;
+        }
+        .sort-bar:nth-child(4) { 
+            height: 85%; 
+            animation: sort-jump 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            animation-delay: 0.9s;
+        }
+        .sort-bar:nth-child(5) { 
+            height: 60%; 
+            animation: sort-jump 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            animation-delay: 1.2s;
+        }
+
+        @keyframes sort-jump {
+            0% { 
+                height: var(--bar-height, 50%);
+                filter: brightness(1);
+            }
+            50% { 
+                filter: brightness(1.3);
+                box-shadow: 0 8px 20px rgba(139, 92, 246, 0.5);
+            }
+            100% { 
+                height: var(--bar-height, 50%);
+                filter: brightness(1);
+            }
+        }
+
+        /* ========== VIEW 2: FEATURES GRID ========== */
+        #view-features {
+            background: linear-gradient(135deg, #0a0a0f 0%, #0f0820 100%);
+        }
+
+        #view-features::before {
+            content: '';
+            position: absolute;
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle at center, rgba(96, 165, 250, 0.12) 0%, transparent 70%);
+            top: 20%;
+            right: 10%;
+            filter: blur(100px);
+            z-index: 0;
+        }
+
+        .features-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 48px;
+            gap: 48px;
+        }
+
+        .features-header {
+            text-align: center;
+            max-width: 620px;
+        }
+
+        .features-title {
+            font-size: 48px;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: -0.025em;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .features-subtitle {
+            font-size: 16px;
+            color: #a0a0a8;
+            line-height: 1.8;
+            margin-bottom: 32px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .feature-card {
+            padding: 28px;
+            background: rgba(139, 92, 246, 0.04);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            background: rgba(139, 92, 246, 0.08);
+            border-color: rgba(139, 92, 246, 0.35);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+
+        .feature-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 13px;
+            color: #888;
+            line-height: 1.6;
+        }
+
+        .features-ctas {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        /* ========== VIEW 3: MINIMALIST COLORFUL ========== */
+        #view-minimal {
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a0820 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        #view-minimal::before {
+            content: '';
+            position: absolute;
+            width: 800px;
+            height: 800px;
+            background: conic-gradient(from 0deg, #8B5CF6, #60A5FA, #34D399, #FBBF24, #F472B6, #8B5CF6);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            filter: blur(120px);
+            opacity: 0.12;
+            z-index: 0;
+        }
+
+        .minimal-container {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 700px;
+            padding: 60px 40px;
+        }
+
+        .minimal-title {
+            font-size: 52px;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.025em;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .minimal-accent {
+            color: #60A5FA;
+            font-weight: 700;
+        }
+
+        .minimal-desc {
+            font-size: 17px;
+            color: #a0a0a8;
+            line-height: 1.8;
+            margin-bottom: 40px;
+        }
+
+        .minimal-ctas {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 1024px) {
+            .split-container {
+                flex-direction: column;
+                padding: 50px 40px;
+                gap: 40px;
+            }
+
+            .split-content {
+                max-width: 100%;
+            }
+
+            .visual-box {
+                width: 250px;
+                height: 250px;
+                font-size: 60px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                padding: 0 24px;
+            }
+
+            .split-container {
+                padding: 40px 20px;
+            }
+
+            .split-title {
+                font-size: 36px;
+            }
+
+            .features-container {
+                padding: 40px 20px;
+            }
+
+            .features-title {
+                font-size: 36px;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .minimal-container {
+                padding: 40px 20px;
+            }
+
+            .minimal-title {
+                font-size: 40px;
+            }
+
+            .minimal-desc {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <!-- Navigation -->
+        <nav>
+            <div class="nav-brand">AXIOM ENGINE</div>
+            <div class="nav-controls">
+                <button class="control-btn active" data-view="split">Split</button>
+                <button class="control-btn" data-view="features">Features</button>
+                <button class="control-btn" data-view="minimal">Minimal</button>
+            </div>
+        </nav>
+
+        <!-- Main -->
+        <div class="main">
+            <!-- View 1: Split Layout -->
+            <div class="view active" id="view-split">
+                <div class="split-container">
+                    <div class="split-content">
+                        <h1 class="split-title">
+                            See Algorithms <span class="split-accent">Execute</span>
+                        </h1>
+                        <p style="font-size: 13px; color: #888; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em;">Algorithm Visualization Engine Powered by AI</p>
+                        <p class="split-desc">
+                            Watch sorting, searching, and graph algorithms come alive. Understand performance characteristics, complexity analysis, and execution flow through interactive step-by-step visualization.
+                        </p>
+                        <div class="split-ctas">
+                            <button class="btn-rounded btn-gradient">Explore Algorithms</button>
+                            <button class="btn-rounded btn-outline">Upload Materials</button>
+                        </div>
+                    </div>
+                    <div class="split-visual">
+                        <div class="visual-box">
+                            <div class="visual-label">Sorting Algorithm</div>
+                            <div class="visual-sort">
+                                <div class="sort-bar"></div>
+                                <div class="sort-bar"></div>
+                                <div class="sort-bar"></div>
+                                <div class="sort-bar"></div>
+                                <div class="sort-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View 2: Features Grid -->
+            <div class="view" id="view-features">
+                <div class="features-container">
+                    <div class="features-header">
+                        <h1 class="features-title">
+                            Algorithm <span style="color: #60A5FA;">Intelligence</span>
+                        </h1>
+                        <p class="features-subtitle">
+                            Everything you need to understand, visualize, and master computer science.
+                        </p>
+                    </div>
+
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">🎯</div>
+                            <div class="feature-title">Real-Time Execution</div>
+                            <div class="feature-desc">Watch every step of algorithm execution with detailed state tracking.</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">📊</div>
+                            <div class="feature-title">Complexity Analysis</div>
+                            <div class="feature-desc">Understand time and space complexity with visual performance metrics.</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">📚</div>
+                            <div class="feature-title">Context Learning</div>
+                            <div class="feature-desc">Upload your course materials. Ask questions with document-aware AI.</div>
+                        </div>
+                    </div>
+
+                    <div class="features-ctas">
+                        <button class="btn-rounded btn-gradient">Begin Learning</button>
+                        <button class="btn-rounded btn-outline">Explore Library</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View 3: Minimal Colorful -->
+            <div class="view" id="view-minimal">
+                <div class="minimal-container">
+                    <h1 class="minimal-title">
+                        See Code <span class="minimal-accent">Execute</span>
+                    </h1>
+                    <p class="minimal-desc">
+                        Interactive algorithm visualization. Perfect for learning, teaching, or optimizing. Watch sorting, searching, and graph algorithms come alive.
+                    </p>
+                    <div class="minimal-ctas">
+                        <button class="btn-rounded btn-gradient">Explore Algorithms</button>
+                        <button class="btn-rounded btn-outline">Upload Materials</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const btns = document.querySelectorAll('.control-btn');
+        const views = document.querySelectorAll('.view');
+
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.getAttribute('data-view');
+
+                btns.forEach(b => b.classList.remove('active'));
+                views.forEach(v => v.classList.remove('active'));
+
+                btn.classList.add('active');
+                document.getElementById(`view-${view}`).classList.add('active');
+            });
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === '1') btns[0].click();
+            if (e.key === '2') btns[1].click();
+            if (e.key === '3') btns[2].click();
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AXIOM Engine — Algorithm Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e8;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #app {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 48px;
+            z-index: 100;
+        }
+
+        .nav-brand {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            color: #fff;
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            padding: 7px 14px;
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            border-radius: 5px;
+            color: #999;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(139, 92, 246, 0.12);
+            border-color: rgba(139, 92, 246, 0.25);
+        }
+
+        .control-btn.active {
+            background: #8B5CF6;
+            border-color: #8B5CF6;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+        }
+
+        .main {
+            flex: 1;
+            margin-top: 56px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .view {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .split-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding: 60px 48px;
+            gap: 80px;
+        }
+
+        .split-content {
+            flex: 1;
+            max-width: 480px;
+        }
+
+        .split-visual {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .split-title {
+            font-size: 48px;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: -0.025em;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        .split-accent {
+            color: #60A5FA;
+        }
+
+        .split-tagline {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .split-desc {
+            font-size: 16px;
+            color: #a0a0a8;
+            line-height: 1.8;
+            margin-bottom: 32px;
+        }
+
+        .split-ctas {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 13px 26px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8B5CF6, #60A5FA);
+            color: #fff;
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 12px 36px rgba(139, 92, 246, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1.5px solid rgba(139, 92, 246, 0.35);
+            color: #ccc;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: #8B5CF6;
+            color: #fff;
+        }
+
+        /* ========== 3D VISUALS ========== */
+        .visual-box {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        @media (max-width: 1024px) {
+            .split-container {
+                flex-direction: column;
+                padding: 50px 40px;
+                gap: 40px;
+            }
+
+            .split-content {
+                max-width: 100%;
+            }
+
+            .visual-box {
+                width: 300px;
+                height: 300px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                padding: 0 24px;
+            }
+
+            .split-container {
+                padding: 40px 20px;
+            }
+
+            .split-title {
+                font-size: 36px;
+            }
+
+            .visual-box {
+                width: 250px;
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <nav>
+            <div class="nav-brand">AXIOM ENGINE</div>
+            <div class="nav-controls">
+                <button class="control-btn active" data-visual="galaxy">Galaxy Spiral</button>
+                <button class="control-btn" data-visual="nebula">Nebula Cloud</button>
+            </div>
+        </nav>
+
+        <div class="main">
+            <div class="view" id="view-demo">
+                <div class="split-container">
+                    <div class="split-content">
+                        <div class="split-tagline">Algorithm Visualization Engine</div>
+                        <h1 class="split-title">
+                            See Algorithms <span class="split-accent">Execute</span>
+                        </h1>
+                        <p class="split-desc">
+                            Watch sorting, searching, and graph algorithms come alive. Understand performance characteristics, complexity analysis, and execution flow through interactive step-by-step visualization.
+                        </p>
+                        <div class="split-ctas">
+                            <button class="btn btn-primary">Explore Algorithms</button>
+                            <button class="btn btn-secondary">Upload Materials</button>
+                        </div>
+                    </div>
+                    <div class="split-visual">
+                        <div class="visual-box" id="visual-galaxy">
+                            <canvas id="galaxy-canvas"></canvas>
+                        </div>
+                        <div class="visual-box" id="visual-nebula" style="display:none;">
+                            <canvas id="nebula-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== VISUAL SWITCHING ==========
+        const btns = document.querySelectorAll('.control-btn');
+        const visuals = document.querySelectorAll('.visual-box');
+
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const visual = btn.getAttribute('data-visual');
+
+                btns.forEach(b => b.classList.remove('active'));
+                visuals.forEach(v => v.style.display = 'none');
+
+                btn.classList.add('active');
+                document.getElementById(`visual-${visual}`).style.display = 'flex';
+
+                if (visual === 'galaxy' && !window.galaxyInitialized) {
+                    initGalaxy();
+                } else if (visual === 'nebula' && !window.nebulaInitialized) {
+                    initNebula();
+                }
+            });
+        });
+
+        // ========== GALAXY SPIRAL ==========
+        function initGalaxy() {
+            window.galaxyInitialized = true;
+            const canvas = document.getElementById('galaxy-canvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ 
+                canvas: canvas,
+                alpha: true,
+                antialias: true
+            });
+            
+            renderer.setSize(400, 400);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            camera.position.set(0, 5, 8);
+            camera.lookAt(0, 0, 0);
+
+            // Create galaxy particle system
+            const galaxyGroup = new THREE.Group();
+            const particleCount = 8000;
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+            
+            // Galaxy parameters
+            const arms = 3;
+            const spin = 1.5;
+            const randomness = 0.3;
+            const randomnessPower = 2;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const radius = Math.random() * 4;
+                const spinAngle = radius * spin;
+                const branchAngle = (i % arms) / arms * Math.PI * 2;
+                
+                // Randomness
+                const randomX = Math.pow(Math.random(), randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * randomness * radius;
+                const randomY = Math.pow(Math.random(), randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * randomness * radius;
+                const randomZ = Math.pow(Math.random(), randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * randomness * radius;
+                
+                positions[i * 3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
+                positions[i * 3 + 1] = randomY * 0.3;
+                positions[i * 3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
+                
+                // Color based on distance from center
+                const colorMix = radius / 4;
+                const purpleColor = new THREE.Color(0x8B5CF6);
+                const blueColor = new THREE.Color(0x60A5FA);
+                const tealColor = new THREE.Color(0x34D399);
+                
+                let finalColor;
+                if (colorMix < 0.5) {
+                    finalColor = purpleColor.clone().lerp(blueColor, colorMix * 2);
+                } else {
+                    finalColor = blueColor.clone().lerp(tealColor, (colorMix - 0.5) * 2);
+                }
+                
+                colors[i * 3] = finalColor.r;
+                colors[i * 3 + 1] = finalColor.g;
+                colors[i * 3 + 2] = finalColor.b;
+                
+                sizes[i] = Math.random() * 0.08 + 0.02;
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            
+            const material = new THREE.PointsMaterial({
+                size: 0.05,
+                sizeAttenuation: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const galaxy = new THREE.Points(geometry, material);
+            galaxyGroup.add(galaxy);
+            scene.add(galaxyGroup);
+            
+            // Add central glow
+            const glowGeometry = new THREE.SphereGeometry(0.2, 32, 32);
+            const glowMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.9
+            });
+            const centralGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+            scene.add(centralGlow);
+            
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0x404060, 0.3);
+            scene.add(ambientLight);
+            
+            // Animation
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                galaxyGroup.rotation.y += 0.001;
+                galaxyGroup.rotation.x = Math.sin(Date.now() * 0.0001) * 0.1;
+                
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // CINEMATIC NEBULA — Over-the-top with Custom Shaders & Multi-Layer Depth
+        // Inspired by neural-bg.js but taken to the EXTREME! 🌌⚡✨
+        // ═══════════════════════════════════════════════════════════════════
+        function initNebula() {
+            window.nebulaInitialized = true;
+            const canvas = document.getElementById('nebula-canvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
+            const renderer = new THREE.WebGLRenderer({ 
+                canvas: canvas,
+                alpha: true,
+                antialias: true,
+                powerPreference: "high-performance"
+            });
+            
+            renderer.setSize(400, 400);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            camera.position.set(0, 2, 10);
+            camera.lookAt(0, 0, 0);
+
+            // Mouse tracking for vortex physics
+            let mouseX = 0, mouseY = 0, mouseVector = new THREE.Vector3();
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                mouseX = ((e.clientX - rect.left) / canvas.clientWidth) * 2 - 1;
+                mouseY = -((e.clientY - rect.top) / canvas.clientHeight) * 2 + 1;
+                
+                mouseVector.set(mouseX, mouseY, 0.5);
+                mouseVector.unproject(camera);
+                mouseVector.sub(camera.position).normalize();
+                const distance = -camera.position.z / mouseVector.z;
+                mouseVector.multiplyScalar(distance).add(camera.position);
+            });
+
+            // ─────────────────────────────────────────────────────────────
+            // BLOOM TEXTURE for cinematic glow
+            // ─────────────────────────────────────────────────────────────
+            function createBloomTexture() {
+                const size = 128;
+                const c = document.createElement('canvas');
+                c.width = size;
+                c.height = size;
+                const ctx = c.getContext('2d');
+                
+                const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+                gradient.addColorStop(0.2, 'rgba(200, 150, 255, 0.15)');
+                gradient.addColorStop(0.5, 'rgba(139, 92, 246, 0.05)');
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+                
+                return new THREE.CanvasTexture(c);
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // PRIMARY NEBULA — 8,000 particles with custom shader (optimized)
+            // ─────────────────────────────────────────────────────────────
+            const particleCount = 8000;
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+            const phases = new Float32Array(particleCount);
+            const alphas = new Float32Array(particleCount);
+
+            // Initialize particles in volumetric nebula cloud
+            for (let i = 0; i < particleCount; i++) {
+                // Multi-layer spherical distribution
+                const layer = Math.floor(i / (particleCount / 3));
+                const baseRadius = 3 + layer * 1.5;
+                const radius = baseRadius + (Math.random() - 0.5) * 2;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+
+                positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+                positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                positions[i * 3 + 2] = radius * Math.cos(phi);
+
+                // Swirling velocities - vortex motion
+                const angle = Math.atan2(positions[i * 3 + 1], positions[i * 3]);
+                const dist = Math.sqrt(positions[i * 3] ** 2 + positions[i * 3 + 1] ** 2);
+                const swirl = 0.003 / (dist + 0.5);
+                
+                velocities[i * 3] = -Math.sin(angle) * swirl + (Math.random() - 0.5) * 0.002;
+                velocities[i * 3 + 1] = Math.cos(angle) * swirl + (Math.random() - 0.5) * 0.002;
+                velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
+
+                // Size: power law (mostly small, some giant stars)
+                sizes[i] = 2 + Math.pow(Math.random(), 4) * 8;
+
+                // Phase for staggered pulse
+                phases[i] = Math.random() * Math.PI * 2;
+
+                // Alpha variation
+                alphas[i] = 0.6 + Math.random() * 0.4;
+            }
+
+            // Color cycling initialization
+            const reusableColor = new THREE.Color();
+            for (let i = 0; i < particleCount; i++) {
+                const t = i / particleCount;
+                const hue = 0.75 + Math.sin(t * 10) * 0.15;
+                reusableColor.setHSL(hue % 1, 0.8, 0.6);
+                colors[i * 3] = reusableColor.r;
+                colors[i * 3 + 1] = reusableColor.g;
+                colors[i * 3 + 2] = reusableColor.b;
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+            geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+            geometry.setAttribute('aAlpha', new THREE.BufferAttribute(alphas, 1));
+
+            // Custom ShaderMaterial — Multi-layer glow
+            const primaryMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: { value: 0 },
+                    uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+                },
+                vertexShader: `
+                    attribute float aSize;
+                    attribute float aPhase;
+                    attribute float aAlpha;
+                    attribute vec3 color;
+                    
+                    varying vec3 vColor;
+                    varying float vAlpha;
+                    
+                    uniform float uTime;
+                    uniform float uPixelRatio;
+                    
+                    void main() {
+                        vColor = color;
+                        vAlpha = aAlpha;
+                        
+                        // Staggered pulse animation
+                        float pulse = 1.0 + sin(uTime * 3.0 + aPhase) * 0.2;
+                        
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = aSize * pulse * uPixelRatio * (300.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vColor;
+                    varying float vAlpha;
+                    
+                    void main() {
+                        vec2 center = gl_PointCoord - 0.5;
+                        float dist = length(center);
+                        
+                        if (dist > 0.5) discard;
+                        
+                        // Multi-layer glow: white-hot core + colored mid + soft halo
+                        float core = smoothstep(0.15, 0.0, dist);
+                        float mid = smoothstep(0.4, 0.1, dist) * 0.6;
+                        float outer = smoothstep(0.5, 0.25, dist) * 0.3;
+                        
+                        float intensity = core + mid + outer;
+                        
+                        // White core fade to color
+                        vec3 finalColor = mix(vColor, vec3(1.0, 0.95, 1.0), core * 0.7);
+                        
+                        gl_FragColor = vec4(finalColor, intensity * vAlpha);
+                    }
+                `,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+
+           const particles = new THREE.Points(geometry, primaryMaterial);
+            scene.add(particles);
+
+            // ─────────────────────────────────────────────────────────────
+            // BLOOM LAYER — Soft cinematic glow duplicate
+            // ─────────────────────────────────────────────────────────────
+            const bloomMaterial = new THREE.PointsMaterial({
+                size: 20,
+                map: createBloomTexture(),
+                transparent: true,
+                opacity: 0.08,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                vertexColors: true
+            });
+
+            const bloomParticles = new THREE.Points(geometry, bloomMaterial);
+            scene.add(bloomParticles);
+
+            // ─────────────────────────────────────────────────────────────
+            // AMBIENT STARS — Background depth layer
+            // ─────────────────────────────────────────────────────────────
+            const ambientCount = 300;
+            const ambientPositions = new Float32Array(ambientCount * 3);
+            const ambientVelocities = new Float32Array(ambientCount * 3);
+
+            for (let i = 0; i < ambientCount; i++) {
+                ambientPositions[i * 3] = (Math.random() - 0.5) * 40;
+                ambientPositions[i * 3 + 1] = (Math.random() - 0.5) * 40;
+                ambientPositions[i * 3 + 2] = (Math.random() - 0.5) * 20 - 10;
+
+                ambientVelocities[i * 3] = (Math.random() - 0.5) * 0.01;
+                ambientVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.01;
+                ambientVelocities[i * 3 + 2] = Math.random() * 0.02;
+            }
+
+            const ambientGeometry = new THREE.BufferGeometry();
+            ambientGeometry.setAttribute('position', new THREE.BufferAttribute(ambientPositions, 3));
+
+            const ambientMaterial = new THREE.PointsMaterial({
+                size: 1.5,
+                color: 0x6a6a8a,
+                transparent: true,
+                opacity: 0.5,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            const ambientParticles = new THREE.Points(ambientGeometry, ambientMaterial);
+            scene.add(ambientParticles);
+
+            // ─────────────────────────────────────────────────────────────
+            // CONNECTION LINES — Electric arcs
+            // ─────────────────────────────────────────────────────────────
+            let connectionLines = null;
+            let connectionUpdateTimer = 0;
+
+            function updateConnections() {
+                if (connectionLines) {
+                    scene.remove(connectionLines);
+                    connectionLines.geometry.dispose();
+                }
+
+                const linePositions = [];
+                const lineColors = [];
+                const maxConnections = 80;
+                const maxDist = 1.2;
+
+                for (let i = 0; i < maxConnections && i < particleCount; i++) {
+                    const idx = Math.floor(Math.random() * particleCount);
+                    const x1 = positions[idx * 3];
+                    const y1 = positions[idx * 3 + 1];
+                    const z1 = positions[idx * 3 + 2];
+
+                    let nearestDist = Infinity;
+                    let nearestIdx = -1;
+
+                    for (let j = 0; j < 80; j++) {
+                        const jdx = Math.floor(Math.random() * particleCount);
+                        if (jdx === idx) continue;
+
+                        const dx = positions[jdx * 3] - x1;
+                        const dy = positions[jdx * 3 + 1] - y1;
+                        const dz = positions[jdx * 3 + 2] - z1;
+                        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+                        if (dist < nearestDist && dist < maxDist) {
+                            nearestDist = dist;
+                            nearestIdx = jdx;
+                        }
+                    }
+
+                    if (nearestIdx >= 0) {
+                        linePositions.push(x1, y1, z1);
+                        linePositions.push(
+                            positions[nearestIdx * 3],
+                            positions[nearestIdx * 3 + 1],
+                            positions[nearestIdx * 3 + 2]
+                        );
+
+                        const intensity = 1 - (nearestDist / maxDist);
+                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.4);
+                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.4);
+                    }
+                }
+
+                if (linePositions.length > 0) {
+                    const lineGeometry = new THREE.BufferGeometry();
+                    lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+                    lineGeometry.setAttribute('color', new THREE.Float32BufferAttribute(lineColors, 4));
+
+                    const lineMaterial = new THREE.LineBasicMaterial({
+                        vertexColors: true,
+                        transparent: true,
+                        blending: THREE.AdditiveBlending,
+                        linewidth: 1
+                    });
+
+                    connectionLines = new THREE.LineSegments(lineGeometry, lineMaterial);
+                    scene.add(connectionLines);
+                }
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // DYNAMIC LIGHTS — Moving colored lights
+            // ─────────────────────────────────────────────────────────────
+            const lights = [];
+            const lightColors = [0x8B5CF6, 0xF472B6, 0x60A5FA, 0x00f3ff, 0x34D399];
+            
+            for (let i = 0; i < 5; i++) {
+                const light = new THREE.PointLight(lightColors[i], 1.5, 25);
+                lights.push(light);
+                scene.add(light);
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // ANIMATION LOOP
+            // ─────────────────────────────────────────────────────────────
+            let time = 0;
+            
+            function animate() {
+                requestAnimationFrame(animate);
+                time += 0.016;
+
+                primaryMaterial.uniforms.uTime.value = time;
+
+                // ───────────────────────────────────────────────────────
+                // COLOR CYCLING — Violet ↔ Cyan ↔ Pink flow (optimized)
+                // ───────────────────────────────────────────────────────
+                const colorTime = time * 0.5;
+                // Update colors every 3 frames for performance
+                if (Math.floor(time * 60) % 3 === 0) {
+                for (let i = 0; i < particleCount; i++) {
+                    const t = i / particleCount;
+                    
+                    const hue = 0.75 + Math.sin(colorTime + t * 5) * 0.15;
+                    const sat = 0.75 + Math.cos(colorTime * 1.3 + t * 7) * 0.15;
+                    const light = 0.55 + Math.sin(colorTime * 1.7 + t * 3) * 0.1;
+                    
+                    reusableColor.setHSL(hue % 1, sat, light);
+                    colors[i * 3] = reusableColor.r;
+                    colors[i * 3 + 1] = reusableColor.g;
+                    colors[i * 3 + 2] = reusableColor.b;
+                }
+                geometry.attributes.color.needsUpdate = true;
+                }
+
+                // ───────────────────────────────────────────────────────
+                // PARTICLE PHYSICS — Vortex + Mouse (optimized)
+                // ───────────────────────────────────────────────────────
+                const hasMouseInteraction = mouseX !== 0 || mouseY !== 0;
+                for (let i = 0; i < particleCount; i++) {
+                    const idx = i * 3;
+
+                    positions[idx] += velocities[idx];
+                    positions[idx + 1] += velocities[idx + 1];
+                    positions[idx + 2] += velocities[idx + 2];
+
+                    // Mouse vortex (only calculate when mouse active)
+                    if (hasMouseInteraction) {
+                        const dx = mouseVector.x - positions[idx];
+                        const dy = mouseVector.y - positions[idx + 1];
+                        const dz = mouseVector.z - positions[idx + 2];
+                        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+                        if (dist < 3) {
+                            const force = (1 - dist / 3) * 0.08;
+                            const angle = Math.atan2(dy, dx);
+                            
+                            velocities[idx] += (Math.cos(angle + Math.PI/2) * force - dx * force * 0.5);
+                            velocities[idx + 1] += (Math.sin(angle + Math.PI/2) * force - dy * force * 0.5);
+                            velocities[idx + 2] += -dz * force * 0.3;
+                        }
+                    }
+
+                    // Continuous swirl
+                    const angle = Math.atan2(positions[idx + 1], positions[idx]);
+                    const dist = Math.sqrt(positions[idx] ** 2 + positions[idx + 1] ** 2);
+                    const swirl = 0.003 / (dist + 0.5);
+                    
+                    velocities[idx] += -Math.sin(angle) * swirl * 0.1;
+                    velocities[idx + 1] += Math.cos(angle) * swirl * 0.1;
+
+                    // Energy wave
+                    const waveInfluence = Math.sin(time * 2 + dist * 0.5) * 0.02;
+                    velocities[idx + 2] += waveInfluence;
+
+                    // Damping
+                    velocities[idx] *= 0.97;
+                    velocities[idx + 1] *= 0.97;
+                    velocities[idx + 2] *= 0.97;
+
+                    // Soft boundary
+                    const totalDist = Math.sqrt(
+                        positions[idx] ** 2 + 
+                        positions[idx + 1] ** 2 + 
+                        positions[idx + 2] ** 2
+                    );
+                    
+                    if (totalDist > 6) {
+                        velocities[idx] -= positions[idx] * 0.001;
+                        velocities[idx + 1] -= positions[idx + 1] * 0.001;
+                        velocities[idx + 2] -= positions[idx + 2] * 0.001;
+                    }
+                }
+                geometry.attributes.position.needsUpdate = true;
+
+                // ───────────────────────────────────────────────────────
+                // AMBIENT STARS — Parallax depth
+                // ───────────────────────────────────────────────────────
+                const ambientPosArray = ambientGeometry.attributes.position.array;
+                for (let i = 0; i < ambientCount; i++) {
+                    ambientPosArray[i * 3] += ambientVelocities[i * 3];
+                    ambientPosArray[i * 3 + 1] += ambientVelocities[i * 3 + 1];
+                    ambientPosArray[i * 3 + 2] += ambientVelocities[i * 3 + 2];
+
+                    if (ambientPosArray[i * 3 + 2] > 10) {
+                        ambientPosArray[i * 3 + 2] = -30;
+                    }
+                }
+                ambientGeometry.attributes.position.needsUpdate = true;
+
+                // ───────────────────────────────────────────────────────
+                // DYNAMIC LIGHTS — Orbital movement
+                // ───────────────────────────────────────────────────────
+                lights.forEach((light, idx) => {
+                    const angle = time * (0.3 + idx * 0.15) + idx * Math.PI * 0.4;
+                    const radius = 4 + Math.sin(time * 0.5 + idx) * 2;
+                    const elevation = Math.sin(time * 0.4 + idx * 1.5) * 3;
+                    
+                    light.position.x = Math.cos(angle) * radius;
+                    light.position.y = Math.sin(angle) * radius;
+                    light.position.z = elevation;
+                });
+
+                // ───────────────────────────────────────────────────────
+                // CONNECTION LINES — Update less frequently for performance
+                // ───────────────────────────────────────────────────────
+                connectionUpdateTimer++;
+                if (connectionUpdateTimer > 90) {
+                    updateConnections();
+                    connectionUpdateTimer = 0;
+                }
+
+                particles.rotation.y += 0.0001;
+                particles.rotation.x = Math.sin(time * 0.1) * 0.05;
+
+                renderer.render(scene, camera);
+            }
+
+            updateConnections();
+            animate();
+        }
+        
+        // Initialize first scene
+        initGalaxy();
+    </script>
+</body>
+
+</html>
