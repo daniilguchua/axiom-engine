@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AXIOM Engine — Algorithm Visualization</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/AfterimageShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/AfterimagePass.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -197,6 +206,9 @@
             height: 400px;
             border-radius: 20px;
             overflow: hidden;
+            background: radial-gradient(120% 120% at 20% 20%, rgba(96, 165, 250, 0.08), rgba(10, 10, 15, 0.25) 45%, rgba(10, 10, 15, 0.92) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.14);
+            box-shadow: 0 30px 80px rgba(6, 6, 12, 0.7), inset 0 0 40px rgba(139, 92, 246, 0.05);
         }
 
         canvas {
@@ -252,10 +264,6 @@
     <div id="app">
         <nav>
             <div class="nav-brand">AXIOM ENGINE</div>
-            <div class="nav-controls">
-                <button class="control-btn active" data-visual="galaxy">Galaxy Spiral</button>
-                <button class="control-btn" data-visual="nebula">Nebula Cloud</button>
-            </div>
         </nav>
 
         <div class="main">
@@ -275,10 +283,7 @@
                         </div>
                     </div>
                     <div class="split-visual">
-                        <div class="visual-box" id="visual-galaxy">
-                            <canvas id="galaxy-canvas"></canvas>
-                        </div>
-                        <div class="visual-box" id="visual-nebula" style="display:none;">
+                        <div class="visual-box" id="visual-nebula">
                             <canvas id="nebula-canvas"></canvas>
                         </div>
                     </div>
@@ -288,166 +293,108 @@
     </div>
 
     <script>
-        // ========== VISUAL SWITCHING ==========
-        const btns = document.querySelectorAll('.control-btn');
-        const visuals = document.querySelectorAll('.visual-box');
-
-        btns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const visual = btn.getAttribute('data-visual');
-
-                btns.forEach(b => b.classList.remove('active'));
-                visuals.forEach(v => v.style.display = 'none');
-
-                btn.classList.add('active');
-                document.getElementById(`visual-${visual}`).style.display = 'flex';
-
-                if (visual === 'galaxy' && !window.galaxyInitialized) {
-                    initGalaxy();
-                } else if (visual === 'nebula' && !window.nebulaInitialized) {
-                    initNebula();
-                }
-            });
-        });
-
-        // ========== GALAXY SPIRAL ==========
-        function initGalaxy() {
-            window.galaxyInitialized = true;
-            const canvas = document.getElementById('galaxy-canvas');
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ 
-                canvas: canvas,
-                alpha: true,
-                antialias: true
-            });
-            
-            renderer.setSize(400, 400);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            camera.position.set(0, 5, 8);
-            camera.lookAt(0, 0, 0);
-
-            // Create galaxy particle system
-            const galaxyGroup = new THREE.Group();
-            const particleCount = 8000;
-            const positions = new Float32Array(particleCount * 3);
-            const colors = new Float32Array(particleCount * 3);
-            const sizes = new Float32Array(particleCount);
-            
-            // Galaxy parameters
-            const arms = 3;
-            const spin = 1.5;
-            const randomness = 0.3;
-            const randomnessPower = 2;
-            
-            for (let i = 0; i < particleCount; i++) {
-                const radius = Math.random() * 4;
-                const spinAngle = radius * spin;
-                const branchAngle = (i % arms) / arms * Math.PI * 2;
-                
-                // Randomness
-                const randomX = Math.pow(Math.random(), randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * randomness * radius;
-                const randomY = Math.pow(Math.random(), randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * randomness * radius;
-                const randomZ = Math.pow(Math.random(), randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * randomness * radius;
-                
-                positions[i * 3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
-                positions[i * 3 + 1] = randomY * 0.3;
-                positions[i * 3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
-                
-                // Color based on distance from center
-                const colorMix = radius / 4;
-                const purpleColor = new THREE.Color(0x8B5CF6);
-                const blueColor = new THREE.Color(0x60A5FA);
-                const tealColor = new THREE.Color(0x34D399);
-                
-                let finalColor;
-                if (colorMix < 0.5) {
-                    finalColor = purpleColor.clone().lerp(blueColor, colorMix * 2);
-                } else {
-                    finalColor = blueColor.clone().lerp(tealColor, (colorMix - 0.5) * 2);
-                }
-                
-                colors[i * 3] = finalColor.r;
-                colors[i * 3 + 1] = finalColor.g;
-                colors[i * 3 + 2] = finalColor.b;
-                
-                sizes[i] = Math.random() * 0.08 + 0.02;
-            }
-            
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-            
-            const material = new THREE.PointsMaterial({
-                size: 0.05,
-                sizeAttenuation: true,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending,
-                vertexColors: true,
-                transparent: true,
-                opacity: 0.8
-            });
-            
-            const galaxy = new THREE.Points(geometry, material);
-            galaxyGroup.add(galaxy);
-            scene.add(galaxyGroup);
-            
-            // Add central glow
-            const glowGeometry = new THREE.SphereGeometry(0.2, 32, 32);
-            const glowMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0.9
-            });
-            const centralGlow = new THREE.Mesh(glowGeometry, glowMaterial);
-            scene.add(centralGlow);
-            
-            // Add ambient light
-            const ambientLight = new THREE.AmbientLight(0x404060, 0.3);
-            scene.add(ambientLight);
-            
-            // Animation
-            function animate() {
-                requestAnimationFrame(animate);
-                
-                galaxyGroup.rotation.y += 0.001;
-                galaxyGroup.rotation.x = Math.sin(Date.now() * 0.0001) * 0.1;
-                
-                renderer.render(scene, camera);
-            }
-            
-            animate();
+        function getCanvasSize(canvas) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                width: Math.max(1, rect.width),
+                height: Math.max(1, rect.height)
+            };
         }
+
+        function observeResize(target, onResize) {
+            if (typeof ResizeObserver !== 'undefined') {
+                const ro = new ResizeObserver(() => onResize());
+                ro.observe(target);
+                return ro;
+            }
+            window.addEventListener('resize', onResize);
+            return null;
+        }
+        window.nebulaActive = true;
         
-        // ═══════════════════════════════════════════════════════════════════
-        // CINEMATIC NEBULA — Over-the-top with Custom Shaders & Multi-Layer Depth
-        // Inspired by neural-bg.js but taken to the EXTREME! 🌌⚡✨
-        // ═══════════════════════════════════════════════════════════════════
+        // ===== NEBULA (Apple-grade, balanced cinematic) =====
+        function getQualityTier() {
+            const width = window.innerWidth;
+            const isMobile = width <= 768;
+            const isMid = width <= 1200;
+
+            if (isMobile) {
+                return {
+                    particleCount: 3200,
+                    ambientCount: 140,
+                    pixelRatio: 1.5,
+                    bloomStrength: 0.55,
+                    bloomRadius: 0.35,
+                    bloomThreshold: 0.25,
+                    afterimageDamp: 0,
+                    enableLines: false,
+                    drift: 0.22,
+                    mouseStrength: 0.02
+                };
+            }
+
+            if (isMid) {
+                return {
+                    particleCount: 6000,
+                    ambientCount: 200,
+                    pixelRatio: 1.75,
+                    bloomStrength: 0.8,
+                    bloomRadius: 0.45,
+                    bloomThreshold: 0.18,
+                    afterimageDamp: 0.93,
+                    enableLines: true,
+                    drift: 0.28,
+                    mouseStrength: 0.03
+                };
+            }
+
+            return {
+                particleCount: 8200,
+                ambientCount: 260,
+                pixelRatio: 2,
+                bloomStrength: 0.95,
+                bloomRadius: 0.55,
+                bloomThreshold: 0.14,
+                afterimageDamp: 0.94,
+                enableLines: true,
+                drift: 0.32,
+                mouseStrength: 0.035
+            };
+        }
+
         function initNebula() {
             window.nebulaInitialized = true;
+            window.nebulaActive = true;
+
             const canvas = document.getElementById('nebula-canvas');
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
-            const renderer = new THREE.WebGLRenderer({ 
+            const renderer = new THREE.WebGLRenderer({
                 canvas: canvas,
                 alpha: true,
                 antialias: true,
                 powerPreference: "high-performance"
             });
-            
-            renderer.setSize(400, 400);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            const quality = getQualityTier();
+            renderer.setClearColor(0x000000, 0);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio));
             camera.position.set(0, 2, 10);
             camera.lookAt(0, 0, 0);
+            scene.fog = new THREE.FogExp2(0x0a0a0f, 0.045);
 
-            // Mouse tracking for vortex physics
-            let mouseX = 0, mouseY = 0, mouseVector = new THREE.Vector3();
+            // Mouse tracking for subtle response
+            let mouseX = 0;
+            let mouseY = 0;
+            let mouseActive = false;
+            const mouseVector = new THREE.Vector3();
+
             canvas.addEventListener('mousemove', (e) => {
                 const rect = canvas.getBoundingClientRect();
                 mouseX = ((e.clientX - rect.left) / canvas.clientWidth) * 2 - 1;
                 mouseY = -((e.clientY - rect.top) / canvas.clientHeight) * 2 + 1;
-                
+                mouseActive = true;
+
                 mouseVector.set(mouseX, mouseY, 0.5);
                 mouseVector.unproject(camera);
                 mouseVector.sub(camera.position).normalize();
@@ -455,108 +402,127 @@
                 mouseVector.multiplyScalar(distance).add(camera.position);
             });
 
-            // ─────────────────────────────────────────────────────────────
-            // BLOOM TEXTURE for cinematic glow
-            // ─────────────────────────────────────────────────────────────
-            function createBloomTexture() {
-                const size = 128;
+            canvas.addEventListener('mouseleave', () => {
+                mouseActive = false;
+            });
+
+            // Postprocessing pipeline
+            const composer = new THREE.EffectComposer(renderer);
+            const renderPass = new THREE.RenderPass(scene, camera);
+            composer.addPass(renderPass);
+
+            const afterimagePass = new THREE.AfterimagePass();
+            if (quality.afterimageDamp > 0) {
+                afterimagePass.uniforms.damp.value = quality.afterimageDamp;
+                composer.addPass(afterimagePass);
+            }
+
+            const bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(1, 1),
+                quality.bloomStrength,
+                quality.bloomRadius,
+                quality.bloomThreshold
+            );
+            composer.addPass(bloomPass);
+
+            const vignetteShader = {
+                uniforms: {
+                    tDiffuse: { value: null },
+                    uOffset: { value: 1.05 },
+                    uDarkness: { value: 1.15 }
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D tDiffuse;
+                    uniform float uOffset;
+                    uniform float uDarkness;
+                    varying vec2 vUv;
+                    void main() {
+                        vec4 color = texture2D(tDiffuse, vUv);
+                        vec2 coord = (vUv - 0.5) * uOffset;
+                        float vignette = smoothstep(0.8, 0.2, dot(coord, coord));
+                        color.rgb *= mix(1.0, vignette, uDarkness - 1.0);
+                        gl_FragColor = color;
+                    }
+                `
+            };
+
+            const vignettePass = new THREE.ShaderPass(vignetteShader);
+            composer.addPass(vignettePass);
+
+            function createSoftGlowTexture() {
+                const size = 64;
                 const c = document.createElement('canvas');
                 c.width = size;
                 c.height = size;
                 const ctx = c.getContext('2d');
-                
-                const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
-                gradient.addColorStop(0.2, 'rgba(200, 150, 255, 0.15)');
-                gradient.addColorStop(0.5, 'rgba(139, 92, 246, 0.05)');
+
+                const gradient = ctx.createRadialGradient(
+                    size / 2,
+                    size / 2,
+                    0,
+                    size / 2,
+                    size / 2,
+                    size / 2
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.18)');
+                gradient.addColorStop(0.3, 'rgba(190, 160, 255, 0.1)');
+                gradient.addColorStop(0.6, 'rgba(90, 120, 255, 0.05)');
                 gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                
+
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, size, size);
-                
+
                 return new THREE.CanvasTexture(c);
             }
 
-            // ─────────────────────────────────────────────────────────────
-            // PRIMARY NEBULA — 8,000 particles with custom shader (optimized)
-            // ─────────────────────────────────────────────────────────────
-            const particleCount = 8000;
+            // Geometry and attributes
+            const particleCount = quality.particleCount;
             const positions = new Float32Array(particleCount * 3);
-            const velocities = new Float32Array(particleCount * 3);
             const colors = new Float32Array(particleCount * 3);
             const sizes = new Float32Array(particleCount);
             const phases = new Float32Array(particleCount);
             const alphas = new Float32Array(particleCount);
+            const seeds = new Float32Array(particleCount);
 
-            // Initialize particles in volumetric nebula cloud
-            // Apple vibes: slow, meditative, layered, dream-like
             for (let i = 0; i < particleCount; i++) {
-                // Multi-layer spherical distribution with golden spiral
                 const layer = Math.floor(i / (particleCount / 3));
-                const baseRadius = 3 + layer * 1.5;
-                const radius = baseRadius + (Math.random() - 0.5) * 2;
-                
-                // Golden spiral structure for subtle background organization
-                const spiralAngle = Math.sqrt(i) * 0.618 * Math.PI; // Golden ratio spiral
-                const theta = spiralAngle + (Math.random() - 0.5) * 0.4; // Add some randomness
+                const baseRadius = 3 + layer * 1.4;
+                const radius = baseRadius + (Math.random() - 0.5) * 2.0;
+                const spiralAngle = Math.sqrt(i) * 0.618 * Math.PI;
+                const theta = spiralAngle + (Math.random() - 0.5) * 0.35;
                 const phi = Math.acos(2 * Math.random() - 1);
 
                 positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
                 positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-                positions[i * 3 + 2] = radius * Math.cos(phi) * 0.6; // Compress Z for 2.5D feel
+                positions[i * 3 + 2] = radius * Math.cos(phi) * 0.6;
 
-                // Super slow swirling - MEDITATIVE not energetic
-                const angle = Math.atan2(positions[i * 3 + 1], positions[i * 3]);
-                const dist = Math.sqrt(positions[i * 3] ** 2 + positions[i * 3 + 1] ** 2);
-                const swirl = 0.0005 / (dist + 0.5); // 6x slower
-                
-                velocities[i * 3] = -Math.sin(angle) * swirl + (Math.random() - 0.5) * 0.0002;
-                velocities[i * 3 + 1] = Math.cos(angle) * swirl + (Math.random() - 0.5) * 0.0002;
-                velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.00005; // Barely any vertical motion
-
-                // Size: power law (mostly small, some giant stars)
-                sizes[i] = 2 + Math.pow(Math.random(), 4) * 8;
-
-                // Phase for staggered pulse
+                sizes[i] = 2 + Math.pow(Math.random(), 4) * 6;
                 phases[i] = Math.random() * Math.PI * 2;
-
-                // Alpha variation
-                alphas[i] = 0.6 + Math.random() * 0.4;
+                alphas[i] = 0.55 + Math.random() * 0.35;
+                seeds[i] = Math.random();
             }
 
-            // Color cycling initialization - sophisticated palette
             const reusableColor = new THREE.Color();
             for (let i = 0; i < particleCount; i++) {
                 const t = i / particleCount;
-                // Cycle: deep purple → vivid pink → electric cyan → deep magenta
-                let hue, sat, light;
-                
+                let hue;
                 if (t < 0.25) {
-                    // Purple to pink
-                    hue = 0.8 + (t * 4) * 0.08; // 0.8 → 0.88
-                    sat = 0.75;
-                    light = 0.52;
+                    hue = 0.8 + t * 0.2;
                 } else if (t < 0.5) {
-                    // Pink to cyan
-                    const pt = (t - 0.25) * 4;
-                    hue = 0.88 + pt * 0.15; // 0.88 → 1.03
-                    sat = 0.7 + pt * 0.1;
-                    light = 0.5;
+                    hue = 0.9 + (t - 0.25) * 0.2;
                 } else if (t < 0.75) {
-                    // Cyan to magenta
-                    const pt = (t - 0.5) * 4;
-                    hue = 0.15 + pt * 0.2; // Wrap to magenta
-                    sat = 0.8 - pt * 0.15;
-                    light = 0.52 + pt * 0.05;
+                    hue = 0.1 + (t - 0.5) * 0.25;
                 } else {
-                    // Magenta back to purple
-                    const pt = (t - 0.75) * 4;
-                    hue = 0.75 + pt * 0.05; // Back to purple
-                    sat = 0.75;
-                    light = 0.54;
+                    hue = 0.75 + (t - 0.75) * 0.1;
                 }
-                
-                reusableColor.setHSL(hue % 1, sat, light);
+                reusableColor.setHSL(hue % 1, 0.75, 0.55);
                 colors[i * 3] = reusableColor.r;
                 colors[i * 3 + 1] = reusableColor.g;
                 colors[i * 3 + 2] = reusableColor.b;
@@ -568,62 +534,88 @@
             geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
             geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
             geometry.setAttribute('aAlpha', new THREE.BufferAttribute(alphas, 1));
+            geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
 
-            // Store previous positions for trails
-            const previousPositions = new Float32Array(positions);
-            const trailOpacity = 0.08; // Very ghost-like trails
-
-            // Custom ShaderMaterial — Multi-layer glow
             const primaryMaterial = new THREE.ShaderMaterial({
                 uniforms: {
                     uTime: { value: 0 },
-                    uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+                    uPixelRatio: { value: Math.min(window.devicePixelRatio, quality.pixelRatio) },
+                    uDrift: { value: quality.drift },
+                    uGlow: { value: 1.0 },
+                    uMouse: { value: new THREE.Vector3() },
+                    uMouseStrength: { value: 0.0 }
                 },
                 vertexShader: `
                     attribute float aSize;
                     attribute float aPhase;
                     attribute float aAlpha;
+                    attribute float aSeed;
                     attribute vec3 color;
-                    
+
                     varying vec3 vColor;
                     varying float vAlpha;
-                    
+                    varying float vSeed;
+
                     uniform float uTime;
                     uniform float uPixelRatio;
-                    
+                    uniform float uDrift;
+                    uniform vec3 uMouse;
+                    uniform float uMouseStrength;
+
                     void main() {
                         vColor = color;
                         vAlpha = aAlpha;
-                        
-                        // Staggered pulse animation
-                        float pulse = 1.0 + sin(uTime * 3.0 + aPhase) * 0.2;
-                        
-                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                        gl_PointSize = aSize * pulse * uPixelRatio * (300.0 / -mvPosition.z);
+                        vSeed = aSeed;
+
+                        vec3 pos = position;
+
+                        float drift = uDrift;
+                        float n1 = sin(uTime * 0.08 + aSeed * 6.283 + pos.y * 0.3);
+                        float n2 = cos(uTime * 0.06 + aSeed * 4.1 + pos.x * 0.25);
+                        float n3 = sin(uTime * 0.05 + aSeed * 5.7 + pos.z * 0.2);
+                        vec3 offset = vec3(n1, n2, n3) * drift;
+
+                        float wave = sin(uTime * 0.2 + length(pos.xy) * 0.7) * drift * 0.35;
+                        pos.z += wave;
+
+                        float mouseDist = length(pos - uMouse);
+                        float mouseInfluence = smoothstep(3.2, 0.0, mouseDist) * uMouseStrength;
+                        vec3 mouseDir = normalize(pos - uMouse + 0.0001);
+                        pos += offset + mouseDir * mouseInfluence;
+
+                        float pulse = 1.0 + sin(uTime * 1.2 + aPhase) * 0.12;
+
+                        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                        gl_PointSize = aSize * pulse * uPixelRatio * (260.0 / -mvPosition.z);
                         gl_Position = projectionMatrix * mvPosition;
                     }
                 `,
                 fragmentShader: `
                     varying vec3 vColor;
                     varying float vAlpha;
-                    
+                    varying float vSeed;
+                    uniform float uTime;
+                    uniform float uGlow;
+
                     void main() {
                         vec2 center = gl_PointCoord - 0.5;
                         float dist = length(center);
-                        
                         if (dist > 0.5) discard;
-                        
-                        // Multi-layer glow: white-hot core + colored mid + soft halo
-                        float core = smoothstep(0.15, 0.0, dist);
-                        float mid = smoothstep(0.4, 0.1, dist) * 0.6;
-                        float outer = smoothstep(0.5, 0.25, dist) * 0.3;
-                        
+
+                        float core = smoothstep(0.12, 0.0, dist);
+                        float mid = smoothstep(0.38, 0.1, dist) * 0.55;
+                        float outer = smoothstep(0.5, 0.22, dist) * 0.25;
                         float intensity = core + mid + outer;
-                        
-                        // White core fade to color
-                        vec3 finalColor = mix(vColor, vec3(1.0, 0.95, 1.0), core * 0.7);
-                        
-                        gl_FragColor = vec4(finalColor, intensity * vAlpha);
+
+                        float sparkle = smoothstep(0.985, 1.0, sin(uTime * 0.6 + vSeed * 12.9898) * 0.5 + 0.5);
+                        intensity += sparkle * 0.35;
+
+                        vec3 accent = vec3(0.65, 0.85, 1.0);
+                        float tint = 0.2 + 0.2 * sin(uTime * 0.1 + vSeed * 6.0);
+                        vec3 finalColor = mix(vColor, accent, tint);
+                        finalColor = mix(finalColor, vec3(1.0), sparkle * 0.3);
+
+                        gl_FragColor = vec4(finalColor, intensity * vAlpha * uGlow);
                     }
                 `,
                 transparent: true,
@@ -631,75 +623,61 @@
                 blending: THREE.AdditiveBlending
             });
 
-           const particles = new THREE.Points(geometry, primaryMaterial);
-            scene.add(particles);
+            const resize = () => {
+                const size = getCanvasSize(canvas);
+                renderer.setSize(size.width, size.height, false);
+                camera.aspect = size.width / size.height;
+                camera.updateProjectionMatrix();
+                composer.setSize(size.width, size.height);
+                primaryMaterial.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, quality.pixelRatio);
+            };
 
-            // ─────────────────────────────────────────────────────────────
-            // BLOOM LAYER — Subtle cinematic glow (Apple-refined)
-            // ─────────────────────────────────────────────────────────────
+            const nebulaGroup = new THREE.Group();
+            const particles = new THREE.Points(geometry, primaryMaterial);
+            nebulaGroup.add(particles);
+            scene.add(nebulaGroup);
+
             const bloomMaterial = new THREE.PointsMaterial({
-                size: 12, // Smaller bloom
-                map: createBloomTexture(),
+                size: 12,
+                map: createSoftGlowTexture(),
                 transparent: true,
-                opacity: 0.04, // Very subtle
+                opacity: 0.045,
                 blending: THREE.AdditiveBlending,
-                depthWrite: false,
-                vertexColors: true
+                depthWrite: false
             });
-
             const bloomParticles = new THREE.Points(geometry, bloomMaterial);
-            scene.add(bloomParticles);
+            nebulaGroup.add(bloomParticles);
 
-            // ─────────────────────────────────────────────────────────────
-            // AMBIENT STARS — Background depth layer
-            // ─────────────────────────────────────────────────────────────
-            const ambientCount = 300;
+            const ambientCount = quality.ambientCount;
             const ambientPositions = new Float32Array(ambientCount * 3);
-            const ambientVelocities = new Float32Array(ambientCount * 3);
-
             for (let i = 0; i < ambientCount; i++) {
                 ambientPositions[i * 3] = (Math.random() - 0.5) * 40;
                 ambientPositions[i * 3 + 1] = (Math.random() - 0.5) * 40;
-                ambientPositions[i * 3 + 2] = (Math.random() - 0.5) * 20 - 10;
-
-                ambientVelocities[i * 3] = (Math.random() - 0.5) * 0.01;
-                ambientVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.01;
-                ambientVelocities[i * 3 + 2] = Math.random() * 0.02;
+                ambientPositions[i * 3 + 2] = (Math.random() - 0.5) * 20 - 12;
             }
 
             const ambientGeometry = new THREE.BufferGeometry();
             ambientGeometry.setAttribute('position', new THREE.BufferAttribute(ambientPositions, 3));
-
             const ambientMaterial = new THREE.PointsMaterial({
-                size: 1.5,
-                color: 0x6a6a8a,
+                size: 1.2,
+                color: 0x525266,
                 transparent: true,
-                opacity: 0.5,
+                opacity: 0.45,
                 blending: THREE.AdditiveBlending,
                 depthWrite: false
             });
+            const ambientGroup = new THREE.Group();
+            ambientGroup.add(new THREE.Points(ambientGeometry, ambientMaterial));
+            scene.add(ambientGroup);
 
-            const ambientParticles = new THREE.Points(ambientGeometry, ambientMaterial);
-            scene.add(ambientParticles);
-
-            // ─────────────────────────────────────────────────────────────
-            // CONNECTION LINES — Electric arcs
-            // ─────────────────────────────────────────────────────────────
             let connectionLines = null;
-            let connectionUpdateTimer = 0;
-
-            function updateConnections() {
-                if (connectionLines) {
-                    scene.remove(connectionLines);
-                    connectionLines.geometry.dispose();
-                }
-
+            if (quality.enableLines) {
                 const linePositions = [];
                 const lineColors = [];
-                const maxConnections = 60; // Even fewer for subtlety
+                const maxConnections = Math.min(50, Math.floor(particleCount * 0.006));
                 const maxDist = 1.2;
 
-                for (let i = 0; i < maxConnections && i < particleCount; i++) {
+                for (let i = 0; i < maxConnections; i++) {
                     const idx = Math.floor(Math.random() * particleCount);
                     const x1 = positions[idx * 3];
                     const y1 = positions[idx * 3 + 1];
@@ -708,14 +686,14 @@
                     let nearestDist = Infinity;
                     let nearestIdx = -1;
 
-                    for (let j = 0; j < 80; j++) {
+                    for (let j = 0; j < 70; j++) {
                         const jdx = Math.floor(Math.random() * particleCount);
                         if (jdx === idx) continue;
 
                         const dx = positions[jdx * 3] - x1;
                         const dy = positions[jdx * 3 + 1] - y1;
                         const dz = positions[jdx * 3 + 2] - z1;
-                        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
                         if (dist < nearestDist && dist < maxDist) {
                             nearestDist = dist;
@@ -732,8 +710,8 @@
                         );
 
                         const intensity = 1 - (nearestDist / maxDist);
-                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.15); // Much more subtle
-                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.15);
+                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.12);
+                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.12);
                     }
                 }
 
@@ -754,164 +732,78 @@
                 }
             }
 
-            // ─────────────────────────────────────────────────────────────
-            // DYNAMIC LIGHTS — Moving colored lights
-            // ─────────────────────────────────────────────────────────────
             const lights = [];
-            const lightColors = [0x8B5CF6, 0xF472B6, 0x60A5FA, 0x00f3ff, 0x34D399];
-            
-            for (let i = 0; i < 5; i++) {
-                const light = new THREE.PointLight(lightColors[i], 1.5, 25);
+            const lightColors = [0x8B5CF6, 0xF472B6, 0x60A5FA];
+            for (let i = 0; i < lightColors.length; i++) {
+                const light = new THREE.PointLight(lightColors[i], 1.1, 18);
                 lights.push(light);
                 scene.add(light);
             }
 
-            // ─────────────────────────────────────────────────────────────
-            // ANIMATION LOOP
-            // ─────────────────────────────────────────────────────────────
+            // Intro animation
+            const introState = {
+                glow: 0.7,
+                drift: quality.drift * 0.6,
+                bloom: quality.bloomStrength * 0.6
+            };
+            primaryMaterial.uniforms.uGlow.value = introState.glow;
+            primaryMaterial.uniforms.uDrift.value = introState.drift;
+            bloomPass.strength = introState.bloom;
+
+            if (window.gsap) {
+                gsap.to(introState, {
+                    glow: 1.0,
+                    drift: quality.drift,
+                    bloom: quality.bloomStrength,
+                    duration: 3.5,
+                    ease: "power2.out",
+                    onUpdate: () => {
+                        primaryMaterial.uniforms.uGlow.value = introState.glow;
+                        primaryMaterial.uniforms.uDrift.value = introState.drift;
+                        bloomPass.strength = introState.bloom;
+                    }
+                });
+            }
+
+            observeResize(canvas, resize);
+            resize();
+
+            // Animation loop
             let time = 0;
-            
             function animate() {
                 requestAnimationFrame(animate);
+
+                if (!window.nebulaActive) {
+                    return;
+                }
+
                 time += 0.016;
-
                 primaryMaterial.uniforms.uTime.value = time;
+                primaryMaterial.uniforms.uMouse.value.copy(mouseVector);
+                primaryMaterial.uniforms.uMouseStrength.value = mouseActive ? quality.mouseStrength : 0.0;
 
-                // ───────────────────────────────────────────────────────
-                // COLOR CYCLING — Sophisticated palette animation (Apple vibes)
-                // ───────────────────────────────────────────────────────
-                const colorTime = time * 0.08; // Very slow color transition
-                // Update colors every 2 frames for smoothness
-                if (Math.floor(time * 60) % 2 === 0) {
-                for (let i = 0; i < particleCount; i++) {
-                    const t = i / particleCount;
-                    const waveInfluence = Math.sin(t * Math.PI * 2 + colorTime) * 0.15;
-                    
-                    // Subtle color wave cycling through spectrun
-                    let hue = colorTime + waveInfluence;
-                    const sat = 0.7 + Math.sin(t * 8 + colorTime * 2) * 0.1;
-                    const light = 0.52 + Math.cos(t * 4 + colorTime) * 0.06;
-                    
-                    reusableColor.setHSL(hue % 1, sat, light);
-                    colors[i * 3] = reusableColor.r;
-                    colors[i * 3 + 1] = reusableColor.g;
-                    colors[i * 3 + 2] = reusableColor.b;
-                }
-                geometry.attributes.color.needsUpdate = true;
-                }
+                nebulaGroup.rotation.y += 0.00006;
+                nebulaGroup.rotation.x = Math.sin(time * 0.06) * 0.02;
+                ambientGroup.rotation.y += 0.0001;
 
-                // ───────────────────────────────────────────────────────
-                // PARTICLE PHYSICS — Ultra-slow, meditative motion
-                // ───────────────────────────────────────────────────────
-                const hasMouseInteraction = mouseX !== 0 || mouseY !== 0;
-                let waveAmplitude = 0.015 * Math.sin(time * 0.5); // Subtle energy waves
-                
-                for (let i = 0; i < particleCount; i++) {
-                    const idx = i * 3;
-
-                    positions[idx] += velocities[idx];
-                    positions[idx + 1] += velocities[idx + 1];
-                    positions[idx + 2] += velocities[idx + 2];
-
-                    // Very subtle mouse vortex (barely responds)
-                    if (hasMouseInteraction) {
-                        const dx = mouseVector.x - positions[idx];
-                        const dy = mouseVector.y - positions[idx + 1];
-                        const dz = mouseVector.z - positions[idx + 2];
-                        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-                        if (dist < 3) {
-                            // Reduced force for "barely responds" feel
-                            const force = (1 - dist / 3) * 0.02; // Much weaker
-                            const angle = Math.atan2(dy, dx);
-                            
-                            velocities[idx] += (Math.cos(angle + Math.PI/2) * force - dx * force * 0.2);
-                            velocities[idx + 1] += (Math.sin(angle + Math.PI/2) * force - dy * force * 0.2);
-                            velocities[idx + 2] += -dz * force * 0.1;
-                        }
-                    }
-
-                    // Ultra-subtle swirl
-                    const angle = Math.atan2(positions[idx + 1], positions[idx]);
-                    const dist = Math.sqrt(positions[idx] ** 2 + positions[idx + 1] ** 2);
-                    const swirl = 0.0001 / (dist + 0.5); // 10x slower
-                    
-                    velocities[idx] += -Math.sin(angle) * swirl * 0.05;
-                    velocities[idx + 1] += Math.cos(angle) * swirl * 0.05;
-
-                    // Subtle energy wave pulsing
-                    velocities[idx + 2] += waveAmplitude * Math.sin(time * 0.3 + i * 0.001);
-
-                    // Very gentle damping
-                    velocities[idx] *= 0.985;
-                    velocities[idx + 1] *= 0.985;
-                    velocities[idx + 2] *= 0.985;
-
-                    // Soft boundary — gentle return force
-                    const totalDist = Math.sqrt(
-                        positions[idx] ** 2 + 
-                        positions[idx + 1] ** 2 + 
-                        positions[idx + 2] ** 2
-                    );
-                    
-                    if (totalDist > 6) {
-                        velocities[idx] -= positions[idx] * 0.0003;
-                        velocities[idx + 1] -= positions[idx + 1] * 0.0003;
-                        velocities[idx + 2] -= positions[idx + 2] * 0.0003;
-                    }
-                }
-                geometry.attributes.position.needsUpdate = true;
-
-                // ───────────────────────────────────────────────────────
-                // AMBIENT STARS — Parallax depth
-                // ───────────────────────────────────────────────────────
-                const ambientPosArray = ambientGeometry.attributes.position.array;
-                for (let i = 0; i < ambientCount; i++) {
-                    ambientPosArray[i * 3] += ambientVelocities[i * 3];
-                    ambientPosArray[i * 3 + 1] += ambientVelocities[i * 3 + 1];
-                    ambientPosArray[i * 3 + 2] += ambientVelocities[i * 3 + 2];
-
-                    if (ambientPosArray[i * 3 + 2] > 10) {
-                        ambientPosArray[i * 3 + 2] = -30;
-                    }
-                }
-                ambientGeometry.attributes.position.needsUpdate = true;
-
-                // ───────────────────────────────────────────────────────
-                // DYNAMIC LIGHTS — Orbital movement
-                // ───────────────────────────────────────────────────────
                 lights.forEach((light, idx) => {
-                    const angle = time * (0.3 + idx * 0.15) + idx * Math.PI * 0.4;
-                    const radius = 4 + Math.sin(time * 0.5 + idx) * 2;
-                    const elevation = Math.sin(time * 0.4 + idx * 1.5) * 3;
-                    
+                    const angle = time * (0.22 + idx * 0.08) + idx * 1.7;
+                    const radius = 3.5 + Math.sin(time * 0.35 + idx) * 1.4;
+                    const elevation = Math.sin(time * 0.3 + idx * 1.2) * 1.6;
+
                     light.position.x = Math.cos(angle) * radius;
                     light.position.y = Math.sin(angle) * radius;
                     light.position.z = elevation;
                 });
 
-                // ───────────────────────────────────────────────────────
-                // CONNECTION LINES — Very subtle electric arcs
-                // ───────────────────────────────────────────────────────
-                connectionUpdateTimer++;
-                if (connectionUpdateTimer > 120) {
-                    updateConnections();
-                    connectionUpdateTimer = 0;
-                }
-
-                // Slow nebula rotation - very subtle
-                particles.rotation.y += 0.00005; // 2x slower
-                particles.rotation.x = Math.sin(time * 0.05) * 0.02; // More subtle tilt
-
-                renderer.render(scene, camera);
+                composer.render();
             }
 
-            updateConnections();
             animate();
         }
         
-        // Initialize first scene
-        initGalaxy();
+        // Initialize nebula
+        initNebula();
     </script>
 </body>
 
