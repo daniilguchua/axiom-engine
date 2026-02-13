@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nebula Design</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+
+        .page-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0a0e2c 0%, #000 100%);
+        }
+
+        .visual-box {
+            width: 400px;
+            height: 400px;
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            background: radial-gradient(circle at center, rgba(20, 50, 120, 0.3) 0%, rgba(0, 0, 0, 0.8) 100%);
+            border: 1px solid rgba(147, 112, 219, 0.15);
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.8),
+                inset 0 0 40px rgba(147, 112, 219, 0.05),
+                0 0 80px rgba(139, 92, 246, 0.1);
+        }
+
+        .visual-box canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        @media (max-width: 1200px) {
+            .visual-box {
+                width: 350px;
+                height: 350px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .visual-box {
+                width: 280px;
+                height: 280px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <div class="visual-box">
+            <canvas id="nebula-canvas"></canvas>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/AfterimagePass.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/AfterimageShader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <script>
+        const canvas = document.getElementById('nebula-canvas');
+        let scene, camera, renderer, composer, nebulaGroup, animate, resizeObserver;
+        let particlesCount = 0;
+        let mouse = { x: 0, y: 0 };
+        let windowWidth = window.innerWidth;
+
+        // Helpers
+        function getCanvasSize(canvas) {
+            const rect = canvas.getBoundingClientRect();
+            return { 
+                width: Math.max(1, rect.width), 
+                height: Math.max(1, rect.height) 
+            };
+        }
+
+        function observeResize(target, onResize) {
+            if (typeof ResizeObserver !== 'undefined') {
+                const ro = new ResizeObserver(() => onResize());
+                ro.observe(target);
+                return ro;
+            }
+            window.addEventListener('resize', onResize);
+            return null;
+        }
+
+        function getQualityTier(width) {
+            if (width <= 768) {
+                return { 
+                    particleCount: 3200, 
+                    ambientCount: 140, 
+                    bloomStrength: 0.55, 
+                    bloomRadius: 0.35,
+                    bloomThreshold: 0.2,
+                    enableLines: false,
+                    drift: 0.3,
+                    mouseStrength: 0.4,
+                    enableAfterimage: false
+                };
+            } else if (width <= 1200) {
+                return {
+                    particleCount: 6000,
+                    ambientCount: 200,
+                    bloomStrength: 0.8,
+                    bloomRadius: 0.45,
+                    bloomThreshold: 0.18,
+                    enableLines: true,
+                    drift: 0.5,
+                    mouseStrength: 0.6,
+                    enableAfterimage: true
+                };
+            } else {
+                return {
+                    particleCount: 8200,
+                    ambientCount: 260,
+                    bloomStrength: 0.95,
+                    bloomRadius: 0.55,
+                    bloomThreshold: 0.14,
+                    enableLines: true,
+                    drift: 0.7,
+                    mouseStrength: 0.8,
+                    enableAfterimage: true
+                };
+            }
+        }
+
+        function initNebula() {
+            const canvasSize = getCanvasSize(canvas);
+            const quality = getQualityTier(windowWidth);
+            
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            
+            camera = new THREE.PerspectiveCamera(
+                60,
+                canvasSize.width / canvasSize.height,
+                0.1,
+                2000
+            );
+            camera.position.z = 120;
+            
+            renderer = new THREE.WebGLRenderer({ 
+                canvas, 
+                antialias: true, 
+                alpha: true, 
+                powerPreference: 'high-performance' 
+            });
+            renderer.setSize(canvasSize.width, canvasSize.height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(0x000000, 0);
+            renderer.sortObjects = false;
+            
+            particlesCount = quality.particleCount;
+            
+            // Nebula particles
+            const particlePositions = new Float32Array(particlesCount * 3);
+            const particleColors = new Float32Array(particlesCount * 3);
+            const particleSizes = new Float32Array(particlesCount);
+            const particlePhases = new Float32Array(particlesCount);
+            const particleAlphas = new Float32Array(particlesCount);
+            const particleSeeds = new Float32Array(particlesCount);
+            
+            const goldenRatio = (1 + Math.sqrt(5)) / 2;
+            
+            for (let i = 0; i < particlesCount; i++) {
+                const theta = Math.acos(2 * Math.random() - 1);
+                const phi = 2 * Math.PI * (i % 1000) * goldenRatio;
+                const r = 30 + Math.random() * 40;
+                
+                particlePositions[i * 3] = r * Math.sin(theta) * Math.cos(phi);
+                particlePositions[i * 3 + 1] = r * Math.sin(theta) * Math.sin(phi);
+                particlePositions[i * 3 + 2] = r * Math.cos(theta);
+                
+                const hue = (phi / (2 * Math.PI) + Math.random() * 0.1) % 1;
+                const sat = 0.6 + Math.random() * 0.4;
+                const light = 0.4 + Math.random() * 0.3;
+                const color = new THREE.Color().setHSL(hue, sat, light);
+                particleColors[i * 3] = color.r;
+                particleColors[i * 3 + 1] = color.g;
+                particleColors[i * 3 + 2] = color.b;
+                
+                particleSizes[i] = 2 + Math.pow(Math.random(), 4) * 6;
+                particlePhases[i] = Math.random() * Math.PI * 2;
+                particleAlphas[i] = 0.4 + Math.random() * 0.6;
+                particleSeeds[i] = Math.random();
+            }
+            
+            const nebulaGeometry = new THREE.BufferGeometry();
+            nebulaGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+            nebulaGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+            nebulaGeometry.setAttribute('size', new THREE.BufferAttribute(particleSizes, 1));
+            nebulaGeometry.setAttribute('phase', new THREE.BufferAttribute(particlePhases, 1));
+            nebulaGeometry.setAttribute('alpha', new THREE.BufferAttribute(particleAlphas, 1));
+            nebulaGeometry.setAttribute('seed', new THREE.BufferAttribute(particleSeeds, 1));
+            
+            const nebulaMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: { value: 0 },
+                    uDrift: { value: quality.drift },
+                    uGlow: { value: 0 },
+                    uMouse: { value: new THREE.Vector2(0, 0) },
+                    uMouseStrength: { value: quality.mouseStrength }
+                },
+                vertexShader: `
+                    attribute float size;
+                    attribute float phase;
+                    attribute float alpha;
+                    attribute float seed;
+                    attribute vec3 color;
+                    
+                    varying float vAlpha;
+                    varying vec3 vColor;
+                    varying float vIntensity;
+                    
+                    uniform float uTime;
+                    uniform float uDrift;
+                    uniform vec2 uMouse;
+                    uniform float uMouseStrength;
+                    
+                    float random(float n) { return fract(sin(n) * 43758.5453123); }
+                    float noise(float p) { 
+                        float i = floor(p); 
+                        float f = fract(p); 
+                        f = f * f * (3.0 - 2.0 * f);
+                        return mix(random(i), random(i + 1.0), f);
+                    }
+                    
+                    void main() {
+                        vec3 pos = position;
+                        float speed = mix(0.5, 2.0, seed);
+                        float driftNoise = noise(seed * 100.0 + uTime * speed * 0.5);
+                        float angleNoise = noise(seed * 50.0 + uTime * speed * 0.3);
+                        
+                        pos.x += sin(angleNoise * 6.28 + uTime * speed * 0.3) * uDrift * 15.0;
+                        pos.y += cos(angleNoise * 6.28 + uTime * speed * 0.2) * uDrift * 12.0;
+                        pos.z += driftNoise * uDrift * 8.0 - 4.0;
+                        
+                        float wave = sin(uTime * speed * 0.5 + phase) * 0.5 + 0.5;
+                        pos *= 0.95 + wave * 0.15;
+                        
+                        vec2 mouseDir = normalize(uMouse + vec2(0.001));
+                        float mouseDist = length(uMouse);
+                        float mouseEffect = exp(-mouseDist * mouseDist / 300.0) * uMouseStrength;
+                        pos.x += mouseDir.x * mouseEffect * 20.0;
+                        pos.y += mouseDir.y * mouseEffect * 20.0;
+                        
+                        vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
+                        gl_Position = projectionMatrix * mvPos;
+                        gl_PointSize = size * (1.0 + wave * 0.3) * (200.0 / length(mvPos.xyz));
+                        
+                        vAlpha = alpha;
+                        vColor = color;
+                        vIntensity = wave;
+                    }
+                `,
+                fragmentShader: `
+                    uniform float uTime;
+                    uniform float uGlow;
+                    
+                    varying float vAlpha;
+                    varying vec3 vColor;
+                    varying float vIntensity;
+                    
+                    void main() {
+                        vec2 center = gl_PointCoord - vec2(0.5);
+                        float dist = length(center);
+                        
+                        if (dist > 0.5) discard;
+                        
+                        float core = exp(-dist * dist * 8.0);
+                        float mid = exp(-dist * dist * 2.5) * 0.6;
+                        float outer = exp(-dist * dist * 0.8) * 0.3;
+                        
+                        float glow = core + mid + outer;
+                        
+                        float sparkle = sin(gl_FragCoord.x * 0.313 + gl_FragCoord.y * 0.271 + uTime * 3.0) * 0.5 + 0.5;
+                        sparkle = pow(sparkle, 8.0) * 0.4;
+                        
+                        vec3 finalColor = vColor * (1.0 + uGlow * 0.5);
+                        float finalAlpha = vAlpha * (glow + sparkle) * (0.8 + vIntensity * 0.4);
+                        
+                        gl_FragColor = vec4(finalColor, finalAlpha);
+                    }
+                `,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+            
+            const nebulaMesh = new THREE.Points(nebulaGeometry, nebulaMaterial);
+            nebulaGroup = new THREE.Group();
+            nebulaGroup.add(nebulaMesh);
+            scene.add(nebulaGroup);
+            
+            // Ambient background stars
+            const ambientGeometry = new THREE.BufferGeometry();
+            const ambientPositions = new Float32Array(quality.ambientCount * 3);
+            const ambientColors = new Float32Array(quality.ambientCount * 3);
+            const ambientSizes = new Float32Array(quality.ambientCount);
+            
+            for (let i = 0; i < quality.ambientCount; i++) {
+                const x = (Math.random() - 0.5) * 300;
+                const y = (Math.random() - 0.5) * 300;
+                const z = (Math.random() - 0.5) * 300 - 100;
+                ambientPositions[i * 3] = x;
+                ambientPositions[i * 3 + 1] = y;
+                ambientPositions[i * 3 + 2] = z;
+                
+                ambientColors[i * 3] = 0.6 + Math.random() * 0.4;
+                ambientColors[i * 3 + 1] = 0.6 + Math.random() * 0.4;
+                ambientColors[i * 3 + 2] = 0.8 + Math.random() * 0.2;
+                
+                ambientSizes[i] = 0.5 + Math.random() * 2;
+            }
+            
+            ambientGeometry.setAttribute('position', new THREE.BufferAttribute(ambientPositions, 3));
+            ambientGeometry.setAttribute('color', new THREE.BufferAttribute(ambientColors, 3));
+            ambientGeometry.setAttribute('size', new THREE.BufferAttribute(ambientSizes, 1));
+            
+            const ambientMaterial = new THREE.PointsMaterial({
+                size: 1,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.4,
+                blending: THREE.AdditiveBlending,
+                vertexColors: true
+            });
+            
+            const ambientStars = new THREE.Points(ambientGeometry, ambientMaterial);
+            const ambientGroup = new THREE.Group();
+            ambientGroup.add(ambientStars);
+            scene.add(ambientGroup);
+            
+            // Lighting
+            const light1 = new THREE.PointLight(0x9370db, 1.2, 300);
+            light1.position.set(50, 30, 100);
+            scene.add(light1);
+            
+            const light2 = new THREE.PointLight(0x5a7cff, 0.8, 250);
+            light2.position.set(-60, -40, 80);
+            scene.add(light2);
+            
+            const light3 = new THREE.PointLight(0xff69b4, 0.6, 200);
+            light3.position.set(0, 80, -60);
+            scene.add(light3);
+            
+            // Postprocessing
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(new THREE.RenderPass(scene, camera));
+            
+            if (quality.enableAfterimage) {
+                composer.addPass(new THREE.AfterimagePass());
+            }
+            
+            const bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(canvasSize.width, canvasSize.height),
+                quality.bloomStrength,
+                quality.bloomRadius,
+                quality.bloomThreshold
+            );
+            composer.addPass(bloomPass);
+            
+            const vignetteShader = {
+                uniforms: { tDiffuse: { value: null } },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    varying vec2 vUv;
+                    uniform sampler2D tDiffuse;
+                    void main() {
+                        vec4 tex = texture2D(tDiffuse, vUv);
+                        vec2 vignette = smoothstep(1.0, 0.3, length(vUv - 0.5) * 1.5);
+                        gl_FragColor = vec4(tex.rgb * (0.8 + vignette * 0.2), tex.a);
+                    }
+                `
+            };
+            
+            const vignettePass = new THREE.ShaderPass(vignetteShader);
+            vignettePass.renderToScreen = true;
+            composer.addPass(vignettePass);
+            
+            // Animation state
+            let introState = { glow: 0, drift: 0, bloomStrength: 0.1 };
+            gsap.to(introState, {
+                glow: 1,
+                drift: 1,
+                bloomStrength: quality.bloomStrength,
+                duration: 3.5,
+                ease: 'power2.out',
+                onUpdate: () => {
+                    nebulaMaterial.uniforms.uGlow.value = introState.glow;
+                    nebulaMaterial.uniforms.uDrift.value = quality.drift * introState.drift;
+                    bloomPass.strength = introState.bloomStrength;
+                }
+            });
+            
+            // Animation loop
+            let time = 0;
+            animate = function() {
+                requestAnimationFrame(animate);
+                time += 1 / 60;
+                nebulaMaterial.uniforms.uTime.value = time;
+                composer.render();
+            };
+            
+            // Mouse tracking
+            document.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                mouse.x = (e.clientX - centerX) * 0.5;
+                mouse.y = -(e.clientY - centerY) * 0.5;
+                nebulaMaterial.uniforms.uMouse.value.set(mouse.x, mouse.y);
+            });
+            
+            // Resize handler
+            const handleResize = () => {
+                const newSize = getCanvasSize(canvas);
+                const newQuality = getQualityTier(window.innerWidth);
+                windowWidth = window.innerWidth;
+                
+                renderer.setSize(newSize.width, newSize.height);
+                camera.aspect = newSize.width / newSize.height;
+                camera.updateProjectionMatrix();
+                composer.setSize(newSize.width, newSize.height);
+            };
+            
+            resizeObserver = observeResize(canvas.parentElement, handleResize);
+            
+            animate();
+        }
+
+        // Start
+        window.addEventListener('DOMContentLoaded', initNebula);
+    </script>
+</body>
+</html>
