@@ -1,4 +1,3 @@
-# core/cache/repair_logger.py
 """
 Comprehensive logging for repair operations.
 Tracks repair attempts, statistics, and raw mermaid code for ML training.

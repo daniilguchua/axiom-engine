@@ -1,4 +1,3 @@
-# core/cache/__init__.py
 """
 Facade for the refactored cache system.
 Maintains backward compatibility while delegating to specialized modules.
@@ -16,7 +15,7 @@ from .semantic_cache import SemanticCache
 from .repair_tracker import RepairTracker
 from .repair_logger import RepairLogger
 from .feedback_logger import FeedbackLogger
-from core.utils import get_text_embedding, cosine_similarity  # Re-export for backward compat
+from core.utils import get_text_embedding, cosine_similarity
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +55,6 @@ class CacheManager:
     - Comprehensive logging for ML training data
     """
     
-    SIMILARITY_THRESHOLD = 0.80
-    MAX_POOL_SIZE = 5
-    
     def __init__(self, db_path=None):
         """Initialize all cache subsystems."""
         if db_path is None:
@@ -71,16 +67,8 @@ class CacheManager:
         logger.info("🚀 CacheManager initialized with modular architecture")
     
     def _get_connection(self):
-        """Backward compatibility: delegate to database.get_connection()."""
+        """Delegate to database.get_connection() for direct DB access."""
         return self.database.get_connection()
-    
-    def _update_access_metrics(self, prompt_key: str) -> None:
-        """Backward compatibility: delegate to semantic_cache."""
-        self.semantic_cache._update_access_metrics(prompt_key)
-    
-    # =========================================================================
-    # SEMANTIC CACHE OPERATIONS
-    # =========================================================================
     
     def get_cached_simulation(
         self, 
@@ -112,11 +100,7 @@ class CacheManager:
         client_verified: bool = False,
         session_id: Optional[str] = None
     ) -> bool:
-        """
-        Save a simulation to cache.
-        Delegates to SemanticCache module.
-        """
-        # Check if broken before saving
+        """Save a simulation to cache, skipping if marked broken."""
         if self._is_simulation_broken(prompt, difficulty):
             logger.info(f"Skipping cache save for broken simulation: {prompt[:40]}...")
             return False
@@ -133,12 +117,8 @@ class CacheManager:
         """Generate a hash for the prompt (for deduplication)."""
         return self.semantic_cache.get_prompt_hash(prompt)
     
-    # =========================================================================
-    # REPAIR TRACKING OPERATIONS
-    # =========================================================================
-    
     def _is_simulation_broken(self, prompt: str, difficulty: str) -> bool:
-        """Check if simulation is marked broken (fixed bug: no longer needs callback)."""
+        """Check if simulation is marked broken and should not be cached."""
         return self.repair_tracker.is_simulation_broken(prompt, difficulty)
     
     def mark_simulation_broken(
@@ -208,10 +188,6 @@ class CacheManager:
     def cleanup_stale_pending_repairs(self, max_age_minutes: int = 15) -> int:
         """Clear pending repairs older than max_age_minutes."""
         return self.repair_tracker.cleanup_stale_pending_repairs(max_age_minutes)
-    
-    # =========================================================================
-    # REPAIR LOGGING OPERATIONS
-    # =========================================================================
     
     def log_repair(
         self,
@@ -306,10 +282,6 @@ class CacheManager:
         """Get recent failed mermaid codes for debugging."""
         return self.repair_logger.get_failed_raw_mermaid(limit)
     
-    # =========================================================================
-    # FEEDBACK LOGGING OPERATIONS
-    # =========================================================================
-    
     def _update_cache_rating(self, prompt: str, new_rating: int) -> None:
         """Update the average rating for a cached simulation."""
         self.feedback_logger.update_cache_rating(prompt, new_rating)
@@ -350,10 +322,6 @@ class CacheManager:
             comment=comment,
             update_rating_callback=self._update_cache_rating
         )
-    
-    # =========================================================================
-    # ANALYTICS & METRICS
-    # =========================================================================
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """Return cache statistics for monitoring."""
@@ -421,5 +389,5 @@ class CacheManager:
             return len(data)
 
 
-# Maintain backward compatibility - import from core.cache still works
+
 __all__ = ['CacheManager', 'SimulationStatus', 'CachedSimulation', 'DB_PATH', 'get_text_embedding', 'cosine_similarity']

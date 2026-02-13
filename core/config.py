@@ -1,4 +1,3 @@
-# config.py
 """
 AXIOM Engine - Configuration and Manager Initialization
 Central configuration module to avoid circular imports.
@@ -13,22 +12,15 @@ from core.utils import get_api_key
 from core.session import SessionManager
 from core.cache import CacheManager, DB_PATH
 
-# ============================================================================
-# LOGGING CONFIGURATION
-# ============================================================================
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# API KEY SETUP
-# ============================================================================
-
 genai_client = None
 api_key = None
+
 
 def init_api_key():
     """Initialize the Gemini API key and create client. Call once at startup."""
@@ -42,20 +34,20 @@ def init_api_key():
         api_key = None
         genai_client = None
 
+
 def get_genai_client():
     """Get the initialized Gemini client."""
     return genai_client
+
 
 def get_configured_api_key():
     """Get the configured API key (may be None if not configured)."""
     return api_key
 
-# ============================================================================
-# MANAGER INSTANCES (Singletons)
-# ============================================================================
 
 session_manager = None
 cache_manager = None
+
 
 def init_managers():
     """Initialize the session and cache managers. Call once at startup."""
@@ -64,11 +56,13 @@ def init_managers():
     cache_manager = CacheManager(db_path=DB_PATH)
     logger.info("✅ Managers initialized")
 
+
 def get_session_manager() -> SessionManager:
     """Get the session manager instance."""
     if session_manager is None:
         raise RuntimeError("SessionManager not initialized. Call init_managers() first.")
     return session_manager
+
 
 def get_cache_manager() -> CacheManager:
     """Get the cache manager instance."""
@@ -76,9 +70,6 @@ def get_cache_manager() -> CacheManager:
         raise RuntimeError("CacheManager not initialized. Call init_managers() first.")
     return cache_manager
 
-# ============================================================================
-# FLASK CONFIGURATION
-# ============================================================================
 
 def get_cors_config():
     """Get CORS configuration from environment."""
@@ -90,9 +81,6 @@ def get_cors_config():
         }
     }
 
-# ============================================================================
-# INITIALIZATION HELPER
-# ============================================================================
 
 def init_all():
     """Initialize all configuration. Call once at app startup."""

@@ -1,4 +1,3 @@
-# core/cache/database.py
 """
 Database connection and schema management for the cache system.
 Handles SQLite connection pooling, WAL mode, and schema migrations.
@@ -6,13 +5,11 @@ Handles SQLite connection pooling, WAL mode, and schema migrations.
 
 import sqlite3
 import logging
-import threading
 import os
 from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
-# Configuration
 CURRENT_SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(CURRENT_SCRIPT_DIR, ".axiom_test_cache")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -26,12 +23,14 @@ class CacheDatabase:
     """
     
     def __init__(self, db_path: str):
-        """Initialize cache database."""
+        """Initialize cache database, run schema migrations, and close the init connection."""
         self.db_path = db_path
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self.connection = sqlite3.connect(db_path, check_same_thread=False)
-        self.connection.row_factory = sqlite3.Row
+        self._init_connection = sqlite3.connect(db_path, check_same_thread=False)
+        self._init_connection.row_factory = sqlite3.Row
         self._init_schema()
+        self._init_connection.close()
+        self._init_connection = None
         logger.info(f"📂 CacheDatabase connected to: {self.db_path}")
     
     @contextmanager
@@ -58,10 +57,10 @@ class CacheDatabase:
                 conn.close()
     
     def _init_schema(self):
-        """Initialize database schema with migrations."""
-        cursor = self.connection.cursor()
+        """Initialize database schema, running migrations for existing tables as needed."""
+        cursor = self._init_connection.cursor()
         
-        # ---- simulation_cache: create or migrate ----
+        # simulation_cache: create or migrate
         cursor.execute("PRAGMA table_info(simulation_cache)")
         columns = [col[1] for col in cursor.fetchall()]
         
@@ -123,7 +122,7 @@ class CacheDatabase:
                 cursor.execute("DROP TABLE simulation_cache_old")
                 logger.info("Migrated simulation_cache with embedding column")
         
-        # ---- broken_simulations: create or migrate ----
+        # broken_simulations: create or migrate
         cursor.execute("PRAGMA table_info(broken_simulations)")
         columns = {col[1] for col in cursor.fetchall()}
         
@@ -307,7 +306,6 @@ class CacheDatabase:
             )
         """)
         
-        # Create raw_mermaid_logs table if not exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS raw_mermaid_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -315,6 +313,10 @@ class CacheDatabase:
                 sim_id TEXT,
                 step_index INTEGER,
                 raw_mermaid_code TEXT,
+                has_newlines BOOLEAN DEFAULT 0,
+                newline_count INTEGER DEFAULT 0,
+                escaped_newline_count INTEGER DEFAULT 0,
+                char_length INTEGER DEFAULT 0,
                 initial_render_success BOOLEAN DEFAULT 0,
                 initial_error_msg TEXT,
                 required_repair BOOLEAN DEFAULT 0,
@@ -333,7 +335,8 @@ class CacheDatabase:
         cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = 'e3b0c44298fc1c149afbf4c8996fb924'")
         cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ''")
         
-        self.connection.commit()    
+        self._init_connection.commit()
+
     def save_llm_diagnostic(self, session_id, diagnostic_data):
         """
         Save LLM diagnostic information to database.

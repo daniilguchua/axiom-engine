@@ -1,4 +1,3 @@
-# routes/__init__.py
 """
 Route registration for the AXIOM Engine.
 """

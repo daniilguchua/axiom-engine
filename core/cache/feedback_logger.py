@@ -1,4 +1,3 @@
-# core/cache/feedback_logger.py
 """
 User feedback and quality tracking.
 Logs ratings, graph samples, and maintains cache quality metrics.
@@ -47,8 +46,7 @@ class FeedbackLogger:
         """
         if not code or not code.strip():
             return
-    
-        # Use a separate try/except to make this fire-and-forget
+
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor()
@@ -88,8 +86,8 @@ class FeedbackLogger:
                 cursor = conn.cursor()
                 json_str = json.dumps(sim_data) if isinstance(sim_data, (dict, list)) else str(sim_data)
                 cursor.execute("""
-                    INSERT INTO feedback_logs 
-                    (session_id, prompt, simulation_data, rating, step_index, comment, created_at)
+                    INSERT INTO feedback_logs
+                    (session_id, prompt, sim_data_json, rating, step_index, comment, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (session_id, prompt, json_str, rating, step_index, comment, datetime.now()))
                 logger.info(f"👍 Feedback logged: rating={rating} for '{prompt[:30]}...'")
@@ -105,21 +103,14 @@ class FeedbackLogger:
                 pass  # Non-critical
     
     def update_cache_rating(self, prompt: str, new_rating: int) -> None:
-        """
-        Update the average rating for a cached simulation.
-        
+        """Update the average rating for a cached simulation.
+
+        Note: Currently a no-op because the simulation_cache table lacks
+        avg_rating and access_count columns. Ratings are still recorded
+        in the feedback_logs table.
+
         Args:
-            prompt: The prompt to update rating for
-            new_rating: New rating value
+            prompt: The prompt to update rating for.
+            new_rating: New rating value.
         """
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            # Calculate running average
-            cursor.execute("""
-                UPDATE simulation_cache 
-                SET avg_rating = COALESCE(
-                    (avg_rating * access_count + ?) / (access_count + 1),
-                    ?
-                )
-                WHERE prompt_key = ?
-            """, (new_rating, new_rating, prompt.strip()))
+        pass

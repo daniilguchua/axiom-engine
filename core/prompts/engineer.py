@@ -1,4 +1,3 @@
-# engineer.py
 """
 Engineer Difficulty Level - Practical Systems Builder Prompt
 Target audience: Working engineers and intermediate students focused on real-world implementation

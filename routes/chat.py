@@ -1,11 +1,12 @@
-# routes/chat.py
 """
 Main chat endpoint with streaming response and difficulty selection.
 """
 
 import logging
 import json
+import re
 import random
+from collections import Counter
 
 from flask import Blueprint, request, jsonify, Response, g
 from google import genai
@@ -24,9 +25,6 @@ repair_tester = RepairTester()
 chat_bp = Blueprint('chat', __name__)
 
 
-# ============================================================================
-# INPUT DATA ENRICHMENT
-# ============================================================================
 
 _ALGO_PATTERNS = [
     # Order matters! More specific patterns first.
@@ -191,9 +189,6 @@ Operate on these specific values step by step. Show how each element changes thr
 """
 
 
-# ============================================================================
-# STEP VALIDATION AND DEDUPLICATION
-# ============================================================================
 
 def validate_and_clean_steps(new_steps, current_sim_data, mode):
     """
@@ -277,8 +272,6 @@ def get_last_unique_step(sim_data):
     if not sim_data:
         return None
 
-    # Count occurrences of each step number
-    from collections import Counter
     step_counts = Counter(s.get('step', -1) for s in sim_data)
 
     # Walk backwards and return the first step whose number appears exactly once
@@ -311,8 +304,6 @@ def _log_diagnostic(cache_manager, session_id, mode, difficulty, llm_raw, new_st
         integrity_error: Error message if integrity failed
     """
     try:
-        import json
-        
         # Log to console (one line, structured)
         step_diff = len(cleaned_steps) - len(storage_before)
         console_msg = f"[{mode[:4]}] LLM: {len(new_steps)} → {len(cleaned_steps)} (stored), DB: {len(storage_before)} → {len(storage_after)}"
@@ -337,8 +328,8 @@ def _log_diagnostic(cache_manager, session_id, mode, difficulty, llm_raw, new_st
             'integrity_error': integrity_error or ''
         }
         
-        if hasattr(cache_manager, '_database') and cache_manager._database:
-            cache_manager._database.save_llm_diagnostic(session_id, diagnostic_data)
+        if hasattr(cache_manager, 'database') and cache_manager.database:
+            cache_manager.database.save_llm_diagnostic(session_id, diagnostic_data)
     except Exception as e:
         logger.error(f"Failed to log diagnostic: {e}")
 
@@ -376,17 +367,11 @@ def chat():
         logger.error(f"Invalid session: {e}")
         return jsonify({"error": "Invalid session ID"}), 401
     
-    if user_db is None:
-        logger.error(f"Session not found: {session_id}")
-        return jsonify({"error": "Session not found"}), 401
-    
     # Store difficulty preference in session
     user_db["difficulty"] = difficulty
     
-    # =========================================================================
-    # INTENT DETECTION
-    # =========================================================================
-    
+    # Intent detection
+
     triggers_new = ["simulate", "simulation", "run", "visualize", "step through", 
                     "show", "create", "demonstrate"]
     triggers_continue = ["next", "continue", "proceed", "go on", "more"]
@@ -417,15 +402,11 @@ def chat():
         user_db["simulation_active"] = True
         logger.warning(f"⚠️ Session lost but got explicit CONTINUE_SIMULATION, re-activating")
     
-    # =========================================================================
-    # HANDLE INPUT DATA REGENERATION
-    # =========================================================================
-    
+    # Handle input data regeneration
+
     if is_regenerate:
         # Extract edited input data from message
         try:
-            # Message format: REGENERATE_SIMULATION_WITH_NEW_INPUT: {...json...}
-            import re
             match = re.search(r'REGENERATE_SIMULATION_WITH_NEW_INPUT:\s*(.*?)(?:\nUser comment:|$)', user_msg, re.DOTALL)
             if match:
                 json_str = match.group(1).strip()
@@ -443,10 +424,8 @@ def chat():
             is_new_sim = True
             is_continue = False
     
-    # =========================================================================
-    # CACHE CHECK (Only for new simulations, only if VERIFIED complete)
-    # =========================================================================
-    
+    # Cache check (only for new simulations)
+
     # Generate concrete input data for simulations (unless regenerating with edited input)
     input_data = None
     if is_new_sim and not is_regenerate:
@@ -477,10 +456,8 @@ def chat():
                 
                 return jsonify(cached_data)
     
-    # =========================================================================
-    # MODE SELECTION
-    # =========================================================================
-    
+    # Mode selection
+
     if is_new_sim:
         mode = "NEW_SIMULATION"
         user_db["simulation_active"] = True
@@ -503,10 +480,8 @@ def chat():
     else:
         mode = "GENERAL_QA"
     
-    # =========================================================================
-    # RETRIEVAL (RAG)
-    # =========================================================================
-    
+    # RAG retrieval
+
     context = ""
     sources = []
     
@@ -519,10 +494,8 @@ def chat():
         except Exception as e:
             logger.error(f"Retrieval error: {e}")
     
-    # =========================================================================
-    # PROMPT CONSTRUCTION
-    # =========================================================================
-    
+    # Prompt construction
+
     history_str = "\n".join([
         f"{m['role']}: {m['content']}" 
         for m in user_db["chat_history"][-10:]
@@ -555,7 +528,6 @@ You are an Expert Engine. You know how {user_msg} works.
         graph_progression = ""
         
         if user_db["current_sim_data"]:
-            # FIX #3: Find last UNIQUE step, not just array[-1]
             last = get_last_unique_step(user_db["current_sim_data"])
             if last is None:
                 last = user_db["current_sim_data"][-1]
@@ -570,12 +542,10 @@ You are an Expert Engine. You know how {user_msg} works.
                 ])
             elif len(recent_steps) >= 1:
                 # Fallback if fewer than 3 steps exist
-                # FIX #6: Warn if using non-sanitized mermaid
                 fallback_step = recent_steps[-1]
                 mermaid_code = fallback_step.get('mermaid_sanitized', fallback_step.get('mermaid', ''))
                 graph_progression = f"**PREVIOUS GRAPH:**\n```mermaid\n{mermaid_code}\n```"
         
-        # FIX #2: Use max step number, not array length
         max_step = get_max_step_number(user_db["current_sim_data"])
         step_count = max_step + 1
         
@@ -703,11 +673,7 @@ Answer the question. Use the Context if available, otherwise use internal knowle
 Match the {difficulty.upper()} mode style in your response.
 """
     
-    # For continuations, the frontend sends a verbose prompt with full state context.
-    # The backend already builds its own context from user_db["current_sim_data"],
-    # so using the raw frontend message would be redundant and bloats the prompt.
     if mode == "CONTINUE_SIMULATION":
-        # Use max step number (not array length) to match system prompt
         max_step = get_max_step_number(user_db["current_sim_data"])
         user_msg_for_prompt = f"CONTINUE_SIMULATION from step {max_step}. Generate the next 3 steps as a JSON steps array starting with step {max_step + 1}."
     else:
@@ -721,13 +687,8 @@ Match the {difficulty.upper()} mode style in your response.
 **USER:** {user_msg_for_prompt}
 """
     
-    # =========================================================================
-    # STREAMING GENERATION
-    # =========================================================================
-    
     def generate():
-        # Temperature per difficulty: higher for continuations to prevent repetition
-        # Continuations need more creativity to avoid copying previous steps
+        """Stream LLM response chunks, then post-process JSON for simulation storage."""
         if mode == "CONTINUE_SIMULATION":
             temp_map = {"explorer": 0.7, "engineer": 0.6, "architect": 0.5}
         else:
@@ -768,10 +729,8 @@ Match the {difficulty.upper()} mode style in your response.
             logger.exception(f"Streaming error: {e}")
             yield f"\n\n**SYSTEM ERROR:** {str(e)}"
         
-        # =========================================================
-        # POST-STREAM PROCESSING
-        # =========================================================
-        
+        # Post-stream processing
+
         if expect_json:
             try:
                 clean_json = full_response.strip()
@@ -824,7 +783,6 @@ Match the {difficulty.upper()} mode style in your response.
                 else:
                     step_numbers = [s.get('step', '?') for s in new_steps]
                     
-                    # FIX #1: Validate and clean steps before storing
                     storage_before = user_db.get('current_sim_data', [])
                     
                     cleaned_steps, validation_warnings = validate_and_clean_steps(
@@ -850,7 +808,6 @@ Match the {difficulty.upper()} mode style in your response.
 
                         user_db["current_step_index"] = len(user_db["current_sim_data"]) - 1
 
-                        # FIX #4: Add integrity check
                         max_step = get_max_step_number(storage_after)
                         array_len = len(storage_after)
                         expected_len = max_step + 1

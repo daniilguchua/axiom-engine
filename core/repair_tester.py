@@ -1,4 +1,3 @@
-# core/repair_tester.py
 """
 Repair Testing System - Tests LLM output through all sanitization pipelines.
 Logs results to database for analysis.

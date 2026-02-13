@@ -1,4 +1,3 @@
-# routes/feedback.py
 """
 Feedback and voting endpoints.
 """
@@ -6,9 +5,8 @@ Feedback and voting endpoints.
 import logging
 
 from flask import Blueprint, request, jsonify, g
-from google import genai
 
-from core.config import get_configured_api_key, get_session_manager, get_cache_manager
+from core.config import get_session_manager, get_cache_manager
 from core.decorators import validate_session, rate_limit, require_configured_api_key
 from core.utils import InputValidator
 

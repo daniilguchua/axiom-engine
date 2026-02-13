@@ -1,4 +1,3 @@
-# session.py
 """
 Session Management with TTL-based expiration and thread safety.
 Prevents memory leaks from abandoned sessions.
@@ -25,13 +24,10 @@ class Session:
     current_sim_data: list = field(default_factory=list)
     current_step_index: int = 0
     
-    # Metadata for lifecycle management
     created_at: datetime = field(default_factory=datetime.now)
     last_accessed: datetime = field(default_factory=datetime.now)
-    
-    # Simulation state tracking
-    pending_repair: bool = False  # NEW: Track if repair is in progress
-    repair_step_index: Optional[int] = None  # NEW: Which step is being repaired
+    pending_repair: bool = False
+    repair_step_index: Optional[int] = None
 
 
     def touch(self):
@@ -50,7 +46,7 @@ class Session:
             "current_step_index": self.current_step_index,
             "pending_repair": self.pending_repair,
             "repair_step_index": self.repair_step_index,
-            "difficulty": getattr(self, 'difficulty', 'engineer'),  # Include difficulty with default
+            "difficulty": getattr(self, 'difficulty', 'engineer'),
         }
 
 
@@ -115,7 +111,6 @@ class SessionManager:
         """Validate session ID format to prevent injection attacks."""
         if not session_id or len(session_id) > 128:
             return False
-        # Allow alphanumeric, underscore, hyphen only
         import re
         return bool(re.match(r'^[a-zA-Z0-9_-]+$', session_id))
     
@@ -236,30 +231,31 @@ class SessionProxy(dict):
     """
     
     def __init__(self, session: Session):
+        """Initialize proxy from a Session, populating the dict with session data."""
         self._session = session
-        # Initialize dict with session data
         super().__init__(session.to_dict())
-    
+
     def __setitem__(self, key: str, value: Any) -> None:
+        """Set a value, syncing back to the underlying Session object."""
         super().__setitem__(key, value)
-        # Sync back to session object
         if hasattr(self._session, key):
             setattr(self._session, key, value)
-    
+
     def __getitem__(self, key: str) -> Any:
-        # Always get fresh value from session
+        """Get a value, always reading fresh from the Session object."""
         if hasattr(self._session, key):
             return getattr(self._session, key)
         return super().__getitem__(key)
-    
+
     def get(self, key: str, default: Any = None) -> Any:
+        """Get a value with a default fallback."""
         try:
             return self[key]
         except KeyError:
             return default
-    
+
     def update(self, other: dict = None, **kwargs) -> None:
-        """Update session with multiple values."""
+        """Update session with multiple values from a dict and/or keyword arguments."""
         if other:
             for k, v in other.items():
                 self[k] = v

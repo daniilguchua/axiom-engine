@@ -1,4 +1,3 @@
-# core/cache/repair_tracker.py
 """
 Repair tracking for broken simulations and pending repairs.
 Manages simulation break state and repair workflow coordination.
@@ -16,12 +15,11 @@ class RepairTracker:
     """
     Tracks broken simulations and pending repairs.
     Prevents caching of broken content and coordinates repair workflow.
-    
-    Changes in Phase 1 + Phase 2-Lite:
-    - Removed callback parameter (handles hashing internally)
-    - Added retry count tracking
+
+    Features:
+    - Retry count tracking with configurable max retries
     - Distinguishes temporary vs permanent broken status
-    - Smarter expiration logic based on retry attempts
+    - Cooldown-based expiration logic between retries
     """
     
     MAX_RETRY_COUNT = 3  # After 3 failures, mark as permanently broken

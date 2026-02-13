@@ -489,26 +489,30 @@
             const alphas = new Float32Array(particleCount);
 
             // Initialize particles in volumetric nebula cloud
+            // Apple vibes: slow, meditative, layered, dream-like
             for (let i = 0; i < particleCount; i++) {
-                // Multi-layer spherical distribution
+                // Multi-layer spherical distribution with golden spiral
                 const layer = Math.floor(i / (particleCount / 3));
                 const baseRadius = 3 + layer * 1.5;
                 const radius = baseRadius + (Math.random() - 0.5) * 2;
-                const theta = Math.random() * Math.PI * 2;
+                
+                // Golden spiral structure for subtle background organization
+                const spiralAngle = Math.sqrt(i) * 0.618 * Math.PI; // Golden ratio spiral
+                const theta = spiralAngle + (Math.random() - 0.5) * 0.4; // Add some randomness
                 const phi = Math.acos(2 * Math.random() - 1);
 
                 positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
                 positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-                positions[i * 3 + 2] = radius * Math.cos(phi);
+                positions[i * 3 + 2] = radius * Math.cos(phi) * 0.6; // Compress Z for 2.5D feel
 
-                // Swirling velocities - vortex motion
+                // Super slow swirling - MEDITATIVE not energetic
                 const angle = Math.atan2(positions[i * 3 + 1], positions[i * 3]);
                 const dist = Math.sqrt(positions[i * 3] ** 2 + positions[i * 3 + 1] ** 2);
-                const swirl = 0.003 / (dist + 0.5);
+                const swirl = 0.0005 / (dist + 0.5); // 6x slower
                 
-                velocities[i * 3] = -Math.sin(angle) * swirl + (Math.random() - 0.5) * 0.002;
-                velocities[i * 3 + 1] = Math.cos(angle) * swirl + (Math.random() - 0.5) * 0.002;
-                velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
+                velocities[i * 3] = -Math.sin(angle) * swirl + (Math.random() - 0.5) * 0.0002;
+                velocities[i * 3 + 1] = Math.cos(angle) * swirl + (Math.random() - 0.5) * 0.0002;
+                velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.00005; // Barely any vertical motion
 
                 // Size: power law (mostly small, some giant stars)
                 sizes[i] = 2 + Math.pow(Math.random(), 4) * 8;
@@ -520,12 +524,39 @@
                 alphas[i] = 0.6 + Math.random() * 0.4;
             }
 
-            // Color cycling initialization
+            // Color cycling initialization - sophisticated palette
             const reusableColor = new THREE.Color();
             for (let i = 0; i < particleCount; i++) {
                 const t = i / particleCount;
-                const hue = 0.75 + Math.sin(t * 10) * 0.15;
-                reusableColor.setHSL(hue % 1, 0.8, 0.6);
+                // Cycle: deep purple → vivid pink → electric cyan → deep magenta
+                let hue, sat, light;
+                
+                if (t < 0.25) {
+                    // Purple to pink
+                    hue = 0.8 + (t * 4) * 0.08; // 0.8 → 0.88
+                    sat = 0.75;
+                    light = 0.52;
+                } else if (t < 0.5) {
+                    // Pink to cyan
+                    const pt = (t - 0.25) * 4;
+                    hue = 0.88 + pt * 0.15; // 0.88 → 1.03
+                    sat = 0.7 + pt * 0.1;
+                    light = 0.5;
+                } else if (t < 0.75) {
+                    // Cyan to magenta
+                    const pt = (t - 0.5) * 4;
+                    hue = 0.15 + pt * 0.2; // Wrap to magenta
+                    sat = 0.8 - pt * 0.15;
+                    light = 0.52 + pt * 0.05;
+                } else {
+                    // Magenta back to purple
+                    const pt = (t - 0.75) * 4;
+                    hue = 0.75 + pt * 0.05; // Back to purple
+                    sat = 0.75;
+                    light = 0.54;
+                }
+                
+                reusableColor.setHSL(hue % 1, sat, light);
                 colors[i * 3] = reusableColor.r;
                 colors[i * 3 + 1] = reusableColor.g;
                 colors[i * 3 + 2] = reusableColor.b;
@@ -537,6 +568,10 @@
             geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
             geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
             geometry.setAttribute('aAlpha', new THREE.BufferAttribute(alphas, 1));
+
+            // Store previous positions for trails
+            const previousPositions = new Float32Array(positions);
+            const trailOpacity = 0.08; // Very ghost-like trails
 
             // Custom ShaderMaterial — Multi-layer glow
             const primaryMaterial = new THREE.ShaderMaterial({
@@ -600,13 +635,13 @@
             scene.add(particles);
 
             // ─────────────────────────────────────────────────────────────
-            // BLOOM LAYER — Soft cinematic glow duplicate
+            // BLOOM LAYER — Subtle cinematic glow (Apple-refined)
             // ─────────────────────────────────────────────────────────────
             const bloomMaterial = new THREE.PointsMaterial({
-                size: 20,
+                size: 12, // Smaller bloom
                 map: createBloomTexture(),
                 transparent: true,
-                opacity: 0.08,
+                opacity: 0.04, // Very subtle
                 blending: THREE.AdditiveBlending,
                 depthWrite: false,
                 vertexColors: true
@@ -661,7 +696,7 @@
 
                 const linePositions = [];
                 const lineColors = [];
-                const maxConnections = 80;
+                const maxConnections = 60; // Even fewer for subtlety
                 const maxDist = 1.2;
 
                 for (let i = 0; i < maxConnections && i < particleCount; i++) {
@@ -697,8 +732,8 @@
                         );
 
                         const intensity = 1 - (nearestDist / maxDist);
-                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.4);
-                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.4);
+                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.15); // Much more subtle
+                        lineColors.push(0.4, 0.8, 1.0, intensity * 0.15);
                     }
                 }
 
@@ -743,17 +778,19 @@
                 primaryMaterial.uniforms.uTime.value = time;
 
                 // ───────────────────────────────────────────────────────
-                // COLOR CYCLING — Violet ↔ Cyan ↔ Pink flow (optimized)
+                // COLOR CYCLING — Sophisticated palette animation (Apple vibes)
                 // ───────────────────────────────────────────────────────
-                const colorTime = time * 0.5;
-                // Update colors every 3 frames for performance
-                if (Math.floor(time * 60) % 3 === 0) {
+                const colorTime = time * 0.08; // Very slow color transition
+                // Update colors every 2 frames for smoothness
+                if (Math.floor(time * 60) % 2 === 0) {
                 for (let i = 0; i < particleCount; i++) {
                     const t = i / particleCount;
+                    const waveInfluence = Math.sin(t * Math.PI * 2 + colorTime) * 0.15;
                     
-                    const hue = 0.75 + Math.sin(colorTime + t * 5) * 0.15;
-                    const sat = 0.75 + Math.cos(colorTime * 1.3 + t * 7) * 0.15;
-                    const light = 0.55 + Math.sin(colorTime * 1.7 + t * 3) * 0.1;
+                    // Subtle color wave cycling through spectrun
+                    let hue = colorTime + waveInfluence;
+                    const sat = 0.7 + Math.sin(t * 8 + colorTime * 2) * 0.1;
+                    const light = 0.52 + Math.cos(t * 4 + colorTime) * 0.06;
                     
                     reusableColor.setHSL(hue % 1, sat, light);
                     colors[i * 3] = reusableColor.r;
@@ -764,9 +801,11 @@
                 }
 
                 // ───────────────────────────────────────────────────────
-                // PARTICLE PHYSICS — Vortex + Mouse (optimized)
+                // PARTICLE PHYSICS — Ultra-slow, meditative motion
                 // ───────────────────────────────────────────────────────
                 const hasMouseInteraction = mouseX !== 0 || mouseY !== 0;
+                let waveAmplitude = 0.015 * Math.sin(time * 0.5); // Subtle energy waves
+                
                 for (let i = 0; i < particleCount; i++) {
                     const idx = i * 3;
 
@@ -774,7 +813,7 @@
                     positions[idx + 1] += velocities[idx + 1];
                     positions[idx + 2] += velocities[idx + 2];
 
-                    // Mouse vortex (only calculate when mouse active)
+                    // Very subtle mouse vortex (barely responds)
                     if (hasMouseInteraction) {
                         const dx = mouseVector.x - positions[idx];
                         const dy = mouseVector.y - positions[idx + 1];
@@ -782,33 +821,33 @@
                         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
                         if (dist < 3) {
-                            const force = (1 - dist / 3) * 0.08;
+                            // Reduced force for "barely responds" feel
+                            const force = (1 - dist / 3) * 0.02; // Much weaker
                             const angle = Math.atan2(dy, dx);
                             
-                            velocities[idx] += (Math.cos(angle + Math.PI/2) * force - dx * force * 0.5);
-                            velocities[idx + 1] += (Math.sin(angle + Math.PI/2) * force - dy * force * 0.5);
-                            velocities[idx + 2] += -dz * force * 0.3;
+                            velocities[idx] += (Math.cos(angle + Math.PI/2) * force - dx * force * 0.2);
+                            velocities[idx + 1] += (Math.sin(angle + Math.PI/2) * force - dy * force * 0.2);
+                            velocities[idx + 2] += -dz * force * 0.1;
                         }
                     }
 
-                    // Continuous swirl
+                    // Ultra-subtle swirl
                     const angle = Math.atan2(positions[idx + 1], positions[idx]);
                     const dist = Math.sqrt(positions[idx] ** 2 + positions[idx + 1] ** 2);
-                    const swirl = 0.003 / (dist + 0.5);
+                    const swirl = 0.0001 / (dist + 0.5); // 10x slower
                     
-                    velocities[idx] += -Math.sin(angle) * swirl * 0.1;
-                    velocities[idx + 1] += Math.cos(angle) * swirl * 0.1;
+                    velocities[idx] += -Math.sin(angle) * swirl * 0.05;
+                    velocities[idx + 1] += Math.cos(angle) * swirl * 0.05;
 
-                    // Energy wave
-                    const waveInfluence = Math.sin(time * 2 + dist * 0.5) * 0.02;
-                    velocities[idx + 2] += waveInfluence;
+                    // Subtle energy wave pulsing
+                    velocities[idx + 2] += waveAmplitude * Math.sin(time * 0.3 + i * 0.001);
 
-                    // Damping
-                    velocities[idx] *= 0.97;
-                    velocities[idx + 1] *= 0.97;
-                    velocities[idx + 2] *= 0.97;
+                    // Very gentle damping
+                    velocities[idx] *= 0.985;
+                    velocities[idx + 1] *= 0.985;
+                    velocities[idx + 2] *= 0.985;
 
-                    // Soft boundary
+                    // Soft boundary — gentle return force
                     const totalDist = Math.sqrt(
                         positions[idx] ** 2 + 
                         positions[idx + 1] ** 2 + 
@@ -816,9 +855,9 @@
                     );
                     
                     if (totalDist > 6) {
-                        velocities[idx] -= positions[idx] * 0.001;
-                        velocities[idx + 1] -= positions[idx + 1] * 0.001;
-                        velocities[idx + 2] -= positions[idx + 2] * 0.001;
+                        velocities[idx] -= positions[idx] * 0.0003;
+                        velocities[idx + 1] -= positions[idx + 1] * 0.0003;
+                        velocities[idx + 2] -= positions[idx + 2] * 0.0003;
                     }
                 }
                 geometry.attributes.position.needsUpdate = true;
@@ -852,16 +891,17 @@
                 });
 
                 // ───────────────────────────────────────────────────────
-                // CONNECTION LINES — Update less frequently for performance
+                // CONNECTION LINES — Very subtle electric arcs
                 // ───────────────────────────────────────────────────────
                 connectionUpdateTimer++;
-                if (connectionUpdateTimer > 90) {
+                if (connectionUpdateTimer > 120) {
                     updateConnections();
                     connectionUpdateTimer = 0;
                 }
 
-                particles.rotation.y += 0.0001;
-                particles.rotation.x = Math.sin(time * 0.1) * 0.05;
+                // Slow nebula rotation - very subtle
+                particles.rotation.y += 0.00005; // 2x slower
+                particles.rotation.x = Math.sin(time * 0.05) * 0.02; // More subtle tilt
 
                 renderer.render(scene, camera);
             }

@@ -1,4 +1,3 @@
-# routes/upload.py
 """
 File upload endpoint for PDF processing.
 """
@@ -7,7 +6,7 @@ import logging
 
 from flask import Blueprint, request, jsonify, g
 
-from core.config import get_configured_api_key, get_session_manager
+from core.config import get_session_manager
 from core.decorators import validate_session, require_configured_api_key
 from core.utils import extract_text_from_pdf, build_vector_index, InputValidator
 

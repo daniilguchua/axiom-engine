@@ -1,4 +1,3 @@
-# routes/debug.py
 """
 Debug endpoints for development and troubleshooting.
 Includes GHOST Repair System - Sanitizer Tournament endpoints.
@@ -79,10 +78,6 @@ def debug_clear_cache():
 
     logger.warning("🗑️ Cache cleared via debug endpoint")
     return jsonify({"status": "cleared"})
-
-# =============================================================================
-# GHOST REPAIR SYSTEM - Sanitizer Tournament
-# =============================================================================
 
 @debug_bp.route('/debug/capture-raw', methods=['POST'])
 def capture_raw_output():
@@ -353,10 +348,6 @@ def clear_test_database():
         return jsonify({"error": str(e)}), 500
 
 
-# =============================================================================
-# LLM DIAGNOSTICS VIEWER
-# =============================================================================
-
 @debug_bp.route('/debug/llm-diagnostics', methods=['GET'])
 def llm_diagnostics():
     """
@@ -364,9 +355,7 @@ def llm_diagnostics():
     Displays raw LLM responses, validation flow, and database state changes.
     """
     import json
-    from flask import g
-    from core.decorators import validate_session
-    
+
     session_id = request.args.get('session_id')
     if not session_id:
         return jsonify({"error": "session_id required"}), 400

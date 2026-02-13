@@ -1,4 +1,3 @@
-# utils.py
 """
 Utility functions for PDF processing, vector indexing, and Mermaid sanitization.
 """
@@ -20,10 +19,6 @@ from google import genai
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-
 def get_api_key() -> str:
     """Get the Gemini API key from environment with validation."""
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -34,10 +29,6 @@ def get_api_key() -> str:
         )
     return api_key
 
-
-# ============================================================================
-# PDF & URL EXTRACTION
-# ============================================================================
 
 def extract_text_from_pdf(
     stream, 
@@ -79,10 +70,8 @@ def extract_text_from_pdf(
 
 
 def _clean_pdf_text(text: str) -> str:
-    """Clean extracted PDF text."""
-    # Remove excessive whitespace
+    """Clean extracted PDF text by collapsing whitespace and removing null bytes."""
     text = re.sub(r'\s+', ' ', text)
-    # Remove null bytes
     text = text.replace('\x00', '')
     return text.strip()
 
@@ -122,10 +111,6 @@ def extract_text_from_url(url: str) -> Tuple[List[str], List[dict]]:
         logger.error(f"URL extraction error for {url}: {e}")
         return [], []
 
-
-# ============================================================================
-# VECTOR INDEX
-# ============================================================================
 
 def build_vector_index(
     texts: List[str], 
@@ -172,10 +157,6 @@ def build_vector_index(
         logger.error(f"Vector store error: {e}")
         return None, 0
 
-
-# ============================================================================
-# EMBEDDINGS
-# ============================================================================
 
 def get_text_embedding(text: str) -> Optional[List[float]]:
     """
@@ -230,121 +211,104 @@ def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
     return float(np.dot(a, b) / (norm_a * norm_b))
 
 
-# ============================================================================
-# MERMAID SANITIZATION
-# ============================================================================
-
-import re
-
-import re
-
-import re
-
 def sanitize_mermaid_code(mermaid_code: str) -> str:
     """
     Sanitize Mermaid diagram code to fix common LLM generation errors.
-    Acts as a 'Syntax Firewall' before rendering.
+
+    Applies a series of regex-based transformations to fix issues like
+    escaped newlines, double-escaped quotes, wrong graph directions,
+    malformed shapes, and run-on statements. Acts as a 'Syntax Firewall'
+    before rendering.
+
+    Args:
+        mermaid_code: Raw Mermaid diagram code from LLM output.
+
+    Returns:
+        Sanitized Mermaid code ready for rendering.
     """
     if not mermaid_code:
         return ""
     
     code = mermaid_code
 
-    # 0. CRITICAL: Convert literal "\n" strings to actual newlines
-    # This prevents the "One Giant Line" bug
+    # Convert literal "\n" strings to actual newlines (prevents "One Giant Line" bug)
     code = code.replace('\\n', '\n')
 
-    # 0b. CRITICAL: Convert escaped quotes from LLM responses
-    # LLMs sometimes return \" instead of " in their JSON output
+    # Convert escaped quotes from LLM JSON output
     code = code.replace('\\"', '"')
 
-    # 1. Remove hanging backslashes (line continuations)
+    # Remove hanging backslashes (line continuations)
     code = code.replace('\\\n', '\n')
-    
-    # 2. Fix Double Escapes
-    code = code.replace('\\"', '"').replace("\\'", "'")
 
-    # 3. BASIC CLEANUP - Force horizontal layout
+    # Fix remaining escaped quotes
+    code = code.replace("\\'", "'")
+
+    # Force horizontal layout
     code = re.sub(r'(graph|flowchart)\s+(TD|TB|BT|RL)\b', r'\1 LR', code, flags=re.IGNORECASE)
     code = re.sub(r'\b(TD|TB|BT|RL)\b(?=\s*[;\n])', 'LR', code, flags=re.IGNORECASE)
 
-    # 4. FIX: Collapse "Spaced" Shape Definitions (The fix for your current error)
-    # The LLM writes "A[ ("Label") ]" (Cylinder) or "B( ("Label") )" (Circle) with spaces.
-    # We must collapse them to "A[(" and "B((" to be valid Mermaid.
-    
-    # Fix Cylinder: [ ( -> [(
+    # Collapse spaced shape definitions: [ ( -> [(, ( ( -> ((, etc.
     code = re.sub(r'\[\s+\(', '[(', code)
-    # Fix Circle: ( ( -> ((
     code = re.sub(r'\(\s+\(', '((', code)
-    # Fix Cylinder End: ) ] -> )]
     code = re.sub(r'\)\s+\]', ')]', code)
-    # Fix Circle End: ) ) -> ))
     code = re.sub(r'\)\s+\)', '))', code)
 
-    # 5. FIX: Malformed Subgraph Definitions (ONLY if truly malformed)
-    # Valid: subgraph ID[Label] or subgraph ID
-    # Invalid: subgraph ID["unclosed or subgraph ID garbage text
-    # Strategy: Only strip if we detect unclosed quotes or invalid syntax
-    # Otherwise, preserve the label
-
-    # Fix only truly malformed subgraphs with unclosed quotes
+    # Fix malformed subgraphs with unclosed quotes
     code = re.sub(r'(subgraph\s+[A-Za-z0-9_]+)\["([^"\]]*?)$', r'\1', code, flags=re.IGNORECASE | re.MULTILINE)
 
-    # 6. FIX: Ensure Newline after Subgraph ID
-    # Prevents "subgraph GRAPH A" (where A is a node) from merging
+    # Ensure newline after subgraph ID to prevent node merging
     code = re.sub(r'(subgraph\s+[A-Za-z0-9_]+)\s+(?=[A-Za-z])', r'\1\n', code)
 
-    # 7. FIX: Unescaped quotes inside labels
+    # Fix unescaped quotes inside labels
     def fix_internal_quotes(match):
+        """Replace double quotes inside bracket-quoted labels with single quotes."""
         content = match.group(1)
         clean_content = content.replace('"', "'")
         return f'["{clean_content}"]'
     code = re.sub(r'\["([^"]*?)"\]', fix_internal_quotes, code)
 
-    # 8. FIX: Illegal markdown lists in nodes
+    # Replace illegal markdown dashes in node labels with bullets
     code = code.replace('["-', '["•').replace('\\n-', '\\n•')
 
-    # 9. FIX: Missing semicolons after classDef
+    # Ensure semicolons after classDef statements
     code = re.sub(r'(classDef.*?[^;])(\n|$)', r'\1;\2', code)
 
-    # 10. FIX: "Smashed" commands
+    # Split smashed commands and fix endsubgraph typo
     code = re.sub(r'([>])\s*([A-Z])', r'\1\n\2', code)
     code = re.sub(r'endsubgraph', 'end', code)
 
-    # 11. FIX: Malformed stadium/cylinder shapes (Legacy fix)
+    # Fix malformed stadium/cylinder shapes
     code = re.sub(r'\(\["(.*?)"\];', r'(["\1"]);', code)
-    code = re.sub(r'\[\("(.*?)"\)\]', r'[("\1")]', code) 
+    code = re.sub(r'\[\("(.*?)"\)\]', r'[("\1")]', code)
 
-    # 12. FIX: Mismatched brackets
+    # Fix mismatched closing brackets
     code = re.sub(r'\["([^"]*?)"\);', r'["\1"];', code)
 
-    # 13. FIX: Run-on link statements
+    # Break run-on link statements onto separate lines
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?-->)', r';\n\1', code)
     code = re.sub(r';\s*([A-Za-z0-9_]+.*?==>)', r';\n\1', code)
 
-    # 14. FIX: Remove direction statements inside subgraphs
+    # Remove direction statements inside subgraphs
     code = re.sub(r'(subgraph\s+\w+(?:\s*\[.*?\])?)\s*\n\s*direction\s+(?:LR|RL|TB|TD|BT)\s*;?\s*\n', r'\1\n', code, flags=re.IGNORECASE)
 
-    # 15. FIX: Join arrows broken across lines
+    # Join arrows broken across lines
     code = re.sub(r'(-->|==>|---|-\.->)\s*\n\s*(\w)', r'\1 \2', code)
 
-    # 16. FIX: Empty arrow labels
+    # Remove empty arrow labels
     code = code.replace('-- "" -->', '-->').replace('-- "" ---', '---')
 
-    # 17. FIX: Orphaned CSS properties
+    # Fix orphaned CSS properties missing values
     code = re.sub(r'stroke-width\s*(?=;|\s*,|\s*$)', 'stroke-width:2px', code, flags=re.IGNORECASE)
     code = re.sub(r'stroke-dasharray\s+(\d+)', r'stroke-dasharray:\1', code, flags=re.IGNORECASE)
 
-    # 18. FIX: Ensure proper spacing after graph declaration
+    # Ensure proper spacing after graph declaration
     code = re.sub(r'(graph\s+(?:LR|TB|TD|RL|BT))([A-Za-z])', r'\1\n\2', code)
 
-    # 19. FINAL CLEANUP: Double semicolons
+    # Collapse double semicolons
     code = re.sub(r';+', ';', code)
     
     return code
-# ============================================================================
-# INPUT VALIDATION (Security)
-# ============================================================================
+
 
 class InputValidator:
     """Validate and sanitize user inputs to prevent injection attacks."""

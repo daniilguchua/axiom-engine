@@ -1,4 +1,3 @@
-# core/cache/semantic_cache.py
 """
 Semantic caching with embedding-based similarity search.
 Handles cache hits/misses and simulation storage.
@@ -11,8 +10,7 @@ Retrieval strategy (in order):
 import json
 import logging
 import hashlib
-from datetime import datetime
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any
 
 from core.utils import get_text_embedding, cosine_similarity
 
@@ -37,10 +35,6 @@ class SemanticCache:
         """
         self.db = database
         logger.info("📦 SemanticCache initialized (similarity threshold: %.2f)", self.SIMILARITY_THRESHOLD)
-    
-    # =========================================================================
-    # RETRIEVAL: Semantic Similarity + Exact Hash Fallback
-    # =========================================================================
     
     def get_cached_simulation(self, prompt: str, difficulty: str) -> Optional[Dict]:
         """
@@ -155,8 +149,6 @@ class SemanticCache:
                     f"✅ Cache HIT (semantic, {best_score:.2f} similarity) "
                     f"for '{prompt[:50]}...' (difficulty={difficulty})"
                 )
-                # Update access metrics for the matched entry
-                self._update_access_metrics(best_key)
                 return json.loads(best_data)
             
             if best_score > 0:
@@ -170,10 +162,6 @@ class SemanticCache:
         except Exception as e:
             logger.error(f"Semantic similarity search error: {e}")
             return None
-    
-    # =========================================================================
-    # STORAGE: Save simulation with embedding
-    # =========================================================================
     
     def save_simulation(
         self,
@@ -235,23 +223,6 @@ class SemanticCache:
         except Exception as e:
             logger.error(f"Cache save error: {e}")
             return False
-    
-    # =========================================================================
-    # UTILITIES
-    # =========================================================================
-    
-    def _update_access_metrics(self, prompt_key: str) -> None:
-        """Update last_accessed and access_count for a cache entry."""
-        try:
-            with self.db.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE simulation_cache 
-                    SET last_accessed = ?, access_count = access_count + 1
-                    WHERE prompt_key = ?
-                """, (datetime.now(), prompt_key))
-        except Exception:
-            pass  # Non-critical, don't fail on metrics update
     
     def get_prompt_hash(self, prompt: str) -> str:
         """Generate a hash for the prompt (for deduplication)."""

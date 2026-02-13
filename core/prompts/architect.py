@@ -1,4 +1,3 @@
-# architect.py
 """
 Architect Difficulty Level - Elite Systems Engineer Prompt
 Target audience: Graduate-level CS, production engineers, distributed systems researchers

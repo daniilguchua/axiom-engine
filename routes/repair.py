@@ -1,31 +1,26 @@
-# routes/repair.py
 """
-Mermaid diagram repair endpoints with TIERED REPAIR SYSTEM.
+Mermaid diagram repair endpoints with tiered repair system.
 
 Tier 1: Python sanitizer only (fast, free)
 Tier 2: Python + JS sanitizer (fast, free) - client applies JS
-Tier 3: LLM repair + Python sanitizer (slow, costs $)
-Tier 4: LLM repair + Python + JS sanitizer (slow, costs $)
+Tier 3: LLM repair + Python sanitizer (slow, costs API calls)
+Tier 4: LLM repair + Python + JS sanitizer (slow, costs API calls)
 """
 
 import logging
 import time
 
 from flask import Blueprint, request, jsonify, g
-from google import genai
 
-from core.config import get_configured_api_key, get_session_manager, get_cache_manager
+from core.config import get_session_manager, get_cache_manager
 from core.decorators import validate_session, require_configured_api_key
-from core.utils import sanitize_mermaid_code  # NOW USING THE PYTHON SANITIZER!
+from core.utils import sanitize_mermaid_code
 
 logger = logging.getLogger(__name__)
 
 repair_bp = Blueprint('repair', __name__)
 
 
-# =============================================================================
-# TIER 1: QUICK-FIX (Python sanitizer only - FAST & FREE)
-# =============================================================================
 
 @repair_bp.route('/quick-fix', methods=['POST'])
 @validate_session
@@ -165,7 +160,7 @@ def confirm_complete():
     session_id = g.session_id
     sim_id = data.get("sim_id")
     step_count = data.get("step_count", 0)
-    client_steps = data.get("steps")  # NEW: Client sends repaired steps
+    client_steps = data.get("steps")
     
     session_manager = get_session_manager()
     cache_manager = get_cache_manager()
@@ -175,7 +170,6 @@ def confirm_complete():
     if not user_db["current_sim_data"] and not client_steps:
         return jsonify({"error": "No simulation data found"}), 400
     
-    # CRITICAL: Use client's steps if provided (they contain repaired mermaid)
     if client_steps and len(client_steps) == step_count:
         logger.info(f"ðŸ“¥ Using client-provided steps (may contain repairs)")
         user_db["current_sim_data"] = client_steps
@@ -317,10 +311,6 @@ def repair():
         cache_manager.mark_repair_pending(session_id, original_prompt, step_index)
     
     try:
-        # =====================================================================
-        # FALLBACK MODE: Modify previous working graph for current step
-        # =====================================================================
-        
         if is_fallback and previous_working:
             logger.info(f"[REPAIR] Fallback mode: modifying previous working graph")
             
@@ -376,10 +366,6 @@ OUTPUT ONLY THE MODIFIED MERMAID CODE. No explanation, no markdown blocks."""
                 "duration_ms": duration_ms
             })
         
-        # =====================================================================
-        # STANDARD LLM REPAIR
-        # =====================================================================
-        
         if attempt_number >= 2 and previous_working:
             repair_prompt = f"""Fix this Mermaid diagram. The error was: {error_msg}
 
@@ -430,7 +416,7 @@ OUTPUT ONLY THE FIXED MERMAID CODE. No explanation, no markdown code blocks."""
         client = get_genai_client()
         if not client:
             logger.error("Gemini client not initialized")
-            return None
+            return jsonify({"error": "Gemini API not configured"}), 500
         
         response = client.models.generate_content(
             model=model_name,

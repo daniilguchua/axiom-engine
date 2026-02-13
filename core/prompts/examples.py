@@ -1,4 +1,3 @@
-# examples.py
 """
 One-Shot Examples for Each Difficulty Level
 These are embedded in the system prompts to demonstrate expected output quality

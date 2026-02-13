@@ -1,4 +1,3 @@
-# routes/session_routes.py
 """
 Session management endpoints.
 """

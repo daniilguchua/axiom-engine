@@ -1,4 +1,3 @@
-# explorer.py
 """
 Explorer Difficulty Level - Beginner-Friendly System Prompt
 Target audience: Students with basic programming knowledge learning foundational CS concepts

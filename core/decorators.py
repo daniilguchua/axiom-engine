@@ -1,4 +1,3 @@
-# decorators.py
 """
 Middleware and route decorators for the AXIOM Engine.
 """

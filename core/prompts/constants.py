@@ -1,4 +1,3 @@
-# constants.py
 """
 Mermaid Syntax Rules and Shape Reference
 Shared constants used across all difficulty levels
