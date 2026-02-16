@@ -458,7 +458,7 @@
             return { success: true };
 
         } catch (error) {
-            console.error(`[verifyFix] FAILED:`, error.message);
+            console.error('[AXIOM:REPAIR] Verify fix failed:', error.message);
             testContainer.remove();
             return { success: false, error: error.message };
         }
@@ -483,10 +483,10 @@
                 duration_ms: durationMs
             });
         } catch (e) {
-            console.warn('[REPAIR] Failed to report tier result:', e);
+            console.warn('[AXIOM:REPAIR] Failed to report tier result:', e);
         }
     }
-    
+
     // =========================================================================
     // FALLBACK RECOVERY
     // =========================================================================
@@ -520,7 +520,7 @@
     async function startRepairProcess(wrapper, badCode, errorMsg, simId, stepIndex) {
         // Prevent concurrent repairs
         if (AXIOM.repair.isActive) {
-            console.warn(`Repair already active, waiting for completion...`);
+            console.warn('[AXIOM:REPAIR] Repair already active, waiting for completion...');
             await waitForRepairComplete();
         }
 
@@ -594,18 +594,18 @@
                 }
 
                 // Tier 1 fix didn't render
-                console.warn(`Tier 1 fix failed to render: ${tier1Verify.error}`);
+                console.warn('[AXIOM:REPAIR] Tier 1 fix failed to render:', tier1Verify.error);
                 currentCode = tier1Code; // Use Tier 1 output for Tier 2
                 currentError = tier1Verify.error;
 
                 // Report failure
                 reportTierResult(simId, stepIndex, 1, 'TIER1_PYTHON', badCode, tier1Code, errorMsg, tier1Verify.error, false, tier1Duration);
             } else {
-                console.warn(`Tier 1 returned no fix or failed`);
+                console.warn('[AXIOM:REPAIR] Tier 1 returned no fix');
                 reportTierResult(simId, stepIndex, 1, 'TIER1_PYTHON', badCode, null, errorMsg, quickFixResult.error || 'No fix returned', false, tier1Duration);
             }
         } catch (tier1Error) {
-            console.error(`[REPAIR] Tier 1 error:`, tier1Error);
+            console.error('[AXIOM:REPAIR] Tier 1 error:', tier1Error);
             reportTierResult(simId, stepIndex, 1, 'TIER1_PYTHON', badCode, null, errorMsg, tier1Error.message, false, Date.now() - tier1Start);
         }
         
@@ -655,7 +655,7 @@
             reportTierResult(simId, stepIndex, 2, 'TIER2_PYTHON_JS', currentCode, tier2Code, currentError, tier2Verify.error, false, tier2Duration);
             
         } catch (tier2Error) {
-            console.error(`[REPAIR] Tier 2 error:`, tier2Error);
+            console.error('[AXIOM:REPAIR] Tier 2 error:', tier2Error);
             reportTierResult(simId, stepIndex, 2, 'TIER2_PYTHON_JS', currentCode, null, currentError, tier2Error.message, false, Date.now() - tier2Start);
         }
         
@@ -771,7 +771,7 @@
                 }
                 
             } catch (llmError) {
-                console.error(`[REPAIR] LLM error:`, llmError);
+                console.error('[AXIOM:REPAIR] LLM error:', llmError);
                 reportTierResult(simId, stepIndex, 3, 'TIER3_LLM', currentCode, null, currentError, llmError.message, false, Date.now() - tier3Start);
             }
             
@@ -821,9 +821,7 @@
         // FATAL: All options exhausted
         // =====================================================================
 
-        console.error(`[REPAIR] ALL REPAIR OPTIONS EXHAUSTED`);
-        console.error(`  Final error: ${currentError}`);
-        console.error(`  Attempts: Tier 1-4 + Fallback`);
+        console.error('[AXIOM:REPAIR] All repair options exhausted. Final error:', currentError);
 
         AXIOM.repair.phase = RepairPhase.FATAL;
         AXIOM.repair.isActive = false;

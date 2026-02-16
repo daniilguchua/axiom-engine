@@ -121,7 +121,7 @@ def inspect_node():
             )
             explanation = response.text
             
-            logger.info(f"📍 Node inspection: {node_id} (difficulty: {difficulty})")
+            logger.info(f"[INSPECT] Node inspection: {node_id} (difficulty: {difficulty})")
             
             return explanation, 200
             

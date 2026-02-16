@@ -90,7 +90,7 @@
         // SAFETY NET: Force-reveal after 3s if the normal reveal path fails
         const safetyTimer = setTimeout(() => {
             if (graphDiv.style.opacity === '0') {
-                console.warn('[SAFETY] Force-revealing graphDiv after 3s timeout');
+                console.warn('[AXIOM:RENDERER] Force-revealing graphDiv after 3s timeout');
                 graphDiv.style.opacity = '1';
             }
         }, 3000);
@@ -130,7 +130,7 @@
                 }),
                 new Promise((_, reject) =>
                     setTimeout(() => {
-                        console.error(`⏰ Render timeout after ${RepairConfig.RENDER_TIMEOUT_MS}ms`);
+                        console.error(`[AXIOM:RENDERER] Render timeout after ${RepairConfig.RENDER_TIMEOUT_MS}ms`);
                         reject(new Error('Render timeout'));
                     }, RepairConfig.RENDER_TIMEOUT_MS)
                 )
@@ -139,7 +139,7 @@
             return result;
         } catch (error) {
             const errorMsg = error.message || 'Unknown render error';
-            console.error(`[attemptRender] Render failed:`, errorMsg);
+            console.error('[AXIOM:RENDERER] Render failed:', errorMsg);
             return { success: false, error: errorMsg };
         }
     }
@@ -172,7 +172,7 @@
                     step_index: stepIndex,
                     sanitized_mermaid: code
                 })
-            }).catch(e => console.warn('[SANITIZE] Failed to send sanitized graph to backend:', e));
+            }).catch(e => console.warn('[AXIOM:RENDERER] Failed to send sanitized graph to backend:', e));
         }
         
         // Log for ML training
@@ -185,7 +185,7 @@
             AXIOM.interactions.setupNodeClicks(svg, wrapper);
             AXIOM.interactions.attachNodePhysics(wrapper);
         } else {
-            console.warn(`No SVG found in graphDiv after render, revealing anyway`);
+            console.warn('[AXIOM:RENDERER] No SVG found after render, revealing anyway');
             graphDiv.style.opacity = '1';
             if (graphDiv.dataset.safetyTimer) {
                 clearTimeout(Number(graphDiv.dataset.safetyTimer));
@@ -199,7 +199,7 @@
     
     async function fixMermaid(container, simId = null, stepIndex = null) {
         if (!container) {
-            console.error("No container provided to fixMermaid");
+            console.error('[AXIOM:RENDERER] No container provided to fixMermaid');
             return;
         }
 
@@ -222,8 +222,6 @@
             // GHOST: Automatically capture and test in background
             if (AXIOM.api && AXIOM.api.ghostCaptureAndTest) {
                 AXIOM.api.ghostCaptureAndTest(rawGraph, simId, stepIndex, null);
-            } else {
-                console.error(`[GHOST] Capture function not available!`);
             }
 
             const preElement = codeBlock.parentElement;
@@ -243,7 +241,7 @@
             if (renderResult.success) {
                 onRenderSuccess(wrapper, graphDiv, sanitizedGraph, simId, stepIndex, false);
             } else {
-                console.error(`Initial render FAILED: ${renderResult.error}`);
+                console.error('[AXIOM:RENDERER] Initial render failed:', renderResult.error);
                 await AXIOM.repairSystem.startRepairProcess(wrapper, sanitizedGraph, renderResult.error, simId, stepIndex);
             }
         }
@@ -257,7 +255,7 @@
     function renderStepAnalysis(analysis) {
         // Handle missing or invalid analysis
         if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) {
-            console.warn('[RENDERER] Invalid step analysis format (expected single object, not array)');
+            console.warn('[AXIOM:RENDERER] Invalid step analysis format');
             return '';
         }
         
@@ -415,12 +413,6 @@
             
             // THIS IS THE CRITICAL FIX - pass simId and index!
             await fixMermaid(targetElement, simId, index);
-            
-            // NOTE: Old floating panel disabled - using new graph-data-overlay instead
-            // if (AXIOM.interactions && AXIOM.interactions.createOrUpdateFloatingPanel && stepData.data_table) {
-            //     console.log('[RENDERER] Creating floating panel:', { simId, index, hasDataTable: !!stepData.data_table });
-            //     AXIOM.interactions.createOrUpdateFloatingPanel(simId, index, stepData.data_table);
-            // }
             
             targetElement.style.opacity = '1';
             

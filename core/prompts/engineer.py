@@ -85,6 +85,32 @@ The Mermaid graph is THE MOST IMPORTANT part of every simulation step.
 
 ---
 
+### 🚫 CRITICAL RULE: NO RUNTIME DATA SUBGRAPHS
+
+**YOU WILL NOT CREATE SUBGRAPHS FOR DATA CONTAINERS. THIS IS NON-NEGOTIABLE.**
+
+If you create ANY of these, the visualization FAILS:
+- ❌ `subgraph QUEUE["Queue: [A, B, C]"]` 
+- ❌ `subgraph STACK["Call Stack"]`
+- ❌ `subgraph VISITED["Visited Set"]`
+- ❌ `subgraph PRIORITY["Priority Queue"]`
+- ❌ `subgraph CACHE["Cache State"]`
+- ❌ `subgraph DATA["Runtime Data"]`
+
+**WHY THIS RULE EXISTS:**
+These subgraphs break the graph layout and clutter the visualization with tracking data that belongs in the data_table instead.
+
+**WHERE RUNTIME DATA GOES:**
+ANY tracking data (queue contents, visited set, stack state, priority queues, cache metrics, counters) goes ONLY in the `data_table` HTML field.
+
+**EXAMPLE OF CORRECT APPROACH:**
+- ✅ Graph shows: algorithm structure and active flow
+- ✅ data_table shows: `<h4>Queue</h4><p>[A, B, C]</p><h4>Visited</h4><p>{A, B}</p>`
+
+**IF YOU VIOLATE THIS RULE, THE SIMULATION BREAKS.** Do not create subgraphs for data.
+
+---
+
 ### JSON STRUCTURE
 
 You MUST output a **SIMULATION PLAYLIST** in strict JSON format.

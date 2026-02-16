@@ -154,7 +154,7 @@ class RepairTester:
             conn.commit()
             test_id = cursor.lastrowid
 
-            logger.info(f"✅ Logged repair test #{test_id}, best method: {best_method}")
+            logger.info(f"[OK] Logged repair test #{test_id}, best method: {best_method}")
             return test_id
 
     def _determine_best_method(self, test_results: Dict[str, Any]) -> str:

@@ -30,7 +30,7 @@
                 })
             });
         } catch (e) {
-            console.error("Vote failed", e);
+            console.error('[AXIOM:API] Vote failed:', e);
         }
     }
     
@@ -74,7 +74,7 @@
             };
             
         } catch (error) {
-            console.error(`[QUICK-FIX] Failed:`, error);
+            console.error('[AXIOM:API] Quick-fix failed:', error);
             return { success: false, error: error.message };
         }
     }
@@ -103,10 +103,10 @@
                 })
             });
         } catch (e) {
-            console.warn('[REPAIR] Failed to report tier result:', e);
+            console.warn('[AXIOM:API] Failed to report tier result:', e);
         }
     }
-    
+
     /**
      * TIER 3: Call LLM repair endpoint (slow, costs $)
      * Now returns tier info and sanitized flag
@@ -124,7 +124,7 @@
                 return { success: false, error: 'Server health check failed' };
             }
         } catch (e) {
-            console.error(`ðŸ“¡ [REPAIR] Server unreachable:`, e);
+            console.error('[AXIOM:API] Server unreachable:', e);
             return { success: false, error: `Server unreachable: ${e.message}` };
         }
         
@@ -176,7 +176,7 @@
             };
             
         } catch (error) {
-            console.error(`ðŸ“¡ [REPAIR] Request failed:`, error);
+            console.error('[AXIOM:API] Repair request failed:', error);
             return { success: false, error: `Request failed: ${error.message}` };
         }
     }
@@ -188,7 +188,7 @@
     async function confirmSimulationComplete(simId) {
         const playlist = AXIOM.simulation.store[simId];
         if (!playlist || playlist.length === 0) {
-            console.warn("No playlist to confirm");
+            console.warn('[AXIOM:API] No playlist to confirm');
             return;
         }
         
@@ -213,11 +213,9 @@
             
             if (data.status === 'cached') {
                 AXIOM.ui.showToast('✓ Simulation saved to cache');
-            } else if (data.status !== 'skipped') {
-                console.warn('Cache response:', data);
             }
         } catch (err) {
-            console.error('Failed to confirm simulation:', err);
+            console.error('[AXIOM:API] Failed to confirm simulation:', err);
         }
     }
     
@@ -238,7 +236,7 @@
                 broken_code: code,
                 final_error: error
             })
-        }).catch(e => console.error('Failed to report:', e));
+        }).catch(e => console.error('[AXIOM:API] Failed to report:', e));
     }
     
     // =========================================================================
@@ -257,7 +255,7 @@
                 })
             });
         } catch (e) {
-            console.warn('Failed to notify repair success:', e);
+            console.warn('[AXIOM:API] Failed to notify repair success:', e);
         }
     }
     
@@ -324,7 +322,7 @@
                     body: JSON.stringify({ session_id: AXIOM.currentSessionId })
                 });
             } catch (err) {
-                console.error("Reset Failed:", err);
+                console.error('[AXIOM:API] Reset failed:', err);
             }
         }
     }
@@ -372,7 +370,7 @@
             });
             return await response.json();
         } catch (e) {
-            console.error('Failed to get difficulty info:', e);
+            console.error('[AXIOM:API] Failed to get difficulty info:', e);
             return null;
         }
     }
@@ -404,7 +402,7 @@
 
                 if (!captureResponse.ok) {
                     const errorText = await captureResponse.text();
-                    console.error(`❌ [GHOST] Capture failed: ${captureResponse.status}`, errorText);
+                    console.error(`[AXIOM:GHOST] Capture failed: ${captureResponse.status}`, errorText);
                     throw new Error(`Capture failed: ${captureResponse.status}`);
                 }
 
@@ -455,7 +453,7 @@
                 });
 
             } catch (error) {
-                console.warn(`⚠️ [GHOST] Background testing failed (non-critical):`, error);
+                console.warn('[AXIOM:GHOST] Background testing failed (non-critical):', error);
                 // Don't throw - this is background testing and shouldn't break the app
             }
         }, 100); // Small delay to not block rendering
@@ -543,7 +541,7 @@
             await AXIOM.sendMessageWithDifficulty(prompt, difficulty);
 
         } catch (error) {
-            console.error('[API] Re-simulation failed:', error);
+            console.error('[AXIOM:API] Re-simulation failed:', error);
             AXIOM.ui.showToast('❌ Re-simulation failed: ' + error.message);
             throw error;
         }
@@ -563,7 +561,7 @@
             const data = await response.json();
             return data;
         } catch (error) {
-            console.error('[API] Clear pending repairs failed:', error);
+            console.error('[AXIOM:API] Clear pending repairs failed:', error);
             throw error;
         }
     }

@@ -34,14 +34,13 @@
         try {
             const bbox = svg.getBBox();
             if (bbox.width > 10 && bbox.height > 10) {
-                console.warn(`⚠️ [ZOOM] Using getBBox fallback: ${bbox.width}x${bbox.height}`);
                 return { width: bbox.width, height: bbox.height };
             }
         } catch(e) {
-            console.error(`❌ [ZOOM] getBBox failed:`, e);
+            console.error('[AXIOM:ZOOM] getBBox failed:', e);
         }
         
-        console.error(`❌ [ZOOM] SVG dimensions never became valid, using defaults`);
+        console.error('[AXIOM:ZOOM] SVG dimensions never became valid, using defaults');
         return { width: 800, height: 400 };
     }
     
@@ -52,7 +51,7 @@
         (async () => {
             const svg = graphDiv.querySelector('svg');
             if (!svg) {
-                console.warn('[ZOOM] No SVG found in graphDiv, revealing anyway');
+                console.warn('[AXIOM:ZOOM] No SVG found in graphDiv, revealing anyway');
                 graphDiv.style.opacity = '1';
                 if (graphDiv.dataset.safetyTimer) {
                     clearTimeout(Number(graphDiv.dataset.safetyTimer));
@@ -126,7 +125,7 @@
                     graphDiv.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
                     graphDiv.style.opacity = '1';
                 } catch (err) {
-                    console.error('[ZOOM] Centering failed, revealing anyway:', err);
+                    console.error('[AXIOM:ZOOM] Centering failed, revealing anyway:', err);
                     graphDiv.style.opacity = '1';
                 }
 
@@ -225,10 +224,7 @@
             if (!wrapperElement) return;
 
             const svg = wrapperElement.querySelector('svg');
-            if (!svg) {
-                console.warn("No SVG found - skipping physics");
-                return;
-            }
+            if (!svg) return;
             const nodes = wrapperElement.querySelectorAll('.node');
             
             nodes.forEach(node => {
@@ -254,7 +250,7 @@
                 }
             });
         } catch (e) {
-            console.warn("Physics attach failed (Graph will still render, just no zoom):", e);
+            console.warn('[AXIOM:INTERACTIONS] Physics attach failed:', e);
         }
     }
     
@@ -371,7 +367,7 @@
                     if (state.left) panel.style.left = state.left;
                     if (state.collapsed) panel.classList.add('collapsed');
                 } catch (e) {
-                    console.warn('[PANEL] Error loading saved state:', e);
+                    console.warn('[AXIOM:PANEL] Error loading saved state:', e);
                 }
             } else {
                 // Default position
@@ -465,7 +461,7 @@
                 panel.style.right = 'auto';
                 panel.style.bottom = 'auto';
             } catch (e) {
-                console.warn('[PANEL] Failed to restore position:', e);
+                console.warn('[AXIOM:PANEL] Failed to restore position:', e);
             }
         }
     }
@@ -484,7 +480,7 @@
         try {
             state = currentState ? JSON.parse(currentState) : {};
         } catch (e) {
-            console.warn('[PANEL] Error parsing saved state:', e);
+            console.warn('[AXIOM:PANEL] Error parsing saved state:', e);
         }
         state.collapsed = panel.classList.contains('collapsed');
         localStorage.setItem(panelId, JSON.stringify(state));

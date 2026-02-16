@@ -99,7 +99,7 @@ class SessionManager:
                 
                 self._sessions[session_id] = Session()
                 self._total_sessions_created += 1
-                logger.info(f"🆕 Session created: {session_id[:16]}...")
+                logger.info(f"[NEW] Session created: {session_id[:16]}...")
             
             session = self._sessions[session_id]
             session.touch()
@@ -130,7 +130,7 @@ class SessionManager:
             session.repair_step_index = None
             session.touch()
             
-            logger.info(f"🧹 Session reset: {session_id[:16]}...")
+            logger.info(f"[RESET] Session reset: {session_id[:16]}...")
             return True
     
     def nuclear_wipe(self, session_id: str) -> bool:
@@ -138,7 +138,7 @@ class SessionManager:
         with self._lock:
             if session_id in self._sessions:
                 del self._sessions[session_id]
-                logger.info(f"💀 Session wiped: {session_id[:16]}...")
+                logger.info(f"[WIPE] Session destroyed: {session_id[:16]}...")
                 return True
             return False
     
@@ -149,7 +149,7 @@ class SessionManager:
                 session = self._sessions[session_id]
                 session.pending_repair = True
                 session.repair_step_index = step_index
-                logger.debug(f"🔧 Repair pending for session {session_id[:16]}..., step {step_index}")
+                logger.debug(f"[REPAIR] Pending for session {session_id[:16]}..., step {step_index}")
     
     def clear_repair_pending(self, session_id: str) -> None:
         """Clear the repair pending flag after successful repair."""
@@ -158,7 +158,7 @@ class SessionManager:
                 session = self._sessions[session_id]
                 session.pending_repair = False
                 session.repair_step_index = None
-                logger.debug(f"✅ Repair cleared for session {session_id[:16]}...")
+                logger.debug(f"[OK] Repair cleared for session {session_id[:16]}...")
     
     def is_repair_pending(self, session_id: str) -> bool:
         """Check if a repair is currently in progress."""
@@ -178,7 +178,7 @@ class SessionManager:
         )
         del self._sessions[oldest_id]
         self._total_sessions_expired += 1
-        logger.warning(f"⚠️ Evicted oldest session due to capacity: {oldest_id[:16]}...")
+        logger.warning(f"[WARN] Evicted oldest session due to capacity: {oldest_id[:16]}...")
     
     def _cleanup_loop(self) -> None:
         """Background thread that periodically cleans up expired sessions."""
@@ -201,7 +201,7 @@ class SessionManager:
                 self._total_sessions_expired += 1
         
         if expired_ids:
-            logger.info(f"🗑️ Cleaned up {len(expired_ids)} expired sessions")
+            logger.info(f"[CLEANUP] Removed {len(expired_ids)} expired sessions")
         
         return len(expired_ids)
     

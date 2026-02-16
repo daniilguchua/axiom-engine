@@ -247,7 +247,7 @@ def validate_and_clean_steps(new_steps, current_sim_data, mode):
     
     # Log validation results
     if warnings:
-        logger.warning(f"⚠️ VALIDATION: {len(new_steps)} → {len(cleaned)} steps ({len(warnings)} issues)")
+        logger.warning(f"[WARN] VALIDATION: {len(new_steps)} → {len(cleaned)} steps ({len(warnings)} issues)")
     
     return cleaned, warnings
 
@@ -309,7 +309,7 @@ def _log_diagnostic(cache_manager, session_id, mode, difficulty, llm_raw, new_st
         console_msg = f"[{mode[:4]}] LLM: {len(new_steps)} → {len(cleaned_steps)} (stored), DB: {len(storage_before)} → {len(storage_after)}"
         
         if len(cleaned_steps) == 1 and mode == "CONTINUE_SIMULATION":
-            logger.warning(f"⚠️ {console_msg} (expected 3 steps!)")
+            logger.warning(f"[WARN] {console_msg} (expected 3 steps!)")
         else:
             logger.info(console_msg)
         
@@ -400,7 +400,7 @@ def chat():
     # If explicit continue but session lost, re-activate the simulation
     if is_explicit_continue and not user_db["simulation_active"]:
         user_db["simulation_active"] = True
-        logger.warning(f"⚠️ Session lost but got explicit CONTINUE_SIMULATION, re-activating")
+        logger.warning(f"[WARN] Session lost but got explicit CONTINUE_SIMULATION, re-activating")
     
     # Handle input data regeneration
 
@@ -412,7 +412,7 @@ def chat():
                 json_str = match.group(1).strip()
                 edited_input = json.loads(json_str)
                 user_db["input_data"] = edited_input  # Override with edited version
-                logger.info(f"🔄 Input data regeneration detected: {edited_input.get('type', 'unknown')} type")
+                logger.info(f"[REGEN] Input data regeneration detected: {edited_input.get('type', 'unknown')} type")
             
             # Force new simulation mode
             is_new_sim = True
@@ -468,11 +468,11 @@ def chat():
         user_db["original_difficulty"] = difficulty  # Store difficulty separately
         user_db["simulation_verified"] = False
         user_db["input_data"] = input_data  # Store generated input data
-        logger.info(f"🆕 NEW SIMULATION ({difficulty}): {user_msg[:50]}... (Session: {session_id[:16]}...)")
+        logger.info(f"[NEW] NEW SIMULATION ({difficulty}): {user_msg[:50]}... (Session: {session_id[:16]}...)")
         
     elif is_continue:
         mode = "CONTINUE_SIMULATION"
-        logger.info(f"➡️ CONTINUE SIMULATION (Session: {session_id[:16]}...)")
+        logger.info(f"[CONT] CONTINUE SIMULATION (Session: {session_id[:16]}...)")
         
     elif user_db["simulation_active"]:
         mode = "CONTEXTUAL_QA"
@@ -763,7 +763,7 @@ Match the {difficulty.upper()} mode style in your response.
                 )
                 stripped = clean_json.lstrip()
                 if stripped.startswith(code_patterns) or not (stripped.startswith('{') or stripped.startswith('[')):
-                    logger.error(f"❌ AI output is not JSON. First 200 chars: {clean_json[:200]}")
+                    logger.error(f"[ERROR] AI output is not JSON. First 200 chars: {clean_json[:200]}")
                     raise ValueError("AI generated code/text instead of JSON. Please retry.")
                 
                 data_obj = json.loads(clean_json)
@@ -775,7 +775,7 @@ Match the {difficulty.upper()} mode style in your response.
                     new_steps = data_obj
                 
                 if not new_steps:
-                    logger.error("❌ LLM returned empty/invalid steps")
+                    logger.error("[ERROR] LLM returned empty/invalid steps")
                     # Log diagnostic with empty steps
                     storage_before = user_db.get('current_sim_data', [])
                     _log_diagnostic(cache_manager, session_id, mode, difficulty, 
@@ -792,7 +792,7 @@ Match the {difficulty.upper()} mode style in your response.
                     )
                     
                     if not cleaned_steps:
-                        logger.warning(f"⚠️ All {len(new_steps)} steps rejected during validation")
+                        logger.warning(f"[WARN] All {len(new_steps)} steps rejected during validation")
                         _log_diagnostic(cache_manager, session_id, mode, difficulty,
                                        full_response, new_steps, [], storage_before, storage_before, False, "Validation rejected all")
                     else:
@@ -819,7 +819,7 @@ Match the {difficulty.upper()} mode style in your response.
                         
                         if not integrity_pass:
                             integrity_error = f"length {array_len} != max+1 {expected_len}"
-                            logger.error(f"❌ INTEGRITY FAILED: {integrity_error}")
+                            logger.error(f"[ERROR] INTEGRITY FAILED: {integrity_error}")
                         
                         # Log diagnostic to database
                         _log_diagnostic(cache_manager, session_id, mode, difficulty,
@@ -830,7 +830,7 @@ Match the {difficulty.upper()} mode style in your response.
                         is_final = last_step.get("is_final", False)
 
                         if is_final:
-                            logger.info(f"🏁 Simulation complete ({len(storage_after)} steps)")
+                            logger.info(f"[DONE] Simulation complete ({len(storage_after)} steps)")
                             user_db["awaiting_verification"] = True
                 
             except json.JSONDecodeError as e:

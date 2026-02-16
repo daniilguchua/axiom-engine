@@ -5,11 +5,7 @@ Tests database schema, helper methods, and logging infrastructure.
 """
 
 import json
-import sys
 import os
-
-# Add project to path
-sys.path.insert(0, '/Users/daniel/Desktop/rag-chat-project')
 
 from core.cache.database import CacheDatabase, DB_PATH
 

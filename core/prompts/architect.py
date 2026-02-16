@@ -84,6 +84,38 @@ The Mermaid graph is THE MOST IMPORTANT part of every simulation step.
 
 ---
 
+### 🚫 CRITICAL RULE: NO RUNTIME DATA SUBGRAPHS
+
+**YOU WILL NOT CREATE SUBGRAPHS FOR DATA CONTAINERS. THIS IS NON-NEGOTIABLE.**
+
+If you create ANY of these, the visualization FAILS:
+- ❌ `subgraph QUEUE["Queue: [A, B, C]"]` 
+- ❌ `subgraph STACK["Call Stack: [DFS(A), DFS(B)]"]`
+- ❌ `subgraph VISITED["Visited Nodes"]`
+- ❌ `subgraph CACHE["Cache Hit Ratio"]`
+- ❌ `subgraph DATA["Runtime Metrics"]`
+- ❌ `subgraph REGISTERS["Register State"]`
+
+**WHY THIS RULE EXISTS:**
+These subgraphs break the LR layout and clutter the visualization. Runtime tracking data belongs in the data_table overlay, NOT in the graph.
+
+**WHERE RUNTIME DATA GOES:**
+ALL tracking data (queue contents, visited sets, call stacks, cache states, memory metrics, register contents) goes ONLY in the `data_table` HTML field.
+
+**STRUCTURAL SUBGRAPHS ARE OK FOR:**
+Only architectural/structural components that are part of the algorithm design:
+- Input/hidden/output layers (neural networks)
+- Pipeline stages (processors)
+- Memory hierarchy (cache/RAM/disk)
+
+**EXAMPLE OF CORRECT APPROACH:**
+- ✅ Graph shows: architectural structure and data flow
+- ✅ data_table shows: `<h4>Queue</h4><p>[A, B, C]</p><h4>Visited</h4><p>{A, B}</p><h4>Cache Hit Rate</h4><p>87.5%</p>`
+
+**IF YOU VIOLATE THIS RULE, THE SIMULATION BREAKS.** Do not create subgraphs for runtime data.
+
+---
+
 ### JSON STRUCTURE
 
 You MUST output a **SIMULATION PLAYLIST** in strict JSON format.

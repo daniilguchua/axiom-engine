@@ -44,7 +44,7 @@
     function showDifficultyModal(prompt, callback) {
         const modal = document.getElementById('difficulty-modal');
         if (!modal) {
-            console.error('Difficulty modal not found');
+            console.error('[AXIOM:DIFFICULTY] Difficulty modal not found');
             // Fallback: just use current difficulty
             if (callback) callback(currentDifficulty);
             return;
@@ -94,7 +94,7 @@
     
     function selectDifficulty(difficulty) {
         if (!DifficultyLevels[difficulty]) {
-            console.warn('Unknown difficulty:', difficulty);
+            console.warn('[AXIOM:DIFFICULTY] Unknown difficulty:', difficulty);
             return;
         }
         

@@ -12,7 +12,7 @@
     
     function sanitizeMermaidString(raw) {
         if (!raw || typeof raw !== 'string') {
-            console.warn("⚠️ SANITIZER: Invalid input (empty or not string)");
+            console.warn('[AXIOM:SANITIZER] Invalid input (empty or not string)');
             return 'flowchart LR\nA["Empty"]';
         }
 
@@ -256,7 +256,7 @@
         let lines = clean.split('\n').map(l => l.trim()).filter(l => l);
 
         if (lines.length === 0) {
-            console.error("SANITIZER: All lines were filtered out!");
+            console.error('[AXIOM:SANITIZER] All lines were filtered out');
             // Fallback: don't filter empty lines, just trim
             lines = beforeSplit.split('\n').map(l => l.trim());
         }
@@ -301,7 +301,7 @@
         clean = clean.split('\n').filter(l => l.trim()).join('\n');
 
         if ((clean.match(/\n/g) || []).length < 3) {
-            console.error("SANITIZER: Very few newlines in output — possible stripping bug.");
+            console.error('[AXIOM:SANITIZER] Very few newlines in output - possible stripping bug');
         }
 
         return clean;

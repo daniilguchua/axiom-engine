@@ -8,7 +8,7 @@ This is the main entry point that initializes the app and registers all routes.
 import os
 import logging
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 
 from core.config import init_all, get_cors_config
@@ -20,10 +20,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app, resources=get_cors_config())
 init_all()
 register_routes(app)
+
+
+@app.route('/')
+def serve_index():
+    """Serve the main application page."""
+    return send_from_directory(app.static_folder, 'index.html')
 
 
 @app.errorhandler(400)

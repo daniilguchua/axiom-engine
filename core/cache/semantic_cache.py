@@ -34,7 +34,7 @@ class SemanticCache:
             database: CacheDatabase instance for DB operations
         """
         self.db = database
-        logger.info("📦 SemanticCache initialized (similarity threshold: %.2f)", self.SIMILARITY_THRESHOLD)
+        logger.info("[INIT] SemanticCache initialized (similarity threshold: %.2f)", self.SIMILARITY_THRESHOLD)
     
     def get_cached_simulation(self, prompt: str, difficulty: str) -> Optional[Dict]:
         """
@@ -57,7 +57,7 @@ class SemanticCache:
         # --- Step 1: Exact hash match (fast path, no API call) ---
         exact_result = self._exact_hash_lookup(prompt_key, difficulty)
         if exact_result:
-            logger.info(f"✅ Cache HIT (exact match) for '{prompt[:50]}...' (difficulty={difficulty})")
+            logger.info(f"[HIT] Cache HIT (exact match) for '{prompt[:50]}...' (difficulty={difficulty})")
             return exact_result
         
         # --- Step 2: Semantic similarity search ---
@@ -65,7 +65,7 @@ class SemanticCache:
         if similar_result:
             return similar_result
         
-        logger.info(f"❌ Cache MISS for '{prompt[:50]}...' (difficulty={difficulty})")
+        logger.info(f"[MISS] Cache MISS for '{prompt[:50]}...' (difficulty={difficulty})")
         return None
     
     def _exact_hash_lookup(self, prompt_key: str, difficulty: str) -> Optional[Dict]:
@@ -108,7 +108,7 @@ class SemanticCache:
             # Generate embedding for the query prompt
             query_embedding = get_text_embedding(prompt)
             if not query_embedding:
-                logger.warning(f"⚠️ Could not generate embedding for semantic search")
+                logger.warning(f"[WARN] Could not generate embedding for semantic search")
                 return None
             
             # Fetch all cached entries for this difficulty that have embeddings
@@ -146,15 +146,15 @@ class SemanticCache:
             
             if best_score >= self.SIMILARITY_THRESHOLD and best_data:
                 logger.info(
-                    f"✅ Cache HIT (semantic, {best_score:.2f} similarity) "
+                    f"[HIT] Cache HIT (semantic, {best_score:.2f} similarity) "
                     f"for '{prompt[:50]}...' (difficulty={difficulty})"
                 )
                 return json.loads(best_data)
             
             if best_score > 0:
                 logger.info(
-                    f"🔍 Best semantic match was {best_score:.2f} "
-                    f"(threshold: {self.SIMILARITY_THRESHOLD}) - not good enough"
+                    f"[MISS] Best semantic match was {best_score:.2f} "
+                    f"(threshold: {self.SIMILARITY_THRESHOLD}) - below threshold"
                 )
             
             return None
@@ -184,7 +184,7 @@ class SemanticCache:
             embedding = get_text_embedding(prompt)
             embedding_json = json.dumps(embedding) if embedding else None
             if not embedding:
-                logger.warning(f"⚠️ Could not generate embedding for cache save (will still save with hash)")
+                logger.warning(f"[WARN] Could not generate embedding for cache save (will still save with hash)")
             
             with self.db.get_connection() as conn:
                 cursor = conn.cursor()
@@ -215,7 +215,7 @@ class SemanticCache:
                     (prompt_key, embedding_json, difficulty, simulation_json, 1 if client_verified else 0)
                 )
                 logger.info(
-                    f"✅ Cached simulation: '{prompt[:40]}...' "
+                    f"[CACHE] Saved simulation: '{prompt[:40]}...' "
                     f"(difficulty={difficulty}, verified={client_verified}, "
                     f"has_embedding={'yes' if embedding else 'no'})"
                 )

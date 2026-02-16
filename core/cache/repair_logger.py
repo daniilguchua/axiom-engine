@@ -325,7 +325,7 @@ class RepairLogger:
                     repair_tier, final_success, datetime.now()
                 ))
 
-                logger.info(f"📝 Logged raw mermaid: step={step_index}, newlines={newline_count}, success={initial_render_success}")
+                logger.info(f"[LOG] Raw mermaid captured: step={step_index}, newlines={newline_count}, success={initial_render_success}")
             except Exception as e:
                 logger.error(f"Raw mermaid log failed: {e}")
 

@@ -1,6 +1,6 @@
 """
 Debug endpoints for development and troubleshooting.
-Includes GHOST Repair System - Sanitizer Tournament endpoints.
+Includes repair system sanitizer tournament endpoints.
 """
 
 import logging
@@ -76,7 +76,7 @@ def debug_clear_cache():
         cursor.execute("DELETE FROM pending_repairs")
         conn.commit()
 
-    logger.warning("🗑️ Cache cleared via debug endpoint")
+    logger.warning("[CLEANUP] Cache cleared via debug endpoint")
     return jsonify({"status": "cleared"})
 
 @debug_bp.route('/debug/capture-raw', methods=['POST'])
@@ -126,9 +126,9 @@ def capture_raw_output():
         python_newlines = python_sanitized.count('\n')
         python_escaped = python_sanitized.count('\\n')
 
-        logger.info(f"[GHOST] Captured raw output ({len(raw_mermaid)} chars)")
-        logger.info(f"[GHOST DEBUG] Raw: {raw_newlines} real newlines, {raw_escaped} escaped \\n")
-        logger.info(f"[GHOST DEBUG] Python sanitized: {python_newlines} real newlines, {python_escaped} escaped \\n")
+        logger.info(f"[DEBUG] Captured raw output ({len(raw_mermaid)} chars)")
+        logger.info(f"[DEBUG] Raw: {raw_newlines} real newlines, {raw_escaped} escaped \\n")
+        logger.info(f"[DEBUG] Python sanitized: {python_newlines} real newlines, {python_escaped} escaped \\n")
 
         # Return all pipeline inputs to client for testing
         return jsonify({
@@ -150,7 +150,7 @@ def capture_raw_output():
         })
 
     except Exception as e:
-        logger.error(f"[GHOST] Error capturing raw output: {e}")
+        logger.error(f"[DEBUG] Error capturing raw output: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -198,7 +198,7 @@ def log_test_results():
         python_output = test_results.get('python', {}).get('output', '')
         python_newlines = python_output.count('\n')
         python_escaped = python_output.count('\\n')
-        logger.info(f"[GHOST DEBUG] Received from client - Python output: {python_newlines} real newlines, {python_escaped} escaped \\n")
+        logger.info(f"[DEBUG] Received from client - Python output: {python_newlines} real newlines, {python_escaped} escaped \\n")
 
         # Log to database
         test_id = repair_tester.log_test(
@@ -212,7 +212,7 @@ def log_test_results():
 
         best_method = repair_tester._determine_best_method(test_results)
 
-        logger.info(f"[GHOST] Logged test #{test_id}, best method: {best_method}")
+        logger.info(f"[DEBUG] Logged test #{test_id}, best method: {best_method}")
 
         return jsonify({
             "success": True,
@@ -221,7 +221,7 @@ def log_test_results():
         })
 
     except Exception as e:
-        logger.error(f"[GHOST] Error logging test results: {e}")
+        logger.error(f"[DEBUG] Error logging test results: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -255,7 +255,7 @@ def apply_python_sanitizer():
         })
 
     except Exception as e:
-        logger.error(f"[GHOST] Error applying Python sanitizer: {e}")
+        logger.error(f"[DEBUG] Error applying Python sanitizer: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -282,7 +282,7 @@ def get_recent_tests():
         })
 
     except Exception as e:
-        logger.error(f"[GHOST] Error fetching recent tests: {e}")
+        logger.error(f"[DEBUG] Error fetching recent tests: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -319,7 +319,7 @@ def get_stats():
         })
 
     except Exception as e:
-        logger.error(f"[GHOST] Error fetching stats: {e}")
+        logger.error(f"[DEBUG] Error fetching stats: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -336,7 +336,7 @@ def clear_test_database():
             deleted = cursor.rowcount
             conn.commit()
 
-        logger.warning(f"🗑️ Cleared {deleted} test records from repair_tests database")
+        logger.warning(f"[CLEANUP] Cleared {deleted} test records from repair_tests database")
 
         return jsonify({
             "success": True,
@@ -344,7 +344,7 @@ def clear_test_database():
         })
 
     except Exception as e:
-        logger.error(f"[GHOST] Error clearing test database: {e}")
+        logger.error(f"[DEBUG] Error clearing test database: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -598,3 +598,130 @@ def llm_diagnostics():
     
     from flask import Response
     return Response(html, mimetype='text/html')
+
+
+@debug_bp.route('/api/debug/repairs-detailed', methods=['GET'])
+def get_repairs_detailed():
+    """
+    Get detailed repair records with full code before/after for dashboard inspection.
+    
+    Query parameters:
+    - days: Number of days to look back (default 7)
+    - tier: Filter by tier (1, 2, 3, or empty for all)
+    - difficulty: Filter by difficulty (explorer, engineer, architect, or empty)
+    - status: Filter by status (success, failure, or empty for all)
+    - limit: Max repairs to return (default 100, max 500)
+    
+    Returns:
+    {
+        "repairs": [
+            {
+                "id": 123,
+                "created_at": "2024-01-15T10:30:00",
+                "session_id": "session-abc",
+                "sim_id": "sim-xyz",
+                "step_index": 5,
+                "tier": 2,
+                "tier_name": "TIER2_PYTHON_JS",
+                "attempt_number": 1,
+                "input_code": "... original mermaid ...",
+                "output_code": "... fixed mermaid ...",
+                "error_before": "... error message ...",
+                "error_after": null,
+                "was_successful": true,
+                "duration_ms": 245
+            }
+        ],
+        "trend": [
+            {"date": "2024-01-10", "success_count": 42, "failure_count": 3},
+            ...
+        ]
+    }
+    """
+    try:
+        days = int(request.args.get('days', 7))
+        tier_filter = request.args.get('tier', '').strip()
+        status_filter = request.args.get('status', '').strip()
+        limit = min(int(request.args.get('limit', 100)), 500)
+        
+        # Build base query
+        query = """
+            SELECT 
+                id, created_at, session_id, sim_id, step_index, tier, tier_name,
+                attempt_number, input_code, output_code, error_before, error_after,
+                was_successful, duration_ms
+            FROM repair_attempts
+            WHERE datetime(created_at) > datetime('now', '-' || ? || ' days')
+        """
+        params = [days]
+        
+        # Apply tier filter
+        if tier_filter:
+            query += " AND tier = ?"
+            params.append(int(tier_filter))
+        
+        # Apply status filter
+        if status_filter == 'success':
+            query += " AND was_successful = 1"
+        elif status_filter == 'failure':
+            query += " AND was_successful = 0"
+        
+        # Order by most recent first and limit
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        
+        # Execute detailed repairs query
+        with get_cache_manager()._get_connection() as conn:
+            conn.row_factory = lambda cursor, row: {
+                'id': row[0],
+                'created_at': row[1],
+                'session_id': row[2],
+                'sim_id': row[3],
+                'step_index': row[4],
+                'tier': row[5],
+                'tier_name': row[6],
+                'attempt_number': row[7],
+                'input_code': row[8],
+                'output_code': row[9],
+                'error_before': row[10],
+                'error_after': row[11],
+                'was_successful': bool(row[12]),
+                'duration_ms': row[13]
+            }
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            repairs = cursor.fetchall()
+        
+        # Build 7-day trend data
+        trend_query = """
+            SELECT 
+                DATE(created_at) as date,
+                SUM(CASE WHEN was_successful = 1 THEN 1 ELSE 0 END) as success_count,
+                SUM(CASE WHEN was_successful = 0 THEN 1 ELSE 0 END) as failure_count,
+                COUNT(*) as total_count
+            FROM repair_attempts
+            WHERE datetime(created_at) > datetime('now', '-7 days')
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+        """
+        
+        with get_cache_manager()._get_connection() as conn:
+            conn.row_factory = lambda cursor, row: {
+                'date': row[0],
+                'success_count': row[1],
+                'failure_count': row[2],
+                'total_count': row[3]
+            }
+            cursor = conn.cursor()
+            cursor.execute(trend_query)
+            trend = cursor.fetchall()
+        
+        return jsonify({
+            "success": True,
+            "repairs": repairs,
+            "trend": trend
+        })
+    
+    except Exception as e:
+        logger.error(f"Error fetching detailed repairs: {e}")
+        return jsonify({"error": str(e)}), 500

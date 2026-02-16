@@ -180,14 +180,14 @@
                             cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
                         }
                     } else {
-                        console.error(`Could not find valid JSON boundaries`);
+                        console.error('[AXIOM:MAIN] Could not find valid JSON boundaries');
                     }
 
                     // Step 3: Try parsing DIRECTLY first
                     try {
                         parsed = JSON.parse(cleanJson);
                     } catch (firstParseErr) {
-                        console.warn("JSON direct parse failed:", firstParseErr.message);
+                        console.warn('[AXIOM:MAIN] JSON direct parse failed:', firstParseErr.message);
 
                         // The mermaid regex fixes broken JSON from fresh LLM output
                         // (literal newlines and unescaped quotes inside mermaid string values).
@@ -208,15 +208,12 @@
                             }
                         );
 
-                        if (mermaidFieldsFound === 0) {
-                            console.warn(`No mermaid fields found to fix`);
-                        }
 
                         // Retry parse after mermaid escaping
                         try {
                             parsed = JSON.parse(cleanJson);
                         } catch (secondParseErr) {
-                            console.error("JSON parse failed even after escaping:", secondParseErr.message);
+                            console.error('[AXIOM:MAIN] JSON parse failed even after escaping:', secondParseErr.message);
                             throw secondParseErr;
                         }
                     }
@@ -254,7 +251,7 @@
 
                     // Step 5: Validate we have usable steps
                     if (newSteps.length === 0) {
-                        console.error("No valid steps found in parsed JSON");
+                        console.error('[AXIOM:MAIN] No valid steps found in parsed JSON');
                         throw new Error("No valid steps found in parsed JSON");
                     }
 
@@ -269,15 +266,10 @@
                             step.instruction = "Step " + step.step;
                         }
                         if (!step.mermaid) {
-                            console.error(`Step ${i} missing required 'mermaid' field!`);
+                            console.error(`[AXIOM:MAIN] Step ${i} missing required 'mermaid' field`);
                             throw new Error(`Step ${i} missing required 'mermaid' field`);
                         }
 
-                        const mermaidNewlines = (step.mermaid.match(/\n/g) || []).length;
-
-                        if (mermaidNewlines === 0) {
-                            console.warn(`Step ${i}: Mermaid has NO newlines, might be malformed.`);
-                        }
                     }
                     
                     // Step 6: Determine simulation scope
@@ -318,15 +310,13 @@
                         try {
                             const inputData = JSON.parse(inputDataMatch[1]);
                             AXIOM.simulation.inputData[simId] = inputData;
-                            console.log('[AXIOM] Extracted input data:', inputData);
                         } catch (e) {
-                            console.warn('[AXIOM] Failed to parse input data marker:', e);
+                            console.warn('[AXIOM:MAIN] Failed to parse input data marker:', e);
                         }
                     }
                     // Fallback: check parsed JSON for input_data field (cached responses)
                     if (!AXIOM.simulation.inputData[simId] && parsed && parsed.input_data) {
                         AXIOM.simulation.inputData[simId] = parsed.input_data;
-                        console.log('[AXIOM] Extracted input data from cached response:', parsed.input_data);
                     }
                     
                     // Step 10: Remove loading overlay if present
@@ -342,7 +332,7 @@
                     return;
                     
                 } catch (jsonErr) {
-                    console.error("❌ JSON Processing Failed:", jsonErr.message);
+                    console.error('[AXIOM:MAIN] JSON processing failed:', jsonErr.message);
                     
                     // Try to identify what's at the error position
                     const posMatch = jsonErr.message.match(/position\s+(\d+)/i);
@@ -422,7 +412,7 @@
             AXIOM.elements.historyDiv.scrollTop = AXIOM.elements.historyDiv.scrollHeight;
 
         } catch (e) {
-            console.error("sendMessage error:", e);
+            console.error('[AXIOM:MAIN] sendMessage error:', e);
             targetElement.innerHTML = `
                 <div style="
                     background: rgba(255,0,0,0.1);
@@ -560,7 +550,7 @@
                 if (spinnerOverlay) spinnerOverlay.style.display = 'none';
                 AXIOM.ui.activateChatMode(`**SYSTEM INGEST COMPLETE**\nTarget Data: _${data.filename}_`);
             } catch (e) {
-                console.error(e);
+                console.error('[AXIOM:MAIN] File upload failed:', e);
                 if (spinnerOverlay) spinnerOverlay.style.display = 'none';
                 alert("INGEST FAILED: " + e.message);
             }

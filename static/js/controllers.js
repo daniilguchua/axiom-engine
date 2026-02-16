@@ -286,7 +286,7 @@ TASK: Generate NEXT 3 steps.`;
             }, 100);
             
         } catch (err) {
-            console.error('Tooltip error:', err);
+            console.error('[AXIOM:CONTROLLERS] Tooltip error:', err);
             if (tooltip && tooltip.querySelector('.tooltip-body')) {
                 const body = tooltip.querySelector('.tooltip-body');
                 body.innerHTML = `
@@ -339,7 +339,7 @@ TASK: Generate NEXT 3 steps.`;
             tooltip.style.top = `${Math.max(10, top)}px`;
             
         } catch (err) {
-            console.warn('Tooltip positioning error:', err);
+            console.warn('[AXIOM:CONTROLLERS] Tooltip positioning error:', err);
         }
     }
     

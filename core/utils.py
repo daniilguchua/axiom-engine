@@ -61,7 +61,7 @@ def extract_text_from_pdf(
                     "char_count": len(cleaned)
                 })
         
-        logger.info(f"📄 Extracted {len(pages)} pages from {filename}")
+        logger.info(f"[PDF] Extracted {len(pages)} pages from {filename}")
         return pages, metas, len(doc)
         
     except Exception as e:
@@ -104,7 +104,7 @@ def extract_text_from_url(url: str) -> Tuple[List[str], List[dict]]:
         # Basic cleaning
         text = re.sub(r'\s+', ' ', text)
         
-        logger.info(f"🌐 Extracted {len(text)} chars from {url}")
+        logger.info(f"[URL] Extracted {len(text)} chars from {url}")
         return [text], [{"source": url}]
         
     except requests.RequestException as e:
@@ -150,7 +150,7 @@ def build_vector_index(
         docs = splitter.create_documents(texts, metadatas=metas)
         vector_store = FAISS.from_documents(docs, embeddings)
         
-        logger.info(f"🔢 Built vector index with {len(docs)} chunks")
+        logger.info(f"[INDEX] Built vector index with {len(docs)} chunks")
         return vector_store, len(docs)
         
     except Exception as e:

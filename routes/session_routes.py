@@ -25,7 +25,7 @@ def reset_endpoint():
         success = session_manager.reset_session(session_id)
         
         if success:
-            logger.info(f"🧹 Session reset: {session_id[:16]}...")
+            logger.info(f"[RESET] Session reset: {session_id[:16]}...")
             return jsonify({"status": "success"}), 200
         else:
             return jsonify({"status": "session_not_found"}), 404

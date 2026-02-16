@@ -28,9 +28,9 @@ def init_api_key():
     try:
         api_key = get_api_key()
         genai_client = genai.Client(api_key=api_key)
-        logger.info("✅ Gemini API configured successfully")
+        logger.info("[OK] Gemini API configured successfully")
     except EnvironmentError as e:
-        logger.error(f"❌ {e}")
+        logger.error(f"[ERROR] {e}")
         api_key = None
         genai_client = None
 
@@ -54,7 +54,7 @@ def init_managers():
     global session_manager, cache_manager
     session_manager = SessionManager(ttl_minutes=60)
     cache_manager = CacheManager(db_path=DB_PATH)
-    logger.info("✅ Managers initialized")
+    logger.info("[OK] Managers initialized")
 
 
 def get_session_manager() -> SessionManager:

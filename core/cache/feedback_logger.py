@@ -90,7 +90,7 @@ class FeedbackLogger:
                     (session_id, prompt, sim_data_json, rating, step_index, comment, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (session_id, prompt, json_str, rating, step_index, comment, datetime.now()))
-                logger.info(f"👍 Feedback logged: rating={rating} for '{prompt[:30]}...'")
+                logger.info(f"[FEEDBACK] Logged: rating={rating} for '{prompt[:30]}...'")
         except Exception as e:
             # Log but don't raise - this is non-critical
             logger.warning(f"Feedback log failed (non-critical): {e}")

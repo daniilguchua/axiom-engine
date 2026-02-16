@@ -64,7 +64,7 @@ class CacheManager:
         self.repair_tracker = RepairTracker(self.database)
         self.repair_logger = RepairLogger(self.database)
         self.feedback_logger = FeedbackLogger(self.database)
-        logger.info("🚀 CacheManager initialized with modular architecture")
+        logger.info("[INIT] CacheManager initialized with modular architecture")
     
     def _get_connection(self):
         """Delegate to database.get_connection() for direct DB access."""
@@ -385,7 +385,7 @@ class CacheManager:
             with open(output_path, 'w') as f:
                 json.dump(data, f, indent=2)
             
-            logger.info(f"📤 Exported {len(data)} training samples to {output_path}")
+            logger.info(f"[EXPORT] Exported {len(data)} training samples to {output_path}")
             return len(data)
 
 

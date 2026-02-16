@@ -33,7 +33,7 @@ class RepairTracker:
             database: CacheDatabase instance for DB operations
         """
         self.db = database
-        logger.info("🔧 RepairTracker initialized with smart retry logic")
+        logger.info("[INIT] RepairTracker initialized with smart retry logic")
     
     def _get_prompt_hash(self, prompt: str) -> str:
         """Generate consistent hash for prompt."""
@@ -72,7 +72,7 @@ class RepairTracker:
             
             # If permanently broken, always return True
             if is_permanently_broken:
-                logger.debug(f"❌ Simulation permanently broken: {prompt[:40]}... (retries: {retry_count})")
+                logger.debug(f"[BROKEN] Simulation permanently broken: {prompt[:40]}... (retries: {retry_count})")
                 return True
             
             # Check if cooldown period has expired
@@ -84,12 +84,12 @@ class RepairTracker:
                 cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ? AND difficulty = ?", 
                              (prompt_hash, difficulty))
                 conn.commit()
-                logger.info(f"🔄 Retry cooldown expired for: {prompt[:40]}... (attempt {retry_count}/{self.MAX_RETRY_COUNT})")
+                logger.info(f"[RETRY] Cooldown expired for: {prompt[:40]}... (attempt {retry_count}/{self.MAX_RETRY_COUNT})")
                 return False
             
             # Still within cooldown - keep blocked
             hours_remaining = (self.RETRY_COOLDOWN_HOURS * 3600 - age.total_seconds()) / 3600
-            logger.debug(f"⏳ Simulation in cooldown: {prompt[:40]}... ({hours_remaining:.1f}h remaining)")
+            logger.debug(f"[COOLDOWN] Simulation in cooldown: {prompt[:40]}... ({hours_remaining:.1f}h remaining)")
             return True
     
     def mark_simulation_broken(
@@ -141,9 +141,9 @@ class RepairTracker:
                     """, (new_retry_count, reason, is_permanent, prompt_hash, difficulty))
                     
                     if is_permanent:
-                        logger.warning(f"💀 PERMANENTLY BROKEN after {new_retry_count} attempts: {prompt[:40]}...")
+                        logger.warning(f"[FATAL] PERMANENTLY BROKEN after {new_retry_count} attempts: {prompt[:40]}...")
                     else:
-                        logger.warning(f"⚠️  Marked broken (attempt {new_retry_count}/{self.MAX_RETRY_COUNT}): {prompt[:40]}...")
+                        logger.warning(f"[WARN] Marked broken (attempt {new_retry_count}/{self.MAX_RETRY_COUNT}): {prompt[:40]}...")
                 else:
                     # New entry - first failure
                     cursor.execute("""
@@ -151,7 +151,7 @@ class RepairTracker:
                         (prompt_hash, difficulty, failure_reason, retry_count, last_retry_at, is_permanently_broken)
                         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, 0)
                     """, (prompt_hash, difficulty, reason))
-                    logger.warning(f"⚠️  Marked broken (attempt 1/{self.MAX_RETRY_COUNT}): {prompt[:40]}...")
+                    logger.warning(f"[WARN] Marked broken (attempt 1/{self.MAX_RETRY_COUNT}): {prompt[:40]}...")
                 
                 conn.commit()
                 return True
@@ -186,7 +186,7 @@ class RepairTracker:
             cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ? AND difficulty = ?", (prompt_hash, difficulty))
             deleted = cursor.rowcount > 0
             if deleted:
-                logger.info(f"✅ Broken status cleared for: '{prompt[:40]}...' (difficulty={difficulty})")
+                logger.info(f"[OK] Broken status cleared for: '{prompt[:40]}...' (difficulty={difficulty})")
             return deleted
     
     def mark_repair_pending(
@@ -242,7 +242,7 @@ class RepairTracker:
                 SET status = ?, resolved_at = ?
                 WHERE session_id = ? AND prompt_key = ? AND step_index = ?
             """, (status, datetime.now(), session_id, prompt_key.strip(), step_index))
-            logger.debug(f"✅ Repair resolved: session={session_id[:16]}..., step={step_index}, success={success}")
+            logger.debug(f"[OK] Repair resolved: session={session_id[:16]}..., step={step_index}, success={success}")
     
     def clear_pending_repairs(
         self,
@@ -272,7 +272,7 @@ class RepairTracker:
             """, (datetime.now(), session_id, prompt_key.strip()))
             cleared = cursor.rowcount
             if cleared > 0:
-                logger.info(f"✅ Cleared {cleared} pending repair(s) for '{prompt_key[:40]}...'")
+                logger.info(f"[OK] Cleared {cleared} pending repair(s) for '{prompt_key[:40]}...'")
             return cleared
     
     def clear_all_pending_repairs(self, session_id: str) -> int:
@@ -367,5 +367,5 @@ class RepairTracker:
 
             cleaned = cursor.rowcount
             if cleaned > 0:
-                logger.info(f"🧹 Cleaned up {cleaned} stale pending repair(s) older than {max_age_minutes} minutes")
+                logger.info(f"[CLEANUP] Cleaned up {cleaned} stale pending repair(s) older than {max_age_minutes} minutes")
             return cleaned

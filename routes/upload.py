@@ -66,7 +66,7 @@ def upload():
         user_db["filename"] = safe_filename
         user_db["chat_history"] = []
         
-        logger.info(f"📄 Uploaded {safe_filename}: {page_count} pages, {chunk_count} chunks")
+        logger.info(f"[UPLOAD] {safe_filename}: {page_count} pages, {chunk_count} chunks")
         
         return jsonify({
             "filename": safe_filename,

@@ -17,3 +17,20 @@ __pycache__/
 .idea/
 *.swp
 *.swo
+
+# OS files
+.DS_Store
+
+# Test / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Runtime data
+data/cache/
+*.db
+
+# Backup files
+*.bak
+*.bak2
+*.bak3

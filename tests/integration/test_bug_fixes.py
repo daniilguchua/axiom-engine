@@ -2,11 +2,8 @@
 """
 Quick test to verify bug fixes work as expected.
 """
-import sys
 import os
-sys.path.insert(0, '/Users/daniel/Desktop/rag-chat-project')
 
-# Set API key
 os.environ['GEMINI_API_KEY'] = 'test-api-key-for-validation'
 
 from flask import Flask
