@@ -18,7 +18,7 @@ class TestUploadEndpointBasic:
         """Test that upload requires a file."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        with patch("routes.upload.get_configured_api_key", return_value="test-key"):
+        with patch("core.config.get_configured_api_key", return_value="test-key"):
             response = flask_client.post(
                 "/upload",
                 data={},
@@ -35,7 +35,7 @@ class TestUploadEndpointBasic:
         # Create a dummy file
         data = {"file": (io.BytesIO(b"test data"), "test.pdf")}
         
-        with patch("routes.upload.get_configured_api_key", return_value="test-key"):
+        with patch("core.config.get_configured_api_key", return_value="test-key"):
             response = flask_client.post(
                 "/upload",
                 data=data,
@@ -49,7 +49,7 @@ class TestUploadEndpointBasic:
         """Test that upload rejects non-file content."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        with patch("routes.upload.get_configured_api_key", return_value="test-key"):
+        with patch("core.config.get_configured_api_key", return_value="test-key"):
             response = flask_client.post(
                 "/upload",
                 json={"text": "not a file"},
@@ -206,7 +206,7 @@ class TestVectorStoreCreation:
 class TestUploadWorkflow:
     """Test complete upload workflow."""
     
-    @patch("routes.upload.get_configured_api_key", return_value="test-key")
+    @patch("core.config.get_configured_api_key", return_value="test-key")
     @patch("routes.upload.get_session_manager")
     @patch("core.utils.extract_text_from_pdf")
     @patch("core.utils.build_vector_index")
@@ -308,7 +308,7 @@ class TestUploadErrorHandling:
         """Test handling of invalid file formats."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        with patch("routes.upload.get_configured_api_key", return_value="test-key"):
+        with patch("core.config.get_configured_api_key", return_value="test-key"):
             # Try uploading non-PDF file
             file_data = {
                 "file": (io.BytesIO(b"not pdf"), "document.txt")

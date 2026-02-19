@@ -24,7 +24,7 @@ class TestCacheManagerSetup:
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         manager = CacheManager(db_path=temp_db_path)
         assert manager is not None
-        assert manager.SIMILARITY_THRESHOLD == 0.80
+        assert manager.semantic_cache.SIMILARITY_THRESHOLD == 0.80
     
     def test_database_initialization(self, temp_db_path, monkeypatch):
         """Test that database schema is created."""

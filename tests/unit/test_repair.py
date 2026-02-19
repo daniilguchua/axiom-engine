@@ -97,7 +97,7 @@ class TestRepairEndpoints:
                 mock_cache_manager = Mock()
                 mock_cm.return_value = mock_cache_manager
                 
-                with patch("routes.repair.get_configured_api_key", return_value="test-key"):
+                with patch("core.config.get_configured_api_key", return_value="test-key"):
                     # Make request
                     response = flask_client.post(
                         "/quick-fix",
@@ -120,7 +120,7 @@ class TestRepairEndpoints:
         """Test that /quick-fix returns error without code."""
         monkeypatch.setenv("GEMINI_API_KEY", "test-key")
         
-        with patch("routes.repair.get_configured_api_key", return_value="test-key"):
+        with patch("core.config.get_configured_api_key", return_value="test-key"):
             response = flask_client.post(
                 "/quick-fix",
                 json={
