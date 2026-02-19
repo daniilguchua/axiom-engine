@@ -45,3 +45,5 @@ data/cache/
 *.bak2
 *.bak3
 
+venv/
+__pycache__/
