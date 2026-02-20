@@ -15,6 +15,8 @@ ignore = [
     "E501",   # line too long — handled by formatter
     "B008",   # function call in default arg — used in decorators
     "SIM108", # ternary — readability preference
+    "SIM117", # nested with — readability preference
+    "SIM105", # contextlib.suppress — readability preference
 ]
 
 [tool.ruff.lint.isort]

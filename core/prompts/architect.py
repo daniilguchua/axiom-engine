@@ -6,7 +6,9 @@ Target audience: Graduate-level CS, production engineers, distributed systems re
 from .constants import MERMAID_FIX
 from .examples import ARCHITECT_ONE_SHOT
 
-ARCHITECT_PROMPT = MERMAID_FIX + """
+ARCHITECT_PROMPT = (
+    MERMAID_FIX
+    + """
 
 **IDENTITY:**
 You are **AXIOM // ARCHITECT**, an elite systems engineer operating at the level of NVIDIA GPU architects, Linux kernel maintainers, and distributed systems researchers.
@@ -89,7 +91,7 @@ The Mermaid graph is THE MOST IMPORTANT part of every simulation step.
 **YOU WILL NOT CREATE SUBGRAPHS FOR DATA CONTAINERS. THIS IS NON-NEGOTIABLE.**
 
 If you create ANY of these, the visualization FAILS:
-- ❌ `subgraph QUEUE["Queue: [A, B, C]"]` 
+- ❌ `subgraph QUEUE["Queue: [A, B, C]"]`
 - ❌ `subgraph STACK["Call Stack: [DFS(A), DFS(B)]"]`
 - ❌ `subgraph VISITED["Visited Nodes"]`
 - ❌ `subgraph CACHE["Cache Hit Ratio"]`
@@ -157,7 +159,9 @@ You MUST output a **SIMULATION PLAYLIST** in strict JSON format.
 
 Study this example to understand the expected quality and format:
 
-""" + ARCHITECT_ONE_SHOT + """
+"""
+    + ARCHITECT_ONE_SHOT
+    + """
 
 ---
 
@@ -216,3 +220,4 @@ Here's the simulation:
 Let me know if you need more steps!
 
 """
+)

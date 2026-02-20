@@ -3,14 +3,9 @@ Integration tests for RAG document intelligence.
 Tests intent routing, mode detection, and document-grounded interactions.
 """
 
-import pytest
-import json
-from unittest.mock import Mock, patch, MagicMock
-
-from flask import g
-
 
 # --- Intent Routing -- Trigger Pattern Tests ---
+
 
 class TestIntentRouting:
     """Test that trigger patterns correctly classify user intent."""
@@ -18,31 +13,73 @@ class TestIntentRouting:
     # ---- Trigger lists (mirrored from routes/chat.py for validation) ----
 
     TRIGGERS_NEW = [
-        "simulate", "simulation", "run through", "visualize", "step through",
-        "show me how", "show the algorithm", "show how", "show the process",
-        "create a simulation", "create a visualization", "create simulation",
-        "demonstrate how", "demonstrate the", "walk through", "walk me through",
-        "animate", "diagram of how"
+        "simulate",
+        "simulation",
+        "run through",
+        "visualize",
+        "step through",
+        "show me how",
+        "show the algorithm",
+        "show how",
+        "show the process",
+        "create a simulation",
+        "create a visualization",
+        "create simulation",
+        "demonstrate how",
+        "demonstrate the",
+        "walk through",
+        "walk me through",
+        "animate",
+        "diagram of how",
     ]
 
     TRIGGERS_DOCUMENT = [
-        "summarize", "summary", "what does the document", "what does the paper",
-        "what does the pdf", "what does this say", "what is this about",
-        "according to the", "from the document", "from the pdf", "from the paper",
-        "from my notes", "from the textbook", "from the slides", "from the file",
-        "explain this section", "explain the section", "what does page",
-        "define", "what is the definition", "list the", "describe the concept",
-        "in the document", "in the pdf", "in the paper", "in my notes"
+        "summarize",
+        "summary",
+        "what does the document",
+        "what does the paper",
+        "what does the pdf",
+        "what does this say",
+        "what is this about",
+        "according to the",
+        "from the document",
+        "from the pdf",
+        "from the paper",
+        "from my notes",
+        "from the textbook",
+        "from the slides",
+        "from the file",
+        "explain this section",
+        "explain the section",
+        "what does page",
+        "define",
+        "what is the definition",
+        "list the",
+        "describe the concept",
+        "in the document",
+        "in the pdf",
+        "in the paper",
+        "in my notes",
     ]
 
     TRIGGERS_DOC_SIM = [
-        "simulate from", "visualize from", "step through from",
-        "simulate the algorithm in", "simulate what", "simulate this",
-        "show me the algorithm from", "visualize the algorithm from",
-        "run the algorithm from", "step through the algorithm from",
-        "simulate the process from", "show how it works from",
-        "create a simulation from", "create a simulation of the",
-        "from page", "from the document simulate", "from the pdf simulate"
+        "simulate from",
+        "visualize from",
+        "step through from",
+        "simulate the algorithm in",
+        "simulate what",
+        "simulate this",
+        "show me the algorithm from",
+        "visualize the algorithm from",
+        "run the algorithm from",
+        "step through the algorithm from",
+        "simulate the process from",
+        "show how it works from",
+        "create a simulation from",
+        "create a simulation of the",
+        "from page",
+        "from the document simulate",
+        "from the pdf simulate",
     ]
 
     def test_bare_show_does_not_trigger_simulation(self):
@@ -129,6 +166,7 @@ class TestIntentRouting:
 
 
 # --- Mode Selection Logic Tests ---
+
 
 class TestModeSelection:
     """Test mode selection logic (mirrors routes/chat.py logic)."""
@@ -231,6 +269,7 @@ class TestModeSelection:
 
 
 # --- Word-Level Deduplication Tests ---
+
 
 class TestWordDeduplication:
     """Test the word-level overlap deduplication logic used in RAG retrieval."""

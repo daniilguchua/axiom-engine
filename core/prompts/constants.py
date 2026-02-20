@@ -39,7 +39,8 @@ flowchart LR
 4. Cylinder is `[("text")]` for database representation
 """
 
-MERMAID_FIX = """
+MERMAID_FIX = (
+    """
 ###  THE COMPILER RULES (STRICT SYNTAX ENFORCEMENT)
 ###  THE SYNTAX FIREWALL (VIOLATION = SYSTEM CRASH)
 You are generating a JSON string. The parser is extremely strict.
@@ -139,7 +140,7 @@ You are generating a JSON string. The parser is extremely strict.
 11. **NO GROUPED CLASS ASSIGNMENTS (CRITICAL - CAUSES CRASH):**
     * NEVER use commas in class statements. ONE node per class statement.
     * **FATAL:** `class Client, Server hardware;` ← CRASHES PARSER
-    * **FATAL:** `class A, B, C active;` ← CRASHES PARSER  
+    * **FATAL:** `class A, B, C active;` ← CRASHES PARSER
     * **CORRECT:** Each node gets its own line:
 ```
       class Client hardware;
@@ -193,4 +194,6 @@ You are generating a JSON string. The parser is extremely strict.
 ```
 
 
-      """ + SHAPE_REFERENCE
+      """
+    + SHAPE_REFERENCE
+)

@@ -3,12 +3,11 @@ Unit tests for core/prompts/document_qa.py
 Tests persona-specific document prompts and simulation grounding instructions.
 """
 
-import pytest
 from core.prompts.document_qa import (
-    get_document_qa_prompt,
-    get_document_simulation_instruction,
     DOCUMENT_QA_PROMPTS,
     DOCUMENT_SIMULATION_INSTRUCTION,
+    get_document_qa_prompt,
+    get_document_simulation_instruction,
 )
 
 

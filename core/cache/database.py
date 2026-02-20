@@ -3,9 +3,9 @@ Database connection and schema management for the cache system.
 Handles SQLite connection pooling, WAL mode, and schema migrations.
 """
 
-import sqlite3
 import logging
 import os
+import sqlite3
 from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class CacheDatabase:
     Thread-safe database manager for the cache system.
     Handles connection pooling and schema management.
     """
-    
+
     def __init__(self, db_path: str):
         """Initialize cache database, run schema migrations, and close the init connection."""
         self.db_path = db_path
@@ -32,7 +32,7 @@ class CacheDatabase:
         self._init_connection.close()
         self._init_connection = None
         logger.info(f"📂 CacheDatabase connected to: {self.db_path}")
-    
+
     @contextmanager
     def get_connection(self):
         """Thread-safe connection management with WAL mode for better concurrency."""
@@ -40,11 +40,11 @@ class CacheDatabase:
         try:
             conn = sqlite3.connect(self.db_path, timeout=60.0)
             conn.row_factory = sqlite3.Row
-            
+
             # Enable WAL mode for better concurrent access
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA busy_timeout=60000")  # 60 second busy timeout
-            
+
             yield conn
             conn.commit()
         except sqlite3.Error as e:
@@ -55,15 +55,15 @@ class CacheDatabase:
         finally:
             if conn:
                 conn.close()
-    
+
     def _init_schema(self):
         """Initialize database schema, running migrations for existing tables as needed."""
         cursor = self._init_connection.cursor()
-        
+
         # simulation_cache: create or migrate
         cursor.execute("PRAGMA table_info(simulation_cache)")
         columns = [col[1] for col in cursor.fetchall()]
-        
+
         if not columns:
             # Fresh database - create table from scratch
             cursor.execute("""
@@ -84,11 +84,9 @@ class CacheDatabase:
             needs_sim_migration = False
             cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='simulation_cache'")
             create_sql = cursor.fetchone()[0]
-            if 'embedding' not in columns:
+            if "embedding" not in columns or "UNIQUE" in create_sql and "(prompt_key)" in create_sql:
                 needs_sim_migration = True
-            elif 'UNIQUE' in create_sql and '(prompt_key)' in create_sql:
-                needs_sim_migration = True
-            
+
             if needs_sim_migration:
                 cursor.execute("ALTER TABLE simulation_cache RENAME TO simulation_cache_old")
                 cursor.execute("""
@@ -104,28 +102,28 @@ class CacheDatabase:
                     )
                 """)
                 old_cols = [col[1] for col in cursor.execute("PRAGMA table_info(simulation_cache_old)").fetchall()]
-                if 'embedding' in old_cols:
+                if "embedding" in old_cols:
                     cursor.execute("""
                         INSERT INTO simulation_cache (prompt_key, embedding, difficulty, simulation_json, client_verified, created_at)
-                        SELECT prompt_key, embedding, COALESCE(difficulty, 'explorer'), 
-                               COALESCE(simulation_json, playlist_json, '{}'), 
+                        SELECT prompt_key, embedding, COALESCE(difficulty, 'explorer'),
+                               COALESCE(simulation_json, playlist_json, '{}'),
                                COALESCE(client_verified, 0), created_at
                         FROM simulation_cache_old
                     """)
                 else:
                     cursor.execute("""
                         INSERT INTO simulation_cache (prompt_key, difficulty, simulation_json, client_verified, created_at)
-                        SELECT prompt_key, COALESCE(difficulty, 'explorer'), simulation_json, 
+                        SELECT prompt_key, COALESCE(difficulty, 'explorer'), simulation_json,
                                COALESCE(client_verified, 0), created_at
                         FROM simulation_cache_old
                     """)
                 cursor.execute("DROP TABLE simulation_cache_old")
                 logger.info("Migrated simulation_cache with embedding column")
-        
+
         # broken_simulations: create or migrate
         cursor.execute("PRAGMA table_info(broken_simulations)")
         columns = {col[1] for col in cursor.fetchall()}
-        
+
         if not columns:
             # Fresh database - create table from scratch
             cursor.execute("""
@@ -145,16 +143,14 @@ class CacheDatabase:
         else:
             # Existing table - check if migration needed
             needs_migration = False
-            if 'difficulty' not in columns:
-                needs_migration = True
-            elif 'retry_count' not in columns:
+            if "difficulty" not in columns or "retry_count" not in columns:
                 needs_migration = True
             else:
                 cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='broken_simulations'")
                 result = cursor.fetchone()
-                if result and 'UNIQUE(prompt_hash)' in result[0]:
+                if result and "UNIQUE(prompt_hash)" in result[0]:
                     needs_migration = True
-            
+
             if needs_migration:
                 cursor.execute("ALTER TABLE broken_simulations RENAME TO broken_simulations_old")
                 cursor.execute("""
@@ -171,12 +167,12 @@ class CacheDatabase:
                     )
                 """)
                 cursor.execute("""
-                    INSERT INTO broken_simulations 
+                    INSERT INTO broken_simulations
                     (prompt_hash, difficulty, failure_reason, failed_at, retry_count, last_retry_at, is_permanently_broken)
-                    SELECT 
-                        prompt_hash, 
-                        COALESCE(difficulty, 'explorer'), 
-                        failure_reason, 
+                    SELECT
+                        prompt_hash,
+                        COALESCE(difficulty, 'explorer'),
+                        failure_reason,
                         failed_at,
                         1,
                         failed_at,
@@ -185,7 +181,7 @@ class CacheDatabase:
                 """)
                 cursor.execute("DROP TABLE broken_simulations_old")
                 logger.info("Migrated broken_simulations table with retry tracking")
-        
+
         # Create llm_diagnostics table if not exists
         cursor.execute("PRAGMA table_info(llm_diagnostics)")
         if not cursor.fetchall():
@@ -209,11 +205,11 @@ class CacheDatabase:
                 )
             """)
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_llm_diagnostics_session 
+                CREATE INDEX IF NOT EXISTS idx_llm_diagnostics_session
                 ON llm_diagnostics(session_id)
             """)
             logger.info("Created llm_diagnostics table")
-        
+
         # Create repair_logs table if not exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS repair_logs (
@@ -229,7 +225,7 @@ class CacheDatabase:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # Create repair_attempts table if not exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS repair_attempts (
@@ -249,7 +245,7 @@ class CacheDatabase:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # Create pending_repairs table if not exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS pending_repairs (
@@ -263,7 +259,7 @@ class CacheDatabase:
                 UNIQUE(session_id, prompt_key, step_index)
             )
         """)
-        
+
         # Create repair_stats table if not exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS repair_stats (
@@ -278,7 +274,7 @@ class CacheDatabase:
                 UNIQUE(date)
             )
         """)
-        
+
         # Create graph_dataset table if not exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS graph_dataset (
@@ -291,7 +287,7 @@ class CacheDatabase:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # Create feedback_logs table if not exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS feedback_logs (
@@ -305,7 +301,7 @@ class CacheDatabase:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS raw_mermaid_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -325,60 +321,66 @@ class CacheDatabase:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # Clean up junk data
         cursor.execute("""
-            DELETE FROM simulation_cache 
+            DELETE FROM simulation_cache
             WHERE prompt_key IN ('cached-prompt', 'prompt-explorer', 'prompt-engineer', 'prompt-architect', 'partial-prompt', 'unverified-prompt', 'test-prompt')
         """)
         cursor.execute("DELETE FROM simulation_cache WHERE prompt_key LIKE 'User requested simulation%'")
         cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = 'e3b0c44298fc1c149afbf4c8996fb924'")
         cursor.execute("DELETE FROM broken_simulations WHERE prompt_hash = ''")
-        
+
         self._init_connection.commit()
 
     def save_llm_diagnostic(self, session_id, diagnostic_data):
         """
         Save LLM diagnostic information to database.
-        
+
         Args:
             session_id: Session ID
-            diagnostic_data: Dict with keys: mode, difficulty, llm_raw_response, 
+            diagnostic_data: Dict with keys: mode, difficulty, llm_raw_response,
                            llm_step_count, validation_input/output, validation_warnings,
                            storage_before_json, storage_after_json, integrity_check_pass, integrity_error
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO llm_diagnostics 
+            cursor.execute(
+                """
+                INSERT INTO llm_diagnostics
                 (session_id, mode, difficulty, llm_raw_response, llm_response_length, llm_step_count,
                  validation_input_count, validation_output_count, validation_warnings,
                  storage_before_json, storage_after_json, integrity_check_pass, integrity_error)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                session_id,
-                diagnostic_data.get('mode'),
-                diagnostic_data.get('difficulty'),
-                diagnostic_data.get('llm_raw_response', '')[:5000],  # First 5KB
-                len(diagnostic_data.get('llm_raw_response', '')),
-                diagnostic_data.get('llm_step_count', 0),
-                diagnostic_data.get('validation_input_count', 0),
-                diagnostic_data.get('validation_output_count', 0),
-                diagnostic_data.get('validation_warnings', ''),
-                diagnostic_data.get('storage_before_json', ''),
-                diagnostic_data.get('storage_after_json', ''),
-                1 if diagnostic_data.get('integrity_check_pass') else 0,
-                diagnostic_data.get('integrity_error', '')
-            ))
-    
+            """,
+                (
+                    session_id,
+                    diagnostic_data.get("mode"),
+                    diagnostic_data.get("difficulty"),
+                    diagnostic_data.get("llm_raw_response", "")[:5000],  # First 5KB
+                    len(diagnostic_data.get("llm_raw_response", "")),
+                    diagnostic_data.get("llm_step_count", 0),
+                    diagnostic_data.get("validation_input_count", 0),
+                    diagnostic_data.get("validation_output_count", 0),
+                    diagnostic_data.get("validation_warnings", ""),
+                    diagnostic_data.get("storage_before_json", ""),
+                    diagnostic_data.get("storage_after_json", ""),
+                    1 if diagnostic_data.get("integrity_check_pass") else 0,
+                    diagnostic_data.get("integrity_error", ""),
+                ),
+            )
+
     def get_latest_diagnostics(self, session_id, limit=10):
         """Retrieve latest diagnostic records for a session."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM llm_diagnostics 
+            cursor.execute(
+                """
+                SELECT * FROM llm_diagnostics
                 WHERE session_id = ?
                 ORDER BY created_at DESC
                 LIMIT ?
-            """, (session_id, limit))
+            """,
+                (session_id, limit),
+            )
             return [dict(row) for row in cursor.fetchall()]

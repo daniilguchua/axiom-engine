@@ -3,19 +3,18 @@ Pytest fixtures and configuration for the test suite.
 Provides mocks for external dependencies and temporary resources.
 """
 
-import os
 import sqlite3
 import tempfile
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
 from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-import pytest
 import numpy as np
+import pytest
 from freezegun import freeze_time
 
-
 # --- Environment & Fixture Setup ---
+
 
 @pytest.fixture(autouse=True)
 def setup_env(monkeypatch):
@@ -38,7 +37,7 @@ def real_test_db(temp_db_path):
     conn = sqlite3.connect(temp_db_path)
     conn.execute("PRAGMA journal_mode=WAL")
     cursor = conn.cursor()
-    
+
     # Create cache schema (matching production - core/cache/database.py)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS simulation_cache (
@@ -52,7 +51,7 @@ def real_test_db(temp_db_path):
             UNIQUE(prompt_key, difficulty)
         )
     """)
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS repair_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +66,7 @@ def real_test_db(temp_db_path):
             created_at TIMESTAMP
         )
     """)
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS repair_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,7 +85,7 @@ def real_test_db(temp_db_path):
             created_at TIMESTAMP
         )
     """)
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pending_repairs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,7 +98,7 @@ def real_test_db(temp_db_path):
             UNIQUE(session_id, prompt_key, step_index)
         )
     """)
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS broken_simulations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,7 +112,7 @@ def real_test_db(temp_db_path):
             UNIQUE(prompt_hash, difficulty)
         )
     """)
-    
+
     conn.commit()
     yield conn
     conn.close()
@@ -121,22 +120,24 @@ def real_test_db(temp_db_path):
 
 # --- Mocking: Gemini Api & Llm Streaming ---
 
+
 @pytest.fixture
 def mock_gemini_response():
     """Create a realistic mock Gemini API response with streaming."""
+
     def make_response(code_content: str = "graph LR\n  A[Start] --> B[End]"):
         """Create a mock streaming response."""
         response_mock = Mock()
-        
+
         # Simulate streaming chunks (realistic behavior)
         chunks = [
             Mock(text='{"code": "graph LR\\n  A[Start] --> '),
-            Mock(text='B[End]\\n  A -->|route| C[Node]'),
+            Mock(text="B[End]\\n  A -->|route| C[Node]"),
             Mock(text='", "metadata": {"thinking": "..."}}\n'),
         ]
-        response_mock.text = ''.join(c.text for c in chunks)
+        response_mock.text = "".join(c.text for c in chunks)
         return response_mock
-    
+
     return make_response
 
 
@@ -144,7 +145,7 @@ def mock_gemini_response():
 def mock_genai_client(monkeypatch, mock_gemini_response):
     """Mock the google-genai client returned by get_genai_client."""
     mock_response = mock_gemini_response()
-    
+
     # Create a mock client with the proper .models API structure
     mock_client = Mock()
     mock_models = Mock()
@@ -155,7 +156,7 @@ def mock_genai_client(monkeypatch, mock_gemini_response):
     mock_embedding.values = [0.1, 0.2, 0.3] * 256  # 768-dim vector
     mock_models.embed_content = Mock(return_value=Mock(embeddings=[mock_embedding]))
     mock_client.models = mock_models
-    
+
     with patch("core.config.get_genai_client", return_value=mock_client):
         yield mock_client
 
@@ -163,17 +164,18 @@ def mock_genai_client(monkeypatch, mock_gemini_response):
 @pytest.fixture
 def mock_embeddings_api():
     """Mock the GoogleGenerativeAIEmbeddings API."""
+
     def embed_query(text):
         """Generate deterministic, seeded embeddings."""
         # Simple deterministic embedding: hash the text and create a vector
         hash_val = hash(text) % 2**32
         np.random.seed(hash_val)
         return np.random.randn(768).tolist()  # 768-dim embedding
-    
+
     def embed_documents(texts):
         """Embed multiple documents."""
         return [embed_query(text) for text in texts]
-    
+
     mock_embedder = Mock()
     mock_embedder.embed_query = Mock(side_effect=embed_query)
     mock_embedder.embed_documents = Mock(side_effect=embed_documents)
@@ -181,6 +183,7 @@ def mock_embeddings_api():
 
 
 # --- Mocking: Faiss Vector Store ---
+
 
 @pytest.fixture
 def mock_faiss_store():
@@ -193,6 +196,7 @@ def mock_faiss_store():
 
 # --- Session Fixtures ---
 
+
 @pytest.fixture
 def sample_session_data():
     """Sample session data for testing."""
@@ -201,14 +205,11 @@ def sample_session_data():
         "filename": "test_document.pdf",
         "chat_history": [
             {"role": "user", "content": "What is this about?"},
-            {"role": "assistant", "content": "This is a test."}
+            {"role": "assistant", "content": "This is a test."},
         ],
         "full_text": "Lorem ipsum dolor sit amet...",
         "simulation_active": True,
-        "current_sim_data": [
-            {"step": 1, "output": "Initial state"},
-            {"step": 2, "output": "Processing..."}
-        ],
+        "current_sim_data": [{"step": 1, "output": "Initial state"}, {"step": 2, "output": "Processing..."}],
         "current_step_index": 1,
         "pending_repair": False,
         "repair_step_index": None,
@@ -216,6 +217,7 @@ def sample_session_data():
 
 
 # --- Mermaid & Text Fixtures ---
+
 
 @pytest.fixture
 def valid_mermaid_code():
@@ -252,10 +254,12 @@ def injection_attempt_message():
 
 # --- Flask App Fixtures ---
 
+
 @pytest.fixture
 def flask_app():
     """Create a Flask app for testing routes."""
     from app import app
+
     app.config["TESTING"] = True
     return app
 
@@ -274,6 +278,7 @@ def app_context(flask_app):
 
 
 # --- Cache & Database Fixtures ---
+
 
 @pytest.fixture
 def cache_mock():
@@ -302,6 +307,7 @@ def session_manager_mock():
 
 # --- Time-Based Fixtures (Using Freezegun) ---
 
+
 @pytest.fixture
 def frozen_time():
     """Freeze time for TTL and timestamp testing."""
@@ -314,12 +320,15 @@ def time_advanced():
     """Freeze time and provide a way to advance it."""
     base_time = datetime(2026, 2, 3, 12, 0, 0)
     with freeze_time(base_time) as frozen:
+
         def advance_seconds(seconds):
             frozen.move_to(base_time + timedelta(seconds=seconds))
+
         yield frozen, advance_seconds
 
 
 # --- Parametrized Fixtures For Edge Cases ---
+
 
 @pytest.fixture(
     params=[
@@ -362,6 +371,7 @@ def path_traversal_attempts(request):
 
 
 # --- Helper Functions For Tests ---
+
 
 def create_mock_embedding(text: str, dim: int = 768) -> list:
     """Create a deterministic mock embedding for a given text."""

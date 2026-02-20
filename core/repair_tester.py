@@ -3,18 +3,18 @@ Repair Testing System - Tests LLM output through all sanitization pipelines.
 Logs results to database for analysis.
 """
 
-import sqlite3
-import os
 import logging
-from datetime import datetime
-from typing import Dict, List, Any, Optional
+import os
+import sqlite3
 from contextlib import contextmanager
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Database path
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(CURRENT_DIR, ".axiom_test_cache", "repair_tests.db")
+
 
 class RepairTester:
     """Tests mermaid code through different sanitization pipelines."""
@@ -98,7 +98,7 @@ class RepairTester:
         sim_id: str = None,
         step_index: int = None,
         prompt: str = None,
-        test_results: Dict[str, Any] = None
+        test_results: dict[str, Any] = None,
     ) -> int:
         """
         Log a repair test to the database.
@@ -121,7 +121,8 @@ class RepairTester:
             # Determine best method
             best_method = self._determine_best_method(test_results)
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO repair_tests (
                     session_id, sim_id, step_index, prompt,
                     raw_mermaid, raw_error, raw_rendered,
@@ -131,25 +132,30 @@ class RepairTester:
                     js_then_python_output, js_then_python_error, js_then_python_rendered,
                     best_method
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                session_id, sim_id, step_index, prompt,
-                raw_mermaid,
-                test_results.get('raw', {}).get('error'),
-                1 if test_results.get('raw', {}).get('rendered') else 0,
-                test_results.get('python', {}).get('output'),
-                test_results.get('python', {}).get('error'),
-                1 if test_results.get('python', {}).get('rendered') else 0,
-                test_results.get('mermaidjs', {}).get('output'),
-                test_results.get('mermaidjs', {}).get('error'),
-                1 if test_results.get('mermaidjs', {}).get('rendered') else 0,
-                test_results.get('python_then_js', {}).get('output'),
-                test_results.get('python_then_js', {}).get('error'),
-                1 if test_results.get('python_then_js', {}).get('rendered') else 0,
-                test_results.get('js_then_python', {}).get('output'),
-                test_results.get('js_then_python', {}).get('error'),
-                1 if test_results.get('js_then_python', {}).get('rendered') else 0,
-                best_method
-            ))
+            """,
+                (
+                    session_id,
+                    sim_id,
+                    step_index,
+                    prompt,
+                    raw_mermaid,
+                    test_results.get("raw", {}).get("error"),
+                    1 if test_results.get("raw", {}).get("rendered") else 0,
+                    test_results.get("python", {}).get("output"),
+                    test_results.get("python", {}).get("error"),
+                    1 if test_results.get("python", {}).get("rendered") else 0,
+                    test_results.get("mermaidjs", {}).get("output"),
+                    test_results.get("mermaidjs", {}).get("error"),
+                    1 if test_results.get("mermaidjs", {}).get("rendered") else 0,
+                    test_results.get("python_then_js", {}).get("output"),
+                    test_results.get("python_then_js", {}).get("error"),
+                    1 if test_results.get("python_then_js", {}).get("rendered") else 0,
+                    test_results.get("js_then_python", {}).get("output"),
+                    test_results.get("js_then_python", {}).get("error"),
+                    1 if test_results.get("js_then_python", {}).get("rendered") else 0,
+                    best_method,
+                ),
+            )
 
             conn.commit()
             test_id = cursor.lastrowid
@@ -157,43 +163,47 @@ class RepairTester:
             logger.info(f"[OK] Logged repair test #{test_id}, best method: {best_method}")
             return test_id
 
-    def _determine_best_method(self, test_results: Dict[str, Any]) -> str:
+    def _determine_best_method(self, test_results: dict[str, Any]) -> str:
         """Determine which sanitization method worked best."""
         if not test_results:
             return "NONE"
 
         # Priority order
-        if test_results.get('raw', {}).get('rendered'):
+        if test_results.get("raw", {}).get("rendered"):
             return "RAW"
-        if test_results.get('python', {}).get('rendered'):
+        if test_results.get("python", {}).get("rendered"):
             return "PYTHON"
-        if test_results.get('mermaidjs', {}).get('rendered'):
+        if test_results.get("mermaidjs", {}).get("rendered"):
             return "MERMAIDJS"
-        if test_results.get('python_then_js', {}).get('rendered'):
+        if test_results.get("python_then_js", {}).get("rendered"):
             return "PYTHON_THEN_JS"
-        if test_results.get('js_then_python', {}).get('rendered'):
+        if test_results.get("js_then_python", {}).get("rendered"):
             return "JS_THEN_PYTHON"
 
         return "NONE"
 
-    def get_recent_tests(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_recent_tests(self, limit: int = 50) -> list[dict[str, Any]]:
         """Get recent repair tests."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM repair_tests
                 ORDER BY created_at DESC
                 LIMIT ?
-            """, (limit,))
+            """,
+                (limit,),
+            )
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_stats(self, days: int = 7) -> Dict[str, Any]:
+    def get_stats(self, days: int = 7) -> dict[str, Any]:
         """Get repair test statistics."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
             # Success rates by method
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     SUM(raw_rendered) as raw_success,
                     SUM(python_rendered) as python_success,
@@ -203,22 +213,24 @@ class RepairTester:
                     COUNT(*) as total_tests
                 FROM repair_tests
                 WHERE created_at >= datetime('now', ? || ' days')
-            """, (f'-{days}',))
+            """,
+                (f"-{days}",),
+            )
 
             stats = dict(cursor.fetchone())
 
             # Best method distribution
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT best_method, COUNT(*) as count
                 FROM repair_tests
                 WHERE created_at >= datetime('now', ? || ' days')
                 GROUP BY best_method
                 ORDER BY count DESC
-            """, (f'-{days}',))
+            """,
+                (f"-{days}",),
+            )
 
-            stats['best_method_distribution'] = {
-                row['best_method']: row['count']
-                for row in cursor.fetchall()
-            }
+            stats["best_method_distribution"] = {row["best_method"]: row["count"] for row in cursor.fetchall()}
 
             return stats

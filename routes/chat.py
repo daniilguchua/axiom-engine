@@ -2,133 +2,238 @@
 Main chat endpoint with streaming response and difficulty selection.
 """
 
-import logging
 import json
-import re
+import logging
 import random
+import re
 from collections import Counter
 
-from flask import Blueprint, request, jsonify, Response, g
+from flask import Blueprint, Response, g, jsonify, request
 from google import genai
 
-from core.config import get_configured_api_key, get_session_manager, get_cache_manager
-from core.decorators import validate_session, rate_limit, require_configured_api_key
-from core.prompts import get_system_prompt, DIFFICULTY_PROMPTS
+from core.config import get_cache_manager, get_session_manager
+from core.decorators import rate_limit, require_configured_api_key, validate_session
+from core.prompts import DIFFICULTY_PROMPTS, get_system_prompt
 from core.prompts.document_qa import get_document_qa_prompt, get_document_simulation_instruction
-from core.utils import InputValidator
 from core.repair_tester import RepairTester
+from core.utils import InputValidator
 
 logger = logging.getLogger(__name__)
 
 # Initialize repair tester for raw output capture
 repair_tester = RepairTester()
 
-chat_bp = Blueprint('chat', __name__)
-
+chat_bp = Blueprint("chat", __name__)
 
 
 _ALGO_PATTERNS = [
     # Order matters! More specific patterns first.
-    ("sort", {
-        "keywords": ["sort", "quicksort", "mergesort", "merge sort", "heapsort", "heap sort",
-                     "bubblesort", "bubble sort", "insertion sort", "selection sort", "radix",
-                     "counting sort", "bucket sort", "shell sort", "tim sort", "sorting",
-                     "topological sort"],
-        "generator": lambda: {
-            "type": "array",
-            "label": "Input Array",
-            "value": random.sample(range(1, 100), random.randint(7, 10))
-        }
-    }),
-    ("tree", {
-        "keywords": ["bst", "binary search tree", "binary tree", "avl", "red-black",
-                     "tree insertion", "tree deletion", "tree traversal", "inorder",
-                     "preorder", "postorder", "heap", "trie", "b-tree", "segment tree",
-                     "fenwick", "huffman", "tree rotation", "splay", "level order"],
-        "generator": lambda: {
-            "type": "tree",
-            "label": "Insert Sequence (BST)",
-            "value": random.sample(range(1, 50), 8)
-        }
-    }),
-    ("graph", {
-        "keywords": ["dijkstra", "bfs", "breadth first", "dfs", "depth first",
-                     "bellman", "prim", "kruskal", "shortest path", "spanning tree",
-                     "topological", "graph traversal", "tarjan", "strongly connected",
-                     "scc", "floyd", "warshall", "all pairs", "a*", "astar",
-                     "minimum spanning", "union find", "connected components",
-                     "bipartite", "network flow", "max flow", "min cut"],
-        "generator": lambda: {
-            "type": "graph",
-            "label": "Weighted Graph (Adjacency List)",
-            "value": {
-                "A": {"B": 4, "C": 2},
-                "B": {"A": 4, "D": 5, "E": 10},
-                "C": {"A": 2, "D": 8, "F": 3},
-                "D": {"B": 5, "C": 8, "E": 2},
-                "E": {"B": 10, "D": 2, "F": 6},
-                "F": {"C": 3, "E": 6}
+    (
+        "sort",
+        {
+            "keywords": [
+                "sort",
+                "quicksort",
+                "mergesort",
+                "merge sort",
+                "heapsort",
+                "heap sort",
+                "bubblesort",
+                "bubble sort",
+                "insertion sort",
+                "selection sort",
+                "radix",
+                "counting sort",
+                "bucket sort",
+                "shell sort",
+                "tim sort",
+                "sorting",
+                "topological sort",
+            ],
+            "generator": lambda: {
+                "type": "array",
+                "label": "Input Array",
+                "value": random.sample(range(1, 100), random.randint(7, 10)),
             },
-            "start": "A"
-        }
-    }),
-    ("search", {
-        "keywords": ["binary search", "linear search", "search algorithm",
-                     "search a sorted", "searching", "interpolation search",
-                     "ternary search", "exponential search", "jump search"],
-        "generator": lambda: {
-            "type": "search",
-            "label": "Sorted Array + Target",
-            "value": (arr := sorted(random.sample(range(1, 80), 10)),
-                      {"array": arr, "target": random.choice(arr)})[1]
-        }
-    }),
-    ("dp", {
-        "keywords": ["dynamic programming", "knapsack", "fibonacci", "longest common",
-                     "lcs", "edit distance", "coin change", "memoization", "tabulation",
-                     "subsequence", "rod cutting", "matrix chain", "partition"],
-        "generator": lambda: {
-            "type": "dp",
-            "label": "Problem Instance",
-            "value": {
-                "items": [{"weight": w, "value": v} for w, v in
-                          zip(random.sample(range(1, 15), 5),
-                              random.sample(range(5, 50), 5))],
-                "capacity": random.randint(15, 25)
-            }
-        }
-    }),
-    ("linkedlist", {
-        "keywords": ["linked list", "singly linked", "doubly linked", "reverse linked",
-                     "cycle detection", "linked list merge", "list reversal",
-                     "two pointer", "slow fast pointer"],
-        "generator": lambda: {
-            "type": "linkedlist",
-            "label": "Linked List Values",
-            "value": random.sample(range(1, 30), 6)
-        }
-    }),
-    ("hash", {
-        "keywords": ["hash table", "hash map", "hashing", "collision", "open addressing",
-                     "chaining"],
-        "generator": lambda: {
-            "type": "hashtable",
-            "label": "Keys to Insert (table size 7)",
-            "value": {"keys": random.sample(range(1, 50), 6), "table_size": 7}
-        }
-    }),
+        },
+    ),
+    (
+        "tree",
+        {
+            "keywords": [
+                "bst",
+                "binary search tree",
+                "binary tree",
+                "avl",
+                "red-black",
+                "tree insertion",
+                "tree deletion",
+                "tree traversal",
+                "inorder",
+                "preorder",
+                "postorder",
+                "heap",
+                "trie",
+                "b-tree",
+                "segment tree",
+                "fenwick",
+                "huffman",
+                "tree rotation",
+                "splay",
+                "level order",
+            ],
+            "generator": lambda: {
+                "type": "tree",
+                "label": "Insert Sequence (BST)",
+                "value": random.sample(range(1, 50), 8),
+            },
+        },
+    ),
+    (
+        "graph",
+        {
+            "keywords": [
+                "dijkstra",
+                "bfs",
+                "breadth first",
+                "dfs",
+                "depth first",
+                "bellman",
+                "prim",
+                "kruskal",
+                "shortest path",
+                "spanning tree",
+                "topological",
+                "graph traversal",
+                "tarjan",
+                "strongly connected",
+                "scc",
+                "floyd",
+                "warshall",
+                "all pairs",
+                "a*",
+                "astar",
+                "minimum spanning",
+                "union find",
+                "connected components",
+                "bipartite",
+                "network flow",
+                "max flow",
+                "min cut",
+            ],
+            "generator": lambda: {
+                "type": "graph",
+                "label": "Weighted Graph (Adjacency List)",
+                "value": {
+                    "A": {"B": 4, "C": 2},
+                    "B": {"A": 4, "D": 5, "E": 10},
+                    "C": {"A": 2, "D": 8, "F": 3},
+                    "D": {"B": 5, "C": 8, "E": 2},
+                    "E": {"B": 10, "D": 2, "F": 6},
+                    "F": {"C": 3, "E": 6},
+                },
+                "start": "A",
+            },
+        },
+    ),
+    (
+        "search",
+        {
+            "keywords": [
+                "binary search",
+                "linear search",
+                "search algorithm",
+                "search a sorted",
+                "searching",
+                "interpolation search",
+                "ternary search",
+                "exponential search",
+                "jump search",
+            ],
+            "generator": lambda: {
+                "type": "search",
+                "label": "Sorted Array + Target",
+                "value": (arr := sorted(random.sample(range(1, 80), 10)), {"array": arr, "target": random.choice(arr)})[
+                    1
+                ],
+            },
+        },
+    ),
+    (
+        "dp",
+        {
+            "keywords": [
+                "dynamic programming",
+                "knapsack",
+                "fibonacci",
+                "longest common",
+                "lcs",
+                "edit distance",
+                "coin change",
+                "memoization",
+                "tabulation",
+                "subsequence",
+                "rod cutting",
+                "matrix chain",
+                "partition",
+            ],
+            "generator": lambda: {
+                "type": "dp",
+                "label": "Problem Instance",
+                "value": {
+                    "items": [
+                        {"weight": w, "value": v}
+                        for w, v in zip(random.sample(range(1, 15), 5), random.sample(range(5, 50), 5), strict=False)
+                    ],
+                    "capacity": random.randint(15, 25),
+                },
+            },
+        },
+    ),
+    (
+        "linkedlist",
+        {
+            "keywords": [
+                "linked list",
+                "singly linked",
+                "doubly linked",
+                "reverse linked",
+                "cycle detection",
+                "linked list merge",
+                "list reversal",
+                "two pointer",
+                "slow fast pointer",
+            ],
+            "generator": lambda: {
+                "type": "linkedlist",
+                "label": "Linked List Values",
+                "value": random.sample(range(1, 30), 6),
+            },
+        },
+    ),
+    (
+        "hash",
+        {
+            "keywords": ["hash table", "hash map", "hashing", "collision", "open addressing", "chaining"],
+            "generator": lambda: {
+                "type": "hashtable",
+                "label": "Keys to Insert (table size 7)",
+                "value": {"keys": random.sample(range(1, 50), 6), "table_size": 7},
+            },
+        },
+    ),
 ]
 
 
 def _enrich_simulation_input(user_msg):
     """Detect algorithm type and generate concrete input data.
-    
+
     Returns:
         dict or None: Input data dict with type, label, value fields,
                       or None if algorithm type not recognized.
     """
     msg_lower = user_msg.lower()
-    
+
     for category, config in _ALGO_PATTERNS:
         if any(kw in msg_lower for kw in config["keywords"]):
             try:
@@ -137,7 +242,7 @@ def _enrich_simulation_input(user_msg):
             except Exception as e:
                 logger.error(f"Failed to generate {category} input: {e}")
                 return None
-    
+
     return None
 
 
@@ -145,13 +250,13 @@ def _format_input_for_prompt(input_data):
     """Format input_data dict into a string for the LLM prompt."""
     if not input_data:
         return ""
-    
+
     value = input_data.get("value")
     label = input_data.get("label", "Input Data")
     data_type = input_data.get("type", "unknown")
-    
+
     formatted = json.dumps(value, indent=2) if isinstance(value, (dict, list)) else str(value)
-    
+
     # Type-specific instructions to prevent common LLM mistakes
     type_guidance = ""
     if data_type == "graph":
@@ -177,7 +282,7 @@ def _format_input_for_prompt(input_data):
 - Show the array with low/mid/high pointers as labeled nodes
 - Highlight the current search range and comparison
 """
-    
+
     return f"""
 
 **INPUT DATA ({label}):**
@@ -190,66 +295,65 @@ Operate on these specific values step by step. Show how each element changes thr
 """
 
 
-
 def validate_and_clean_steps(new_steps, current_sim_data, mode):
     """
     Validate and clean new steps before storing.
-    
+
     Detects and removes:
     - Duplicate step numbers
     - Out-of-order steps
     - Steps with missing required fields
-    
+
     Args:
         new_steps: List of step dicts from LLM
         current_sim_data: Current list of steps in session
         mode: Either "NEW_SIMULATION" or "CONTINUE_SIMULATION"
-    
+
     Returns:
         Tuple of (cleaned_steps, warnings)
     """
     warnings = []
     cleaned = []
     seen_step_nums = set()
-    
+
     # Get existing step numbers
     if current_sim_data:
-        existing_nums = {s.get('step', -1) for s in current_sim_data}
+        existing_nums = {s.get("step", -1) for s in current_sim_data}
     else:
         existing_nums = set()
-    
+
     for step in new_steps:
-        step_num = step.get('step')
-        
+        step_num = step.get("step")
+
         # Validation 1: Must have step number
         if step_num is None:
             warnings.append(f"Step missing 'step' field: {step.get('instruction', '')[:30]}...")
             continue
-        
+
         # Validation 2: Duplicate within new response
         if step_num in seen_step_nums:
             warnings.append(f"Duplicate step number {step_num} in response (removing second occurrence)")
             continue
-        
+
         # Validation 3: Duplicate with existing steps
         if step_num in existing_nums:
             warnings.append(f"Step {step_num} already exists in array (removing duplicate)")
             continue
-        
+
         # Validation 4: Required fields present
-        required_fields = ['step', 'instruction', 'mermaid']
+        required_fields = ["step", "instruction", "mermaid"]
         missing = [f for f in required_fields if f not in step]
         if missing:
             warnings.append(f"Step {step_num} missing fields: {', '.join(missing)}")
             step.update({f: "" for f in missing})
-        
+
         seen_step_nums.add(step_num)
         cleaned.append(step)
-    
+
     # Log validation results
     if warnings:
         logger.warning(f"[WARN] VALIDATION: {len(new_steps)} → {len(cleaned)} steps ({len(warnings)} issues)")
-    
+
     return cleaned, warnings
 
 
@@ -261,7 +365,7 @@ def get_max_step_number(sim_data):
     """
     if not sim_data:
         return -1
-    return max([s.get('step', -1) for s in sim_data])
+    return max([s.get("step", -1) for s in sim_data])
 
 
 def get_last_unique_step(sim_data):
@@ -273,11 +377,11 @@ def get_last_unique_step(sim_data):
     if not sim_data:
         return None
 
-    step_counts = Counter(s.get('step', -1) for s in sim_data)
+    step_counts = Counter(s.get("step", -1) for s in sim_data)
 
     # Walk backwards and return the first step whose number appears exactly once
     for step in reversed(sim_data):
-        step_num = step.get('step', -1)
+        step_num = step.get("step", -1)
         if step_counts[step_num] == 1:
             return step
 
@@ -285,12 +389,23 @@ def get_last_unique_step(sim_data):
     return sim_data[-1]
 
 
-def _log_diagnostic(cache_manager, session_id, mode, difficulty, llm_raw, new_steps, cleaned_steps, 
-                    storage_before, storage_after, integrity_pass, integrity_error):
+def _log_diagnostic(
+    cache_manager,
+    session_id,
+    mode,
+    difficulty,
+    llm_raw,
+    new_steps,
+    cleaned_steps,
+    storage_before,
+    storage_after,
+    integrity_pass,
+    integrity_error,
+):
     """
     Log diagnostic information for LLM request to database.
     Provides centralized diagnostic tracking for debugging.
-    
+
     Args:
         cache_manager: Cache manager instance with database
         session_id: Session ID
@@ -306,151 +421,204 @@ def _log_diagnostic(cache_manager, session_id, mode, difficulty, llm_raw, new_st
     """
     try:
         # Log to console (one line, structured)
-        step_diff = len(cleaned_steps) - len(storage_before)
+        len(cleaned_steps) - len(storage_before)
         console_msg = f"[{mode[:4]}] LLM: {len(new_steps)} → {len(cleaned_steps)} (stored), DB: {len(storage_before)} → {len(storage_after)}"
-        
+
         if len(cleaned_steps) == 1 and mode == "CONTINUE_SIMULATION":
             logger.warning(f"[WARN] {console_msg} (expected 3 steps!)")
         else:
             logger.info(console_msg)
-        
+
         # Log to database
         diagnostic_data = {
-            'mode': mode,
-            'difficulty': difficulty,
-            'llm_raw_response': llm_raw[:5000] if llm_raw else '',
-            'llm_step_count': len(new_steps),
-            'validation_input_count': len(new_steps),
-            'validation_output_count': len(cleaned_steps),
-            'validation_warnings': '',
-            'storage_before_json': json.dumps([{'step': s.get('step'), 'instr': s.get('instruction', '')[:50]} for s in storage_before]),
-            'storage_after_json': json.dumps([{'step': s.get('step'), 'instr': s.get('instruction', '')[:50]} for s in storage_after]),
-            'integrity_check_pass': integrity_pass,
-            'integrity_error': integrity_error or ''
+            "mode": mode,
+            "difficulty": difficulty,
+            "llm_raw_response": llm_raw[:5000] if llm_raw else "",
+            "llm_step_count": len(new_steps),
+            "validation_input_count": len(new_steps),
+            "validation_output_count": len(cleaned_steps),
+            "validation_warnings": "",
+            "storage_before_json": json.dumps(
+                [{"step": s.get("step"), "instr": s.get("instruction", "")[:50]} for s in storage_before]
+            ),
+            "storage_after_json": json.dumps(
+                [{"step": s.get("step"), "instr": s.get("instruction", "")[:50]} for s in storage_after]
+            ),
+            "integrity_check_pass": integrity_pass,
+            "integrity_error": integrity_error or "",
         }
-        
-        if hasattr(cache_manager, 'database') and cache_manager.database:
+
+        if hasattr(cache_manager, "database") and cache_manager.database:
             cache_manager.database.save_llm_diagnostic(session_id, diagnostic_data)
     except Exception as e:
         logger.error(f"Failed to log diagnostic: {e}")
 
 
-@chat_bp.route('/chat', methods=['POST'])
+@chat_bp.route("/chat", methods=["POST"])
 @require_configured_api_key
 @validate_session
 @rate_limit(max_requests=30, window_seconds=60)
 def chat():
     """Main chat endpoint with streaming response."""
     data = request.get_json()
-    
+
     if not data:
         return jsonify({"error": "Invalid JSON body"}), 400
-    
+
     raw_message = data.get("message", "")
     user_msg = InputValidator.sanitize_message(raw_message)
-    
+
     # Get difficulty level (default to engineer)
     difficulty = data.get("difficulty", "engineer").lower()
     if difficulty not in DIFFICULTY_PROMPTS:
         difficulty = "engineer"
-    
+
     if not user_msg:
         return jsonify({"error": "Message cannot be empty"}), 400
-    
+
     session_id = g.session_id
     session_manager = get_session_manager()
     cache_manager = get_cache_manager()
-    
+
     # Get session with proper error handling
     try:
         user_db = session_manager.get_session(session_id)
     except ValueError as e:
         logger.error(f"Invalid session: {e}")
         return jsonify({"error": "Invalid session ID"}), 401
-    
+
     # Store difficulty preference in session
     user_db["difficulty"] = difficulty
-    
+
     # Intent detection
 
-    triggers_new = ["simulate", "simulation", "run through", "visualize", "step through",
-                    "show me how", "show the algorithm", "show how", "show the process",
-                    "create a simulation", "create a visualization", "create simulation",
-                    "demonstrate how", "demonstrate the", "walk through", "walk me through",
-                    "animate", "diagram of how"]
+    triggers_new = [
+        "simulate",
+        "simulation",
+        "run through",
+        "visualize",
+        "step through",
+        "show me how",
+        "show the algorithm",
+        "show how",
+        "show the process",
+        "create a simulation",
+        "create a visualization",
+        "create simulation",
+        "demonstrate how",
+        "demonstrate the",
+        "walk through",
+        "walk me through",
+        "animate",
+        "diagram of how",
+    ]
     triggers_continue = ["next", "continue", "proceed", "go on", "more"]
-    
+
     # Document-intent triggers — user wants to chat about their PDF, not simulate
-    triggers_document = ["summarize", "summary", "what does the document", "what does the paper",
-                         "what does the pdf", "what does this say", "what is this about",
-                         "according to the", "from the document", "from the pdf", "from the paper",
-                         "from my notes", "from the textbook", "from the slides", "from the file",
-                         "explain this section", "explain the section", "what does page",
-                         "define", "what is the definition", "list the", "describe the concept",
-                         "in the document", "in the pdf", "in the paper", "in my notes"]
-    
+    triggers_document = [
+        "summarize",
+        "summary",
+        "what does the document",
+        "what does the paper",
+        "what does the pdf",
+        "what does this say",
+        "what is this about",
+        "according to the",
+        "from the document",
+        "from the pdf",
+        "from the paper",
+        "from my notes",
+        "from the textbook",
+        "from the slides",
+        "from the file",
+        "explain this section",
+        "explain the section",
+        "what does page",
+        "define",
+        "what is the definition",
+        "list the",
+        "describe the concept",
+        "in the document",
+        "in the pdf",
+        "in the paper",
+        "in my notes",
+    ]
+
     # Document-simulation triggers — user wants to simulate FROM their PDF content
-    triggers_doc_sim = ["simulate from", "visualize from", "step through from",
-                        "simulate the algorithm in", "simulate what", "simulate this",
-                        "show me the algorithm from", "visualize the algorithm from",
-                        "run the algorithm from", "step through the algorithm from",
-                        "simulate the process from", "show how it works from",
-                        "create a simulation from", "create a simulation of the",
-                        "from page", "from the document simulate", "from the pdf simulate"]
-    
+    triggers_doc_sim = [
+        "simulate from",
+        "visualize from",
+        "step through from",
+        "simulate the algorithm in",
+        "simulate what",
+        "simulate this",
+        "show me the algorithm from",
+        "visualize the algorithm from",
+        "run the algorithm from",
+        "step through the algorithm from",
+        "simulate the process from",
+        "show how it works from",
+        "create a simulation from",
+        "create a simulation of the",
+        "from page",
+        "from the document simulate",
+        "from the pdf simulate",
+    ]
+
     # Check for regeneration trigger (user edited input data)
     is_regenerate = "REGENERATE_SIMULATION_WITH_NEW_INPUT" in user_msg
-    
+
     is_new_sim = any(t in user_msg.lower() for t in triggers_new)
-    
+
     # Check if user wants to simulate FROM their document
     has_pdf = bool(user_db.get("vector_store"))
     is_doc_sim = has_pdf and any(t in user_msg.lower() for t in triggers_doc_sim)
-    
+
     # Check if user wants document Q&A (not simulation)
     is_doc_qa = has_pdf and any(t in user_msg.lower() for t in triggers_document)
-    
+
     # Document simulation overrides regular new sim (more specific intent)
     if is_doc_sim:
         is_new_sim = True  # It IS a simulation, just grounded in the document
-    
+
     # Document Q&A should NOT trigger simulation mode
     if is_doc_qa and not is_new_sim and not is_doc_sim:
         is_new_sim = False
-    
+
     if any(t in user_msg.lower() for t in ["more", "next"]):
         is_new_sim = False
 
     # Explicit CONTINUE_SIMULATION command from the GENERATE_MORE button always wins
     if "continue_simulation" in user_msg.lower():
         is_new_sim = False
-    
+
     # Detect explicit CONTINUE_SIMULATION command from frontend GENERATE_MORE button.
     # This works even if session was lost (simulation_active is False).
     is_explicit_continue = "continue_simulation" in user_msg.lower()
 
     is_continue = is_explicit_continue or (
-        any(t in user_msg.lower() for t in triggers_continue)
-        and user_db["simulation_active"]
+        any(t in user_msg.lower() for t in triggers_continue) and user_db["simulation_active"]
     )
 
     # If explicit continue but session lost, re-activate the simulation
     if is_explicit_continue and not user_db["simulation_active"]:
         user_db["simulation_active"] = True
-        logger.warning(f"[WARN] Session lost but got explicit CONTINUE_SIMULATION, re-activating")
-    
+        logger.warning("[WARN] Session lost but got explicit CONTINUE_SIMULATION, re-activating")
+
     # Handle input data regeneration
 
     if is_regenerate:
         # Extract edited input data from message
         try:
-            match = re.search(r'REGENERATE_SIMULATION_WITH_NEW_INPUT:\s*(.*?)(?:\nUser comment:|$)', user_msg, re.DOTALL)
+            match = re.search(
+                r"REGENERATE_SIMULATION_WITH_NEW_INPUT:\s*(.*?)(?:\nUser comment:|$)", user_msg, re.DOTALL
+            )
             if match:
                 json_str = match.group(1).strip()
                 edited_input = json.loads(json_str)
                 user_db["input_data"] = edited_input  # Override with edited version
                 logger.info(f"[REGEN] Input data regeneration detected: {edited_input.get('type', 'unknown')} type")
-            
+
             # Force new simulation mode
             is_new_sim = True
             is_continue = False
@@ -460,7 +628,7 @@ def chat():
             # Fall back to treating it as a regular new simulation
             is_new_sim = True
             is_continue = False
-    
+
     # Cache check (only for new simulations)
 
     # Generate concrete input data for simulations (unless regenerating with edited input)
@@ -470,29 +638,25 @@ def chat():
     elif is_new_sim and is_regenerate:
         # Input data already set from regeneration handler above
         input_data = user_db.get("input_data")
-    
+
     # Skip cache check if regenerating (user is intentionally trying new input)
-    if is_new_sim and not is_regenerate:
-        if not cache_manager.has_pending_repair(session_id, user_msg):
-            cached_data = cache_manager.get_cached_simulation(
-                prompt=user_msg,
-                difficulty=difficulty
-            )
-            
-            if cached_data:
-                user_db["simulation_active"] = True
-                user_db["current_sim_data"] = cached_data.get('steps', [])
-                user_db["current_step_index"] = 0
-                user_db["original_prompt"] = user_msg
-                user_db["original_difficulty"] = difficulty
-                user_db["input_data"] = input_data
-                
-                # Include input_data in cached response so frontend can display it
-                if input_data:
-                    cached_data["input_data"] = input_data
-                
-                return jsonify(cached_data)
-    
+    if is_new_sim and not is_regenerate and not cache_manager.has_pending_repair(session_id, user_msg):
+        cached_data = cache_manager.get_cached_simulation(prompt=user_msg, difficulty=difficulty)
+
+        if cached_data:
+            user_db["simulation_active"] = True
+            user_db["current_sim_data"] = cached_data.get("steps", [])
+            user_db["current_step_index"] = 0
+            user_db["original_prompt"] = user_msg
+            user_db["original_difficulty"] = difficulty
+            user_db["input_data"] = input_data
+
+            # Include input_data in cached response so frontend can display it
+            if input_data:
+                cached_data["input_data"] = input_data
+
+            return jsonify(cached_data)
+
     # Mode selection
 
     if is_new_sim and is_doc_sim:
@@ -507,7 +671,7 @@ def chat():
         user_db["input_data"] = input_data
         user_db["doc_grounded"] = True
         logger.info(f"[DOC-SIM] DOCUMENT SIMULATION ({difficulty}): {user_msg[:50]}... (Session: {session_id[:16]}...)")
-    
+
     elif is_new_sim:
         mode = "NEW_SIMULATION"
         user_db["simulation_active"] = True
@@ -520,38 +684,38 @@ def chat():
         user_db["input_data"] = input_data  # Store generated input data
         user_db["doc_grounded"] = False
         logger.info(f"[NEW] NEW SIMULATION ({difficulty}): {user_msg[:50]}... (Session: {session_id[:16]}...)")
-        
+
     elif is_continue:
         mode = "CONTINUE_SIMULATION"
         logger.info(f"[CONT] CONTINUE SIMULATION (Session: {session_id[:16]}...)")
-        
+
     elif is_doc_qa and has_pdf:
         mode = "DOCUMENT_QA"
         logger.info(f"[DOC-QA] DOCUMENT QA ({difficulty}): {user_msg[:50]}... (Session: {session_id[:16]}...)")
-        
+
     elif user_db["simulation_active"]:
         mode = "CONTEXTUAL_QA"
-        
+
     elif has_pdf:
         # If a PDF is loaded and no simulation triggers, default to document Q&A
         mode = "DOCUMENT_QA"
         logger.info(f"[DOC-QA] DOCUMENT QA (auto, PDF loaded) ({difficulty}): {user_msg[:50]}...")
-        
+
     else:
         mode = "GENERAL_QA"
-    
+
     # RAG retrieval
 
     context = ""
     sources = []
-    
+
     if user_db["vector_store"]:
         try:
             # Use more chunks for document-focused modes
             k = 6 if mode in ("DOCUMENT_QA", "DOCUMENT_SIMULATION") else 4
             retriever = user_db["vector_store"].as_retriever(search_kwargs={"k": k})
             docs = retriever.invoke(user_msg)
-            
+
             # Deduplicate chunks from the same page with high overlap
             seen_content = []
             unique_docs = []
@@ -567,37 +731,34 @@ def chat():
                 if not is_duplicate:
                     unique_docs.append(d)
                     seen_content.append(d.page_content)
-            
+
             docs = unique_docs
-            
+
             # Format context with page citations for document modes
             if mode in ("DOCUMENT_QA", "DOCUMENT_SIMULATION"):
                 context_parts = []
                 for d in docs:
-                    page = d.metadata.get('page', d.metadata.get('source', 'Unknown'))
+                    page = d.metadata.get("page", d.metadata.get("source", "Unknown"))
                     context_parts.append(f"[Page {page}]\n{d.page_content}")
                 context = "\n\n---\n\n".join(context_parts)
             else:
                 context = "\n\n".join([d.page_content for d in docs])
-            
+
             sources = [d.metadata for d in docs]
         except Exception as e:
             logger.error(f"Retrieval error: {e}")
-    
+
     # Prompt construction
 
-    history_str = "\n".join([
-        f"{m['role']}: {m['content']}" 
-        for m in user_db["chat_history"][-10:]
-    ])
-    
+    history_str = "\n".join([f"{m['role']}: {m['content']}" for m in user_db["chat_history"][-10:]])
+
     context_instruction = ""
-    
+
     if mode == "DOCUMENT_QA":
         # Document Q&A gets rich context with page citations
         if context:
             context_instruction = f"""
-**DOCUMENT EXCERPTS (from {user_db.get('filename', 'uploaded file')}):**
+**DOCUMENT EXCERPTS (from {user_db.get("filename", "uploaded file")}):**
 
 {context}
 
@@ -608,7 +769,7 @@ def chat():
 **NOTE:** No relevant content was found in the uploaded document for this question.
 Tell the user this and offer to answer from your own knowledge instead.
 """
-    
+
     elif mode == "DOCUMENT_SIMULATION":
         # Document simulation gets the document content + grounding instruction
         doc_sim_instruction = get_document_simulation_instruction()
@@ -617,13 +778,13 @@ Tell the user this and offer to answer from your own knowledge instead.
 
 {context if context else "No relevant content found in the document. Use internal knowledge."}
 
-**Source file:** {user_db.get('filename', 'uploaded file')}
+**Source file:** {user_db.get("filename", "uploaded file")}
 """
-    
+
     elif context:
         # Standard context injection for simulation modes
         context_instruction = f"""
-**REFERENCE CONTEXT FROM UPLOADED FILE ({user_db.get('filename', 'uploaded file')}):**
+**REFERENCE CONTEXT FROM UPLOADED FILE ({user_db.get("filename", "uploaded file")}):**
 {context}
 
 **NOTE:** Use this context if relevant. Otherwise, use your internal knowledge.
@@ -631,93 +792,97 @@ Do NOT say "Based on the context provided..." — speak naturally.
 """
     else:
         context_instruction = ""
-    
+
     expect_json = False
-    
+
     # Get the appropriate system prompt for the difficulty level
-    SYSTEM_PROMPT = get_system_prompt(difficulty)
-    
+    system_prompt = get_system_prompt(difficulty)
+
     if mode == "NEW_SIMULATION":
         expect_json = True
         # Inject concrete input data into the system prompt
         input_section = _format_input_for_prompt(input_data)
-        final_system_instruction = SYSTEM_PROMPT + input_section
-    
+        final_system_instruction = system_prompt + input_section
+
     elif mode == "DOCUMENT_SIMULATION":
         expect_json = True
         # Use the full persona prompt (with Mermaid rules) + document grounding
         input_section = _format_input_for_prompt(input_data)
-        final_system_instruction = SYSTEM_PROMPT + input_section
-        
+        final_system_instruction = system_prompt + input_section
+
     elif mode == "CONTINUE_SIMULATION":
         expect_json = True
         last_context = "Start of simulation."
         graph_progression = ""
-        
+
         if user_db["current_sim_data"]:
             last = get_last_unique_step(user_db["current_sim_data"])
             if last is None:
                 last = user_db["current_sim_data"][-1]
             last_context = f"LAST STEP DATA: {last.get('data_table')}\nLAST LOGIC: {last.get('instruction')}"
-            
+
             # Include last 3 graphs for pattern recognition (use sanitized versions if available)
             recent_steps = user_db["current_sim_data"][-3:]
             if len(recent_steps) >= 3:
-                graph_progression = "\n".join([
-                    f"**STEP {step.get('step', '?')} GRAPH:**\n```mermaid\n{step.get('mermaid_sanitized', step.get('mermaid', ''))}\n```"
-                    for step in recent_steps
-                ])
+                graph_progression = "\n".join(
+                    [
+                        f"**STEP {step.get('step', '?')} GRAPH:**\n```mermaid\n{step.get('mermaid_sanitized', step.get('mermaid', ''))}\n```"
+                        for step in recent_steps
+                    ]
+                )
             elif len(recent_steps) >= 1:
                 # Fallback if fewer than 3 steps exist
                 fallback_step = recent_steps[-1]
-                mermaid_code = fallback_step.get('mermaid_sanitized', fallback_step.get('mermaid', ''))
+                mermaid_code = fallback_step.get("mermaid_sanitized", fallback_step.get("mermaid", ""))
                 graph_progression = f"**PREVIOUS GRAPH:**\n```mermaid\n{mermaid_code}\n```"
-        
+
         max_step = get_max_step_number(user_db["current_sim_data"])
         step_count = max_step + 1
-        
+
         # Build cumulative algorithm history from step_analysis fields
         analysis_history = ""
         if user_db["current_sim_data"]:
             recent_analyses = []
             for step in user_db["current_sim_data"][-10:]:
-                sa = step.get('step_analysis', {})
+                sa = step.get("step_analysis", {})
                 if sa:
-                    recent_analyses.append({
-                        "step": step.get('step', '?'),
-                        "what_changed": sa.get('what_changed', ''),
-                        "current_state": sa.get('current_state', ''),
-                        "why_matters": sa.get('why_matters', '')
-                    })
+                    recent_analyses.append(
+                        {
+                            "step": step.get("step", "?"),
+                            "what_changed": sa.get("what_changed", ""),
+                            "current_state": sa.get("current_state", ""),
+                            "why_matters": sa.get("why_matters", ""),
+                        }
+                    )
             if recent_analyses:
                 analysis_history = f"""\n**ALGORITHM HISTORY (last {len(recent_analyses)} steps — maintain continuity!):**
 ```json
 {json.dumps(recent_analyses, indent=1)}
 ```
 """
-        
+
         # Include original input data so LLM remembers the dataset
         stored_input = user_db.get("input_data")
         input_reminder = _format_input_for_prompt(stored_input) if stored_input else ""
-        
+
         # Get difficulty-appropriate continuation prompt
         continuation_style = {
             "explorer": "Keep the tone FUN and FRIENDLY. Use emojis and analogies.",
             "engineer": "Maintain technical precision. Show calculations and complexity.",
-            "architect": "Include hardware context, tensor shapes, and scaling analysis."
+            "architect": "Include hardware context, tensor shapes, and scaling analysis.",
         }
-        
+
         # Include original simulation request for context preservation
         original_prompt_reminder = ""
         if user_db.get("original_prompt"):
             original_prompt_reminder = f"\n**ORIGINAL TASK:** {user_db['original_prompt']}\n"
-        
+
         final_system_instruction = f"""
-{SYSTEM_PROMPT}
+{system_prompt}
 
 **MODE: CONTINUATION (JSON ONLY)**
 **TASK:** Resume the simulation from the Context below.
-**STYLE REMINDER:** {continuation_style.get(difficulty, '')}
+**STYLE REMINDER:** {continuation_style.get(difficulty, "")}
 {original_prompt_reminder}
 {input_reminder}
 {analysis_history}
@@ -762,20 +927,20 @@ Do NOT say "Based on the context provided..." — speak naturally.
 3. **ENDING CRITERIA:** Set `is_final: true` when algorithm reaches natural termination (array sorted, goal found, queue empty, all nodes visited). Target 8-12 total steps for engineer difficulty. Current step count: {step_count}.
 4. **FORMAT:** Output strictly a JSON object with a "steps" key containing the array. Do NOT output a 'summary' field.
 """
-        
+
     elif mode == "CONTEXTUAL_QA":
         expect_json = False
         curr_state = ""
         if user_db["current_sim_data"]:
-            curr_state = user_db["current_sim_data"][-1].get('instruction', 'No context')
-        
+            curr_state = user_db["current_sim_data"][-1].get("instruction", "No context")
+
         # Adjust QA style based on difficulty
         qa_style = {
             "explorer": "Answer in a friendly, encouraging way. Use simple terms and analogies.",
             "engineer": "Provide a technical answer with relevant complexity analysis.",
-            "architect": "Give a deep, research-level answer with implementation details."
+            "architect": "Give a deep, research-level answer with implementation details.",
         }
-        
+
         final_system_instruction = f"""
 **MODE: TEACHER (TEXT)**
 **DIFFICULTY: {difficulty.upper()}**
@@ -785,20 +950,20 @@ CURRENT BOARD STATE: {curr_state}
 USER QUESTION: "{user_msg}"
 
 INSTRUCTIONS:
-1. Answer the question in the {difficulty.upper()} style: {qa_style.get(difficulty, '')}
+1. Answer the question in the {difficulty.upper()} style: {qa_style.get(difficulty, "")}
 2. Reference the current simulation step if relevant.
 3. Do NOT generate a JSON playlist.
 4. If you need to draw a diagram, use standard Markdown ```mermaid``` blocks.
 """
-    
+
     elif mode == "DOCUMENT_QA":
         expect_json = False
         # Use the rich document-specific persona prompt
         final_system_instruction = get_document_qa_prompt(difficulty)
-        
+
     else:  # GENERAL_QA
         expect_json = False
-        
+
         # If a PDF is loaded but no doc triggers matched, still use doc-aware prompt
         if has_pdf and context:
             final_system_instruction = get_document_qa_prompt(difficulty)
@@ -820,7 +985,7 @@ You are **AXIOM**, an expert CS teaching assistant. Answer the user's question t
 **STYLE GUIDE:**
 {"- Warm, encouraging, use analogies and real-world examples" if difficulty == "explorer" else "- Provide complexity analysis, pseudocode references, and practical applications" if difficulty == "engineer" else "- Research-grade depth with mathematical rigor and systems-level analysis"}
 """
-    
+
     if mode == "CONTINUE_SIMULATION":
         max_step = get_max_step_number(user_db["current_sim_data"])
         user_msg_for_prompt = f"CONTINUE_SIMULATION from step {max_step}. Generate the next 3 steps as a JSON steps array starting with step {max_step + 1}."
@@ -836,37 +1001,36 @@ You are **AXIOM**, an expert CS teaching assistant. Answer the user's question t
 {history_str}
 **USER:** {user_msg_for_prompt}
 """
-    
+
     def generate():
         """Stream LLM response chunks, then post-process JSON for simulation storage."""
         if mode == "CONTINUE_SIMULATION":
             temp_map = {"explorer": 0.7, "engineer": 0.6, "architect": 0.5}
         else:
             temp_map = {"explorer": 0.55, "engineer": 0.4, "architect": 0.3}
-        
+
         config = {
             "temperature": temp_map.get(difficulty, 0.4),
             "max_output_tokens": 14000,
-            "response_mime_type": "application/json" if expect_json else "text/plain"
+            "response_mime_type": "application/json" if expect_json else "text/plain",
         }
-        
+
         # Get client and generate content with streaming
         from core.config import get_genai_client
+
         client = get_genai_client()
         if not client:
             logger.error("Gemini client not initialized")
             yield "ERROR: Gemini API not initialized"
             return
-        
+
         full_response = ""
-        
+
         try:
             stream = client.models.generate_content_stream(
-                model='gemini-flash-latest',
-                contents=full_prompt,
-                config=genai.types.GenerateContentConfig(**config)
+                model="gemini-flash-latest", contents=full_prompt, config=genai.types.GenerateContentConfig(**config)
             )
-            
+
             for chunk in stream:
                 if chunk.text:
                     clean_chunk = chunk.text
@@ -878,13 +1042,13 @@ You are **AXIOM**, an expert CS teaching assistant. Answer the user's question t
         except Exception as e:
             logger.exception(f"Streaming error: {e}")
             yield f"\n\n**SYSTEM ERROR:** {str(e)}"
-        
+
         # Post-stream processing
 
         if expect_json:
             try:
                 clean_json = full_response.strip()
-                
+
                 # Remove markdown code blocks
                 if "```json" in clean_json:
                     parts = clean_json.split("```json")
@@ -895,65 +1059,102 @@ You are **AXIOM**, an expert CS teaching assistant. Answer the user's question t
                     if len(parts) >= 3:
                         inner = parts[1].strip()
                         # Strip optional language tag (e.g. "json\n{...}" -> "{...")
-                        if inner and '\n' in inner and inner.split('\n', 1)[0].strip().isalpha():
-                            inner = inner.split('\n', 1)[1].strip()
+                        if inner and "\n" in inner and inner.split("\n", 1)[0].strip().isalpha():
+                            inner = inner.split("\n", 1)[1].strip()
                         clean_json = inner
 
-                
                 clean_json = clean_json.strip()
-                
-                
+
                 # Reject if it looks like code (Python, JS, pseudocode, etc.)
                 code_patterns = (
-                    'queue', 'def ', 'import ', 'class ', 'if ', 'for ', 'while ', 
-                    'pseudocode', 'function', 'const ', 'let ', 'var ', 'return ',
-                    '#!/', '#include', 'public ', 'private ', 'void ', 'int ',
-                    '// ', '/* ', 'async ', 'await ', 'console.', 'print(',
-                    'python\n', 'javascript\n', 'java\n'  # Markdown language tags
+                    "queue",
+                    "def ",
+                    "import ",
+                    "class ",
+                    "if ",
+                    "for ",
+                    "while ",
+                    "pseudocode",
+                    "function",
+                    "const ",
+                    "let ",
+                    "var ",
+                    "return ",
+                    "#!/",
+                    "#include",
+                    "public ",
+                    "private ",
+                    "void ",
+                    "int ",
+                    "// ",
+                    "/* ",
+                    "async ",
+                    "await ",
+                    "console.",
+                    "print(",
+                    "python\n",
+                    "javascript\n",
+                    "java\n",  # Markdown language tags
                 )
                 stripped = clean_json.lstrip()
-                if stripped.startswith(code_patterns) or not (stripped.startswith('{') or stripped.startswith('[')):
+                if stripped.startswith(code_patterns) or not (stripped.startswith("{") or stripped.startswith("[")):
                     logger.error(f"[ERROR] AI output is not JSON. First 200 chars: {clean_json[:200]}")
                     raise ValueError("AI generated code/text instead of JSON. Please retry.")
-                
+
                 data_obj = json.loads(clean_json)
                 new_steps = []
-                
+
                 if isinstance(data_obj, dict) and "steps" in data_obj:
                     new_steps = data_obj["steps"]
                 elif isinstance(data_obj, list):
                     new_steps = data_obj
-                
+
                 if not new_steps:
                     logger.error("[ERROR] LLM returned empty/invalid steps")
                     # Log diagnostic with empty steps
-                    storage_before = user_db.get('current_sim_data', [])
-                    _log_diagnostic(cache_manager, session_id, mode, difficulty, 
-                                   full_response, [], [], storage_before, storage_before, False, "Empty steps")
-                else:
-                    step_numbers = [s.get('step', '?') for s in new_steps]
-                    
-                    storage_before = user_db.get('current_sim_data', [])
-                    
-                    cleaned_steps, validation_warnings = validate_and_clean_steps(
-                        new_steps,
+                    storage_before = user_db.get("current_sim_data", [])
+                    _log_diagnostic(
+                        cache_manager,
+                        session_id,
+                        mode,
+                        difficulty,
+                        full_response,
+                        [],
+                        [],
                         storage_before,
-                        mode
+                        storage_before,
+                        False,
+                        "Empty steps",
                     )
-                    
+                else:
+                    [s.get("step", "?") for s in new_steps]
+
+                    storage_before = user_db.get("current_sim_data", [])
+
+                    cleaned_steps, validation_warnings = validate_and_clean_steps(new_steps, storage_before, mode)
+
                     if not cleaned_steps:
                         logger.warning(f"[WARN] All {len(new_steps)} steps rejected during validation")
-                        _log_diagnostic(cache_manager, session_id, mode, difficulty,
-                                       full_response, new_steps, [], storage_before, storage_before, False, "Validation rejected all")
+                        _log_diagnostic(
+                            cache_manager,
+                            session_id,
+                            mode,
+                            difficulty,
+                            full_response,
+                            new_steps,
+                            [],
+                            storage_before,
+                            storage_before,
+                            False,
+                            "Validation rejected all",
+                        )
                     else:
                         # Store steps
                         if mode in ("NEW_SIMULATION", "DOCUMENT_SIMULATION"):
                             user_db["current_sim_data"] = cleaned_steps
-                            action = "REPLACED"
                         else:
                             user_db["current_sim_data"].extend(cleaned_steps)
-                            action = "EXTENDED"
-                        
+
                         storage_after = user_db["current_sim_data"]
 
                         user_db["current_step_index"] = len(user_db["current_sim_data"]) - 1
@@ -961,20 +1162,30 @@ You are **AXIOM**, an expert CS teaching assistant. Answer the user's question t
                         max_step = get_max_step_number(storage_after)
                         array_len = len(storage_after)
                         expected_len = max_step + 1
-                        
-                        final_steps = [s.get('step', '?') for s in storage_after]
-                        
-                        integrity_pass = (array_len == expected_len)
+
+                        [s.get("step", "?") for s in storage_after]
+
+                        integrity_pass = array_len == expected_len
                         integrity_error = ""
-                        
+
                         if not integrity_pass:
                             integrity_error = f"length {array_len} != max+1 {expected_len}"
                             logger.error(f"[ERROR] INTEGRITY FAILED: {integrity_error}")
-                        
+
                         # Log diagnostic to database
-                        _log_diagnostic(cache_manager, session_id, mode, difficulty,
-                                       full_response, new_steps, cleaned_steps, 
-                                       storage_before, storage_after, integrity_pass, integrity_error)
+                        _log_diagnostic(
+                            cache_manager,
+                            session_id,
+                            mode,
+                            difficulty,
+                            full_response,
+                            new_steps,
+                            cleaned_steps,
+                            storage_before,
+                            storage_after,
+                            integrity_pass,
+                            integrity_error,
+                        )
 
                         last_step = storage_after[-1]
                         is_final = last_step.get("is_final", False)
@@ -982,58 +1193,54 @@ You are **AXIOM**, an expert CS teaching assistant. Answer the user's question t
                         if is_final:
                             logger.info(f"[DONE] Simulation complete ({len(storage_after)} steps)")
                             user_db["awaiting_verification"] = True
-                
+
             except json.JSONDecodeError as e:
                 logger.error(f"JSON decode error: {e}")
             except Exception as e:
                 logger.exception(f"Post-processing error: {e}")
-        
-        
+
         # Update chat history
         # For continuations and JSON responses, store clean summaries instead of
         # massive raw data. This prevents history from snowballing and confusing
         # the LLM on subsequent requests.
         if mode == "CONTINUE_SIMULATION":
             step_total = len(user_db.get("current_sim_data", []))
-            user_db["chat_history"].append({
-                "role": "user",
-                "content": f"User requested simulation continuation from step {step_total - 2}"
-            })
-            user_db["chat_history"].append({
-                "role": "model",
-                "content": f"Generated continuation steps. Total steps now: {step_total}"
-            })
+            user_db["chat_history"].append(
+                {"role": "user", "content": f"User requested simulation continuation from step {step_total - 2}"}
+            )
+            user_db["chat_history"].append(
+                {"role": "model", "content": f"Generated continuation steps. Total steps now: {step_total}"}
+            )
         elif expect_json and full_response.strip().startswith(("{", "[")):
             user_db["chat_history"].append({"role": "user", "content": user_msg})
             step_total = len(user_db.get("current_sim_data", []))
-            user_db["chat_history"].append({
-                "role": "model",
-                "content": f"Generated simulation playlist with {step_total} steps."
-            })
+            user_db["chat_history"].append(
+                {"role": "model", "content": f"Generated simulation playlist with {step_total} steps."}
+            )
         else:
             user_db["chat_history"].append({"role": "user", "content": user_msg})
             user_db["chat_history"].append({"role": "model", "content": full_response})
-        
+
         if sources and not expect_json:
             # Format sources with page numbers for text responses
             unique_pages = []
             seen_pages = set()
             for s in sources:
-                page = s.get('page', s.get('source', 'Unknown'))
+                page = s.get("page", s.get("source", "Unknown"))
                 page_str = str(page)
                 if page_str not in seen_pages:
                     seen_pages.add(page_str)
                     unique_pages.append(page_str)
-            
+
             if unique_pages:
                 source_text = "\n\n---\n📄 **Sources:** " + " · ".join([f"Page {p}" for p in unique_pages])
                 yield source_text
-        
+
         # Yield final confirmation to frontend
-        if expect_json and user_db.get('current_sim_data'):
-            db_steps = [s.get('step', '?') for s in user_db.get('current_sim_data', [])]
+        if expect_json and user_db.get("current_sim_data"):
+            db_steps = [s.get("step", "?") for s in user_db.get("current_sim_data", [])]
             yield f"\n<!--DB_STATE:{json.dumps({'total': len(user_db['current_sim_data']), 'steps': db_steps})}-->"
-        
+
         # Yield input_data as trailing marker so frontend can display the badge
         if expect_json and input_data:
             yield f"\n<!--AXIOM_INPUT_DATA:{json.dumps(input_data)}-->"
@@ -1042,84 +1249,86 @@ You are **AXIOM**, an expert CS teaching assistant. Answer the user's question t
             stored = user_db.get("input_data")
             if stored:
                 yield f"\n<!--AXIOM_INPUT_DATA:{json.dumps(stored)}-->"
-    
-    return Response(generate(), mimetype='text/plain')
+
+    return Response(generate(), mimetype="text/plain")
 
 
-@chat_bp.route('/update-sanitized-graph', methods=['POST'])
+@chat_bp.route("/update-sanitized-graph", methods=["POST"])
 @validate_session
 def update_sanitized_graph():
     """Store the sanitized Mermaid graph from frontend after successful render.
-    
+
     This ensures continuations use working graphs instead of raw LLM output.
     """
     data = request.get_json()
     session_id = g.session_id
-    step_index = data.get('step_index')
-    sanitized_code = data.get('sanitized_mermaid')
-    
+    step_index = data.get("step_index")
+    sanitized_code = data.get("sanitized_mermaid")
+
     if step_index is None or not sanitized_code:
         return jsonify({"error": "Missing step_index or sanitized_mermaid"}), 400
-    
+
     session_manager = get_session_manager()
     user_db = session_manager.get_session(session_id)
-    
-    if not user_db or not user_db.get('current_sim_data'):
+
+    if not user_db or not user_db.get("current_sim_data"):
         return jsonify({"error": "No simulation data found"}), 400
-    
-    if step_index >= len(user_db['current_sim_data']):
+
+    if step_index >= len(user_db["current_sim_data"]):
         return jsonify({"error": "Invalid step_index"}), 400
-    
+
     # Store sanitized version alongside raw LLM output
-    user_db['current_sim_data'][step_index]['mermaid_sanitized'] = sanitized_code
-    
+    user_db["current_sim_data"][step_index]["mermaid_sanitized"] = sanitized_code
+
     return jsonify({"success": True})
 
 
-@chat_bp.route('/difficulty-info', methods=['GET'])
+@chat_bp.route("/difficulty-info", methods=["GET"])
 def difficulty_info():
     """Return information about available difficulty levels."""
-    return jsonify({
-        "difficulties": {
-            "explorer": {
-                "name": "🌟 Explorer",
-                "tagline": "Fun & Friendly Learning",
-                "description": "Perfect for beginners! Uses games, analogies, and emojis to make algorithms approachable.",
-                "audience": "CS101/102 students, visual learners",
-                "features": [
-                    "Simple vocabulary & short sentences",
-                    "Real-world analogies (pizza delivery, video games)",
-                    "Thought-provoking questions after each step",
-                    "Clean, simple diagrams (~6 nodes)"
-                ],
-                "example_topic": "BFS as a neighborhood explorer"
+    return jsonify(
+        {
+            "difficulties": {
+                "explorer": {
+                    "name": "🌟 Explorer",
+                    "tagline": "Fun & Friendly Learning",
+                    "description": "Perfect for beginners! Uses games, analogies, and emojis to make algorithms approachable.",
+                    "audience": "CS101/102 students, visual learners",
+                    "features": [
+                        "Simple vocabulary & short sentences",
+                        "Real-world analogies (pizza delivery, video games)",
+                        "Thought-provoking questions after each step",
+                        "Clean, simple diagrams (~6 nodes)",
+                    ],
+                    "example_topic": "BFS as a neighborhood explorer",
+                },
+                "engineer": {
+                    "name": "⚙️ Engineer",
+                    "tagline": "Technical & Practical",
+                    "description": "Industry-ready explanations with Big-O analysis, pseudocode, and real applications.",
+                    "audience": "DS&A students, interview prep, developers",
+                    "features": [
+                        "Complexity analysis (Time/Space)",
+                        "Pseudocode line references per step",
+                        "Edge cases and invariants",
+                        "Detailed diagrams (9-12 nodes)",
+                    ],
+                    "example_topic": "Dijkstra's with priority queue operations",
+                },
+                "architect": {
+                    "name": "🏗️ Architect",
+                    "tagline": "Deep Theory & Systems",
+                    "description": "Research-level depth with mathematical rigor, hardware context, and scaling analysis.",
+                    "audience": "Grad students, senior engineers, researchers",
+                    "features": [
+                        "Mathematical derivations",
+                        "Hardware-aware (FLOPs, memory bandwidth)",
+                        "Alternative algorithm comparisons",
+                        "Complex diagrams (12-18 nodes)",
+                    ],
+                    "example_topic": "Transformer attention with tensor operations",
+                },
             },
-            "engineer": {
-                "name": "⚙️ Engineer", 
-                "tagline": "Technical & Practical",
-                "description": "Industry-ready explanations with Big-O analysis, pseudocode, and real applications.",
-                "audience": "DS&A students, interview prep, developers",
-                "features": [
-                    "Complexity analysis (Time/Space)",
-                    "Pseudocode line references per step",
-                    "Edge cases and invariants",
-                    "Detailed diagrams (9-12 nodes)"
-                ],
-                "example_topic": "Dijkstra's with priority queue operations"
-            },
-            "architect": {
-                "name": "🏗️ Architect",
-                "tagline": "Deep Theory & Systems",
-                "description": "Research-level depth with mathematical rigor, hardware context, and scaling analysis.",
-                "audience": "Grad students, senior engineers, researchers",
-                "features": [
-                    "Mathematical derivations",
-                    "Hardware-aware (FLOPs, memory bandwidth)",
-                    "Alternative algorithm comparisons",
-                    "Complex diagrams (12-18 nodes)"
-                ],
-                "example_topic": "Transformer attention with tensor operations"
-            }
-        },
-        "default": "engineer"
-    })
+            "default": "engineer",
+        }
+    )

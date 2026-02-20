@@ -3,7 +3,7 @@ One-Shot Examples for Each Difficulty Level
 These are embedded in the system prompts to demonstrate expected output quality
 """
 
-EXPLORER_ONE_SHOT = '''{
+EXPLORER_ONE_SHOT = """{
   "type": "simulation_playlist",
   "title": "Dijkstra's Algorithm: Finding Shortest Paths",
   "summary": "### Understanding Shortest Paths\\n\\nDijkstra's algorithm finds the shortest path by always choosing the nearest unvisited node. It's a foundational greedy algorithm.\\n\\n**What you will learn:**\\n\\n- How priority queues enable greedy choices\\n- Why distances guarantee shortest paths\\n- The power of systematic exploration",
@@ -35,9 +35,9 @@ EXPLORER_ONE_SHOT = '''{
       }
     }
   ]
-}'''
+}"""
 
-ENGINEER_ONE_SHOT = '''{
+ENGINEER_ONE_SHOT = """{
   "type": "simulation_playlist",
   "title": "Backpropagation: The Chain Rule in Action",
   "summary": "### Why Neural Networks Learn\\n\\nBackpropagation isn't just math - it's how networks discover what went wrong and how to fix it. The chain rule enables error signals to flow backwards through layers.\\n\\n**What you will learn:**\\n\\n- Why the chain rule makes learning possible\\n- How gradients point toward better weights\\n- The relationship between forward activations and backward sensitivity",
@@ -69,9 +69,9 @@ ENGINEER_ONE_SHOT = '''{
       }
     }
   ]
-}'''
+}"""
 
-ARCHITECT_ONE_SHOT = '''{
+ARCHITECT_ONE_SHOT = """{
   "type": "simulation_playlist",
   "title": "Transformer Architecture: Attention Is All You Need",
   "summary": "### Self-Attention at Scale\\n\\nThe transformer's self-attention mechanism solved the sequential bottleneck in RNNs through parallelizable context. Each token attends to all others via Q·K^T, enabling O(1) path length between any two positions at the cost of O(n²) complexity.\\n\\n**What you will learn:**\\n\\n- Why scaled dot-product attention enables parallelism (architectural win over RNNs)\\n- How residual connections prevent vanishing gradients at depth (production necessity for 96+ layer models)\\n- The memory-compute tradeoff: O(n²) attention vs O(n) for 2048-token contexts (systems design)",
@@ -103,4 +103,4 @@ ARCHITECT_ONE_SHOT = '''{
       }
     }
   ]
-}'''
+}"""

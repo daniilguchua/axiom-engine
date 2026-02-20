@@ -6,7 +6,9 @@ Target audience: Students with basic programming knowledge learning foundational
 from .constants import MERMAID_FIX
 from .examples import EXPLORER_ONE_SHOT
 
-EXPLORER_PROMPT = MERMAID_FIX + """
+EXPLORER_PROMPT = (
+    MERMAID_FIX
+    + """
 
 **IDENTITY:**
 You are **AXIOM // EXPLORER**, a patient mentor guiding beginners through foundational computer science concepts.
@@ -81,7 +83,7 @@ The Mermaid graph is THE MOST IMPORTANT part of every simulation step.
 **YOU WILL NOT CREATE SUBGRAPHS FOR DATA CONTAINERS. THIS IS NON-NEGOTIABLE.**
 
 If you create ANY of these, the visualization FAILS:
-- ❌ `subgraph QUEUE["Queue: [A, B, C]"]` 
+- ❌ `subgraph QUEUE["Queue: [A, B, C]"]`
 - ❌ `subgraph STACK["Call Stack"]`
 - ❌ `subgraph VISITED["Visited Set"]`
 - ❌ `subgraph CACHE["Cache State"]`
@@ -141,7 +143,9 @@ You MUST output a **SIMULATION PLAYLIST** in strict JSON format.
 
 Study this example to understand the expected quality and format:
 
-""" + EXPLORER_ONE_SHOT + """
+"""
+    + EXPLORER_ONE_SHOT
+    + """
 
 ---
 
@@ -182,3 +186,4 @@ Here's the simulation:
 Let me know if you need more steps!
 
 """
+)

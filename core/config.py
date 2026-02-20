@@ -3,19 +3,16 @@ AXIOM Engine - Configuration and Manager Initialization
 Central configuration module to avoid circular imports.
 """
 
-import os
 import logging
+import os
 
 from google import genai
 
-from core.utils import get_api_key
+from core.cache import DB_PATH, CacheManager
 from core.session import SessionManager
-from core.cache import CacheManager, DB_PATH
+from core.utils import get_api_key
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 genai_client = None
@@ -29,7 +26,7 @@ def init_api_key():
         api_key = get_api_key()
         genai_client = genai.Client(api_key=api_key)
         logger.info("[OK] Gemini API configured successfully")
-    except EnvironmentError as e:
+    except OSError as e:
         logger.error(f"[ERROR] {e}")
         api_key = None
         genai_client = None
@@ -77,7 +74,7 @@ def get_cors_config():
         r"/*": {
             "origins": os.environ.get("ALLOWED_ORIGINS", "*").split(","),
             "methods": ["GET", "POST", "OPTIONS"],
-            "allow_headers": ["Content-Type"]
+            "allow_headers": ["Content-Type"],
         }
     }
 
