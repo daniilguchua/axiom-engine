@@ -1,9 +1,9 @@
 import { Header } from "@/components/header";
 import { Hero } from "@/components/hero";
 import { Features } from "@/components/features";
-import { Architecture } from "@/components/architecture";
-import { Personas } from "@/components/personas";
-import { Demo } from "@/components/demo";
+import { HowItWorks } from "@/components/how-it-works";
+import { Algorithms } from "@/components/algorithms";
+import { CTA } from "@/components/cta";
 import { Footer } from "@/components/footer";
 
 export default function Home() {
@@ -12,9 +12,9 @@ export default function Home() {
       <Header />
       <Hero />
       <Features />
-      <Architecture />
-      <Personas />
-      <Demo />
+      <HowItWorks />
+      <Algorithms />
+      <CTA />
       <Footer />
     </main>
   );

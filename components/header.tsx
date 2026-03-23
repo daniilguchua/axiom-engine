@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Menu, X, Github } from "lucide-react";
+import { Menu, X, Github, ArrowRight } from "lucide-react";
 
 const navLinks = [
   { href: "#features", label: "Features" },
-  { href: "#architecture", label: "Architecture" },
-  { href: "#personas", label: "AI Personas" },
-  { href: "#demo", label: "Demo" },
+  { href: "#how-it-works", label: "How It Works" },
+  { href: "#algorithms", label: "Algorithms" },
 ];
 
 export function Header() {
@@ -26,34 +25,37 @@ export function Header() {
   return (
     <header
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
         isScrolled
-          ? "bg-background/80 backdrop-blur-xl border-b border-border"
+          ? "bg-background/90 backdrop-blur-2xl border-b border-border/50 shadow-lg shadow-black/5"
           : "bg-transparent"
       )}
     >
-      <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <nav className="max-w-7xl mx-auto px-6 lg:px-8 h-16 lg:h-20 flex items-center justify-between">
         {/* Logo */}
         <a href="#" className="flex items-center gap-3 group">
-          <div className="relative w-8 h-8 flex items-center justify-center">
-            <div className="absolute inset-0 bg-primary/20 rounded-lg group-hover:bg-primary/30 transition-colors" />
-            <span className="relative text-primary font-mono font-bold text-sm">
-              AX
-            </span>
+          <div className="relative">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary via-primary to-blue-500 flex items-center justify-center shadow-lg shadow-primary/25">
+              <span className="text-white font-bold text-sm tracking-tight">AX</span>
+            </div>
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-blue-500 blur-xl opacity-40 group-hover:opacity-60 transition-opacity" />
           </div>
-          <span className="font-semibold text-foreground tracking-tight">
-            AXIOM <span className="text-muted-foreground font-normal">//</span>{" "}
-            <span className="text-muted-foreground font-normal">ENGINE</span>
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-foreground tracking-tight text-lg">
+              AXIOM
+            </span>
+            <span className="gradient-text font-mono text-sm font-medium">//</span>
+            <span className="text-muted-foreground font-medium">ENGINE</span>
+          </div>
         </a>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-1">
           {navLinks.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50"
             >
               {link.label}
             </a>
@@ -61,28 +63,29 @@ export function Header() {
         </div>
 
         {/* CTA Buttons */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-3">
           <a
             href="https://github.com/daniilguchua/axiom-engine"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50"
           >
             <Github className="w-4 h-4" />
-            GitHub
+            <span>GitHub</span>
           </a>
           <a
-            href="#demo"
-            className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+            href="#launch"
+            className="group relative flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)] hover:-translate-y-0.5"
           >
-            Try Demo
+            <span>Launch App</span>
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
           </a>
         </div>
 
         {/* Mobile Menu Button */}
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden p-2 text-muted-foreground hover:text-foreground transition-colors"
+          className="md:hidden p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50"
           aria-label="Toggle menu"
         >
           {isMobileMenuOpen ? (
@@ -95,33 +98,34 @@ export function Header() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden bg-background/95 backdrop-blur-xl border-b border-border">
-          <div className="px-6 py-4 space-y-4">
+        <div className="md:hidden bg-background/95 backdrop-blur-2xl border-b border-border/50">
+          <div className="px-6 py-6 space-y-1">
             {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="block px-4 py-3 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors rounded-lg"
               >
                 {link.label}
               </a>
             ))}
-            <div className="pt-4 border-t border-border space-y-3">
+            <div className="pt-4 mt-4 border-t border-border/50 space-y-3">
               <a
                 href="https://github.com/daniilguchua/axiom-engine"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center gap-2 px-4 py-3 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors rounded-lg"
               >
                 <Github className="w-4 h-4" />
                 GitHub
               </a>
               <a
-                href="#demo"
-                className="block w-full text-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+                href="#launch"
+                className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-primary text-primary-foreground font-medium rounded-xl"
               >
-                Try Demo
+                <span>Launch App</span>
+                <ArrowRight className="w-4 h-4" />
               </a>
             </div>
           </div>

@@ -5,65 +5,47 @@ import { Github, Twitter, Linkedin } from "lucide-react";
 const footerLinks = {
   product: [
     { label: "Features", href: "#features" },
-    { label: "Architecture", href: "#architecture" },
-    { label: "AI Personas", href: "#personas" },
-    { label: "Demo", href: "#demo" },
+    { label: "How It Works", href: "#how-it-works" },
+    { label: "Algorithms", href: "#algorithms" },
+    { label: "Launch App", href: "#launch" },
   ],
   resources: [
-    {
-      label: "Documentation",
-      href: "https://github.com/daniilguchua/axiom-engine#readme",
-    },
-    {
-      label: "API Reference",
-      href: "https://github.com/daniilguchua/axiom-engine#api-reference",
-    },
-    {
-      label: "Getting Started",
-      href: "https://github.com/daniilguchua/axiom-engine#getting-started",
-    },
-    {
-      label: "Contributing",
-      href: "https://github.com/daniilguchua/axiom-engine",
-    },
-  ],
-  connect: [
-    { label: "GitHub", href: "https://github.com/daniilguchua/axiom-engine" },
-    { label: "Twitter", href: "https://twitter.com" },
-    { label: "LinkedIn", href: "https://linkedin.com" },
+    { label: "Documentation", href: "https://github.com/daniilguchua/axiom-engine#readme" },
+    { label: "API Reference", href: "https://github.com/daniilguchua/axiom-engine#api-reference" },
+    { label: "Getting Started", href: "https://github.com/daniilguchua/axiom-engine#getting-started" },
+    { label: "Contributing", href: "https://github.com/daniilguchua/axiom-engine" },
   ],
 };
 
+const techStack = ["Flask", "Gemini 2.5", "FAISS", "LangChain", "Three.js", "Mermaid.js", "SQLite"];
+
 export function Footer() {
   return (
-    <footer className="relative border-t border-border">
-      {/* Background */}
-      <div className="absolute inset-0 grid-pattern opacity-10" />
-
-      <div className="relative max-w-7xl mx-auto px-6 py-16">
+    <footer className="relative border-t border-border/50">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand */}
           <div className="md:col-span-1">
             <a href="#" className="flex items-center gap-3 mb-4">
-              <div className="relative w-8 h-8 flex items-center justify-center">
-                <div className="absolute inset-0 bg-primary/20 rounded-lg" />
-                <span className="relative text-primary font-mono font-bold text-sm">
-                  AX
-                </span>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center">
+                <span className="text-white font-bold text-sm">AX</span>
               </div>
-              <span className="font-semibold text-foreground tracking-tight">
-                AXIOM
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-foreground">AXIOM</span>
+                <span className="text-primary font-mono text-sm">//</span>
+                <span className="text-muted-foreground">ENGINE</span>
+              </div>
             </a>
             <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-              AI-powered algorithm visualization engine. See algorithms think.
+              AI-powered algorithm visualization engine. Transform complex CS concepts 
+              into interactive, step-by-step simulations.
             </p>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <a
                 href="https://github.com/daniilguchua/axiom-engine"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2.5 rounded-lg bg-card border border-border hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all"
                 aria-label="GitHub"
               >
                 <Github className="w-4 h-4" />
@@ -72,7 +54,7 @@ export function Footer() {
                 href="https://twitter.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2.5 rounded-lg bg-card border border-border hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all"
                 aria-label="Twitter"
               >
                 <Twitter className="w-4 h-4" />
@@ -81,7 +63,7 @@ export function Footer() {
                 href="https://linkedin.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2.5 rounded-lg bg-card border border-border hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all"
                 aria-label="LinkedIn"
               >
                 <Linkedin className="w-4 h-4" />
@@ -91,9 +73,7 @@ export function Footer() {
 
           {/* Product */}
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-4">
-              Product
-            </h4>
+            <h4 className="text-sm font-semibold text-foreground mb-4">Product</h4>
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
                 <li key={link.label}>
@@ -110,9 +90,7 @@ export function Footer() {
 
           {/* Resources */}
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-4">
-              Resources
-            </h4>
+            <h4 className="text-sm font-semibold text-foreground mb-4">Resources</h4>
             <ul className="space-y-3">
               {footerLinks.resources.map((link) => (
                 <li key={link.label}>
@@ -131,22 +109,12 @@ export function Footer() {
 
           {/* Tech Stack */}
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-4">
-              Built With
-            </h4>
+            <h4 className="text-sm font-semibold text-foreground mb-4">Built With</h4>
             <div className="flex flex-wrap gap-2">
-              {[
-                "Flask",
-                "Gemini 2.5",
-                "FAISS",
-                "LangChain",
-                "Three.js",
-                "Mermaid.js",
-                "SQLite",
-              ].map((tech) => (
+              {techStack.map((tech) => (
                 <span
                   key={tech}
-                  className="px-2 py-1 text-xs rounded bg-secondary text-muted-foreground"
+                  className="px-3 py-1.5 text-xs rounded-lg bg-card border border-border text-muted-foreground"
                 >
                   {tech}
                 </span>
@@ -156,7 +124,7 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="pt-8 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
             Built by{" "}
             <a

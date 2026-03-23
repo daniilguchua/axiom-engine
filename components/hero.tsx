@@ -30,21 +30,21 @@ export function Hero() {
 
     const createParticles = () => {
       particles = [];
-      const count = Math.floor((canvas.width * canvas.height) / 15000);
+      const count = Math.floor((canvas.width * canvas.height) / 18000);
       for (let i = 0; i < count; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.3,
-          vy: (Math.random() - 0.5) * 0.3,
+          vx: (Math.random() - 0.5) * 0.2,
+          vy: (Math.random() - 0.5) * 0.2,
           size: Math.random() * 1.5 + 0.5,
-          opacity: Math.random() * 0.5 + 0.1,
+          opacity: Math.random() * 0.4 + 0.1,
         });
       }
     };
 
     const animate = () => {
-      ctx.fillStyle = "rgba(7, 10, 15, 0.1)";
+      ctx.fillStyle = "rgba(9, 9, 15, 0.15)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       particles.forEach((p, i) => {
@@ -58,7 +58,7 @@ export function Hero() {
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(34, 197, 94, ${p.opacity})`;
+        ctx.fillStyle = `rgba(139, 92, 246, ${p.opacity})`;
         ctx.fill();
 
         // Connect nearby particles
@@ -66,11 +66,11 @@ export function Hero() {
           const dx = p.x - p2.x;
           const dy = p.y - p2.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 100) {
+          if (dist < 120) {
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
-            ctx.strokeStyle = `rgba(34, 197, 94, ${0.1 * (1 - dist / 100)})`;
+            ctx.strokeStyle = `rgba(139, 92, 246, ${0.08 * (1 - dist / 120)})`;
             ctx.stroke();
           }
         });
@@ -94,87 +94,97 @@ export function Hero() {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
       {/* Animated Background */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
-        style={{ background: "linear-gradient(to bottom, hsl(220 20% 4%), hsl(220 18% 7%))" }}
+        style={{ background: "linear-gradient(180deg, hsl(240 10% 4%) 0%, hsl(240 10% 6%) 100%)" }}
       />
 
-      {/* Grid Pattern Overlay */}
-      <div className="absolute inset-0 grid-pattern opacity-30" />
+      {/* Subtle Grid */}
+      <div 
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(139, 92, 246, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(139, 92, 246, 0.5) 1px, transparent 1px)`,
+          backgroundSize: '60px 60px'
+        }}
+      />
 
       {/* Radial Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_hsl(240_10%_4%)_70%)]" />
 
       {/* Glow Effects */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-glow-pulse" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl animate-glow-pulse" style={{ animationDelay: "1s" }} />
+      <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-primary/8 rounded-full blur-[120px]" />
+      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px]" />
 
       {/* Content */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-2 mb-8 rounded-full bg-card border border-border animate-fade-in">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-sm text-muted-foreground">
-            AI-Powered Algorithm Visualization
+        <div 
+          className="inline-flex items-center gap-2.5 px-5 py-2.5 mb-8 rounded-full bg-card/80 border border-border/50 backdrop-blur-sm opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "0.1s", animationFillMode: "forwards" }}
+        >
+          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          <span className="text-sm text-muted-foreground font-medium">
+            AI-Powered Algorithm Visualization Engine
           </span>
         </div>
 
         {/* Main Heading */}
-        <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6 animate-slide-up">
+        <h1 
+          className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-8 opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "0.2s", animationFillMode: "forwards" }}
+        >
           <span className="text-foreground">See Algorithms</span>
           <br />
-          <span className="gradient-text">Think</span>
+          <span className="gradient-animated">Think</span>
         </h1>
 
         {/* Description */}
         <p
-          className="max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed animate-slide-up"
-          style={{ animationDelay: "0.1s" }}
+          className="max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground mb-12 leading-relaxed opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "0.3s", animationFillMode: "forwards" }}
         >
-          Transform complex CS concepts into step-by-step simulations with
-          real-time diagram generation, a self-healing render pipeline, and
-          three distinct AI teaching personas.
+          Transform complex computer science concepts into interactive, step-by-step 
+          visualizations. Watch algorithms come alive with real-time diagram generation 
+          powered by AI.
         </p>
 
         {/* CTA Buttons */}
         <div
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up"
-          style={{ animationDelay: "0.2s" }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20 opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "0.4s", animationFillMode: "forwards" }}
         >
           <a
-            href="#demo"
-            className="group flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-all glow-primary"
+            href="#launch"
+            className="group relative flex items-center gap-3 px-8 py-4 bg-primary text-primary-foreground font-medium rounded-xl transition-all duration-300 hover:shadow-[0_0_40px_hsl(var(--primary)/0.4)] hover:-translate-y-0.5"
           >
-            <Play className="w-4 h-4" />
-            Start Simulation
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            <Play className="w-5 h-5" />
+            <span>Start Exploring</span>
+            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
           </a>
           <a
-            href="https://github.com/daniilguchua/axiom-engine"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-6 py-3 bg-secondary text-secondary-foreground font-medium rounded-lg hover:bg-secondary/80 transition-colors border border-border"
+            href="#how-it-works"
+            className="flex items-center gap-2 px-8 py-4 bg-secondary/50 text-foreground font-medium rounded-xl border border-border/50 hover:bg-secondary hover:border-border transition-all duration-300"
           >
-            View Documentation
+            <span>How It Works</span>
           </a>
         </div>
 
         {/* Stats */}
         <div
-          className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 animate-slide-up"
-          style={{ animationDelay: "0.3s" }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "0.5s", animationFillMode: "forwards" }}
         >
           {[
-            { value: "10K+", label: "Lines of Code" },
-            { value: "31", label: "API Endpoints" },
-            { value: "85%", label: "Auto-Repair Rate" },
+            { value: "100+", label: "Algorithm Presets" },
+            { value: "Real-time", label: "Visualization" },
             { value: "3", label: "AI Personas" },
+            { value: "PDF", label: "Context Support" },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
-              <div className="text-2xl md:text-3xl font-bold text-foreground">
+              <div className="text-2xl md:text-3xl font-bold gradient-text mb-1">
                 {stat.value}
               </div>
               <div className="text-sm text-muted-foreground">{stat.label}</div>
@@ -184,9 +194,12 @@ export function Hero() {
       </div>
 
       {/* Scroll Indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-        <div className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex items-start justify-center p-2">
-          <div className="w-1 h-2 bg-muted-foreground/50 rounded-full" />
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 opacity-0 animate-fade-in-up" style={{ animationDelay: "0.7s", animationFillMode: "forwards" }}>
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-xs text-muted-foreground uppercase tracking-widest">Scroll</span>
+          <div className="w-5 h-8 rounded-full border border-border/50 flex items-start justify-center p-1.5">
+            <div className="w-1 h-2 bg-primary rounded-full animate-bounce" />
+          </div>
         </div>
       </div>
     </section>

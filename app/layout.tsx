@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -9,13 +9,18 @@ const inter = Inter({
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-jetbrains",
+  variable: "--font-jetbrains-mono",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
 });
 
 export const metadata: Metadata = {
   title: "AXIOM Engine | See Algorithms Think",
   description:
-    "AI-powered interactive algorithm visualization engine. Transform complex CS concepts into step-by-step simulations with real-time diagram generation and self-healing render pipeline.",
+    "AI-powered interactive algorithm visualization engine. Transform complex CS concepts into step-by-step simulations with real-time diagram generation.",
   keywords: [
     "algorithm visualization",
     "AI",
@@ -34,7 +39,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0f",
+  themeColor: "#09090f",
   width: "device-width",
   initialScale: 1,
 };
@@ -47,7 +52,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}
+        className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable} font-sans`}
       >
         {children}
       </body>

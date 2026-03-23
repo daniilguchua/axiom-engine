@@ -2,140 +2,94 @@
 
 import {
   Brain,
-  Wrench,
+  Sparkles,
   FileText,
   Zap,
-  Database,
-  Palette,
-  GitBranch,
-  MessageSquare,
+  Users,
+  MousePointerClick,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const features = [
   {
     icon: Brain,
-    title: "AI Simulation Engine",
+    title: "AI-Powered Generation",
     description:
-      "3 teaching personas with streaming generation. Automatically detects 7 algorithm categories and generates concrete random input data.",
-    gradient: "from-emerald-500/20 to-teal-500/20",
-    iconColor: "text-emerald-400",
+      "Type any algorithm or concept. AXIOM's AI engine generates interactive, step-by-step visualizations with concrete example data automatically.",
   },
   {
-    icon: Wrench,
-    title: "Self-Healing Pipeline",
+    icon: Sparkles,
+    title: "Real-Time Visualization",
     description:
-      "4-tier escalation system with 23+ regex transforms and 13-phase JS sanitizer. Auto-repairs ~85% of render failures.",
-    gradient: "from-blue-500/20 to-cyan-500/20",
-    iconColor: "text-blue-400",
+      "Watch algorithms execute in real-time with animated Mermaid diagrams. Step forward or backward through each operation to understand the flow.",
   },
   {
     icon: FileText,
-    title: "RAG Document System",
+    title: "PDF Context Loading",
     description:
-      "PDF upload with FAISS vector search. 768-dim embeddings with top-4 retrieval for context-grounded responses.",
-    gradient: "from-amber-500/20 to-orange-500/20",
-    iconColor: "text-amber-400",
+      "Upload any PDF document and ask questions with context-aware responses. Perfect for studying textbooks or research papers.",
+  },
+  {
+    icon: Users,
+    title: "3 AI Personas",
+    description:
+      "Choose your learning style: Explorer for beginners, Engineer for detailed analysis, or Architect for advanced theory and edge cases.",
   },
   {
     icon: Zap,
-    title: "Production-Grade Infra",
+    title: "Self-Healing Pipeline",
     description:
-      "Semantic caching, thread-safe sessions, 10 SQLite tables with auto-migration, rate limiting, and prompt injection defense.",
-    gradient: "from-rose-500/20 to-pink-500/20",
-    iconColor: "text-rose-400",
+      "Our 4-tier repair system automatically fixes ~85% of rendering issues. If a diagram breaks, AXIOM repairs it in real-time.",
   },
   {
-    icon: Database,
-    title: "Semantic Caching",
+    icon: MousePointerClick,
+    title: "Interactive Nodes",
     description:
-      "Two-tier caching with SHA-256 hash matching and cosine similarity search. Only verified-complete simulations are cached.",
-    gradient: "from-violet-500/20 to-purple-500/20",
-    iconColor: "text-violet-400",
-  },
-  {
-    icon: Palette,
-    title: "Interactive Visualizations",
-    description:
-      "Mermaid flowcharts with semantic node shapes, zoom & pan controls, clickable node inspection, and draggable data overlays.",
-    gradient: "from-cyan-500/20 to-sky-500/20",
-    iconColor: "text-cyan-400",
-  },
-  {
-    icon: GitBranch,
-    title: "Algorithm Library",
-    description:
-      "Pre-built presets for sorting, graph algorithms, dynamic programming, AI/ML, systems, biology, and mathematics.",
-    gradient: "from-lime-500/20 to-green-500/20",
-    iconColor: "text-lime-400",
-  },
-  {
-    icon: MessageSquare,
-    title: "Node Inspection",
-    description:
-      "Click any node to send context to the LLM. Get tooltips with current value, what changed, and what happens next.",
-    gradient: "from-fuchsia-500/20 to-pink-500/20",
-    iconColor: "text-fuchsia-400",
+      "Click any node in the visualization to get AI explanations. Understand what changed, current values, and what happens next.",
   },
 ];
 
 export function Features() {
   return (
-    <section id="features" className="py-24 md:py-32 relative">
+    <section id="features" className="py-28 md:py-36 relative overflow-hidden">
       {/* Background Elements */}
-      <div className="absolute inset-0 grid-pattern opacity-20" />
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-      <div className="relative max-w-7xl mx-auto px-6">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.05)_0%,_transparent_50%)]" />
+      
+      <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
         {/* Section Header */}
-        <div className="text-center mb-16">
-          <p className="text-primary font-mono text-sm tracking-wider mb-4">
-            CAPABILITIES
-          </p>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4 text-balance">
-            Built for Learning at Scale
+        <div className="text-center mb-20">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-6 rounded-full bg-primary/10 border border-primary/20">
+            <span className="text-xs font-medium text-primary uppercase tracking-wider">Features</span>
+          </div>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6 text-balance">
+            Everything you need to
+            <br />
+            <span className="gradient-text">understand algorithms</span>
           </h2>
-          <p className="max-w-2xl mx-auto text-muted-foreground text-lg text-balance">
-            A comprehensive platform combining AI-powered generation,
-            intelligent error recovery, and interactive visualization.
+          <p className="max-w-2xl mx-auto text-muted-foreground text-lg">
+            A complete learning platform that combines AI generation, interactive 
+            visualization, and intelligent error recovery.
           </p>
         </div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {features.map((feature, index) => (
             <div
               key={feature.title}
-              className={cn(
-                "group relative p-6 rounded-xl bg-card border border-border",
-                "hover:border-primary/30 transition-all duration-300",
-                "glow-card hover:glow-primary"
-              )}
-              style={{ animationDelay: `${index * 0.1}s` }}
+              className="group relative p-8 rounded-2xl bg-card/50 border border-border/50 hover:border-primary/30 transition-all duration-500 hover:bg-card"
             >
-              {/* Gradient Background on Hover */}
-              <div
-                className={cn(
-                  "absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300",
-                  `bg-gradient-to-br ${feature.gradient}`
-                )}
-              />
+              {/* Hover Glow */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
               {/* Content */}
               <div className="relative">
-                <div
-                  className={cn(
-                    "w-12 h-12 rounded-lg flex items-center justify-center mb-4",
-                    "bg-secondary border border-border",
-                    "group-hover:border-primary/30 transition-colors"
-                  )}
-                >
-                  <feature.icon className={cn("w-6 h-6", feature.iconColor)} />
+                <div className="w-14 h-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 group-hover:bg-primary/20 group-hover:border-primary/30 transition-all duration-300">
+                  <feature.icon className="w-7 h-7 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">
+                <h3 className="text-xl font-semibold text-foreground mb-3">
                   {feature.title}
                 </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed">
                   {feature.description}
                 </p>
               </div>
