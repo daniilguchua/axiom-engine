@@ -1,22 +1,3 @@
-/**
- * AXIOM Neural Canvas v3.0 — "The Recruiter Magnet"
- *
- * Enhanced particle system with:
- * 1. Custom shader for smooth circular glow particles
- * 2. Simulated bloom layer for cinematic depth
- * 3. Dramatic burst → converge intro sequence
- * 4. Per-particle size variation & animated pulse
- * 5. Rich violet ↔ cyan color cycling
- * 6. Fluid mouse interaction with vortex physics
- * 7. Multi-layer depth (primary + bloom + ambient)
- *
- * @author AXIOM Engine
- * @version 3.0
- */
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CONFIGURATION
-// ═══════════════════════════════════════════════════════════════════════════
 
 const NEURAL_CONFIG = {
     particles: {
@@ -37,7 +18,7 @@ const NEURAL_CONFIG = {
     timing: {
         introDelay: 0,
         morphDuration: 2000,
-        textRevealDuration: 2000,   // Snappy text formation
+        textRevealDuration: 2000,   
         pulseInterval: 50
     },
 
@@ -52,9 +33,7 @@ const NEURAL_CONFIG = {
     tagline: "SEE ALGORITHMS THINK"
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // TEXT POINT GENERATOR
-// ═══════════════════════════════════════════════════════════════════════════
 
 class TextPointGenerator {
     constructor() {
@@ -109,9 +88,7 @@ class TextPointGenerator {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // SHAPE GENERATORS
-// ═══════════════════════════════════════════════════════════════════════════
 
 function generateScatter(count) {
     const coords = new Float32Array(count * 3);
@@ -127,9 +104,7 @@ function generateScatter(count) {
     return coords;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // THREE.JS INITIALIZATION
-// ═══════════════════════════════════════════════════════════════════════════
 
 const canvas = document.getElementById('neural-canvas');
 if (!canvas) {
@@ -150,9 +125,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 camera.position.z = 400;
 
-// ═══════════════════════════════════════════════════════════════════════════
 // TEXTURES
-// ═══════════════════════════════════════════════════════════════════════════
 
 function createBloomTexture() {
     const size = 128;
@@ -173,9 +146,7 @@ function createBloomTexture() {
     return new THREE.CanvasTexture(c);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // UI STATE (must be declared before animation loop)
-// ═══════════════════════════════════════════════════════════════════════════
 
 let uiState = {
     cardHover: false,
@@ -184,9 +155,8 @@ let uiState = {
     celebrationActive: false
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
+
 // PARTICLE SYSTEM — PRIMARY LAYER (Custom ShaderMaterial)
-// ═══════════════════════════════════════════════════════════════════════════
 
 const textGenerator = new TextPointGenerator();
 const particleCount = NEURAL_CONFIG.particles.primary;
@@ -212,16 +182,13 @@ for (let i = 0; i < particleCount * 3; i++) {
     velocities[i] = 0;
 }
 
-// Initialize per-particle attributes
 for (let i = 0; i < particleCount; i++) {
-    // Size: power distribution — mostly small, some large "stars"
     const r = Math.random();
     sizes[i] = 2.5 + Math.pow(r, 3) * 4.5;  // Range: 2.5–7
 
-    // Phase: random offset for staggered pulse animation
     phases[i] = Math.random() * Math.PI * 2;
 
-    // Alpha: slight variation for organic depth
+    //Alpha: slight variation for organic depth
     alphas[i] = 0.7 + Math.random() * 0.3;
 }
 
@@ -309,9 +276,7 @@ const primaryMaterial = new THREE.ShaderMaterial({
 const particles = new THREE.Points(geometry, primaryMaterial);
 scene.add(particles);
 
-// ═══════════════════════════════════════════════════════════════════════════
 // BLOOM LAYER — Simulated bloom via larger, softer duplicate
-// ═══════════════════════════════════════════════════════════════════════════
 
 const bloomMaterial = new THREE.PointsMaterial({
     size: 14,
@@ -323,13 +288,10 @@ const bloomMaterial = new THREE.PointsMaterial({
     vertexColors: true
 });
 
-// Shares same geometry — positions & colors stay in sync automatically
 const bloomParticles = new THREE.Points(geometry, bloomMaterial);
 scene.add(bloomParticles);
 
-// ═══════════════════════════════════════════════════════════════════════════
 // AMBIENT PARTICLES — BACKGROUND DEPTH LAYER
-// ═══════════════════════════════════════════════════════════════════════════
 
 const ambientCount = NEURAL_CONFIG.particles.ambient;
 const ambientPositions = new Float32Array(ambientCount * 3);
@@ -345,7 +307,6 @@ for (let i = 0; i < ambientCount; i++) {
     ambientVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.5;
     ambientVelocities[i * 3 + 2] = Math.random() * 2;
 
-    // Varying sizes for depth
     ambientSizes[i] = 1 + Math.random() * 2.5;
 }
 
@@ -364,9 +325,8 @@ const ambientMaterial = new THREE.PointsMaterial({
 const ambientParticles = new THREE.Points(ambientGeometry, ambientMaterial);
 scene.add(ambientParticles);
 
-// ═══════════════════════════════════════════════════════════════════════════
+
 // CONNECTION LINES
-// ═══════════════════════════════════════════════════════════════════════════
 
 const connectionMaterial = new THREE.LineBasicMaterial({
     color: NEURAL_CONFIG.colors.primary,
@@ -429,12 +389,10 @@ function updateConnections() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // ANIMATION STATE
-// ═══════════════════════════════════════════════════════════════════════════
 
 const state = {
-    phase: 'intro',           // 'intro', 'text', 'idle'
+    phase: 'intro',
     time: 0,
     introProgress: 0,
     currentShape: 'scatter',
@@ -444,9 +402,7 @@ const state = {
     connectionTimer: 0
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // INTRO SEQUENCE — Burst from center → converge to text → scatter
-// ═══════════════════════════════════════════════════════════════════════════
 
 function startIntroSequence() {
     const textCoords = textGenerator.generatePoints(NEURAL_CONFIG.heroText, 180, particleCount);
@@ -457,17 +413,14 @@ function startIntroSequence() {
     for (let i = 0; i < particleCount; i++) {
         const ix = i * 3, iy = i * 3 + 1, iz = i * 3 + 2;
 
-        // Start compressed at center
         positions[ix] = (Math.random() - 0.5) * 20;
         positions[iy] = (Math.random() - 0.5) * 20;
         positions[iz] = (Math.random() - 0.5) * 20;
 
-        // Target = AXIOM text positions
         targetPositions[ix] = textCoords[ix];
         targetPositions[iy] = textCoords[iy];
         targetPositions[iz] = textCoords[iz];
 
-        // Burst velocity — radial explosion from center
         const angle = Math.random() * Math.PI * 2;
         const elevation = (Math.random() - 0.5) * Math.PI;
         const speed = 6 + Math.random() * 12;
@@ -477,14 +430,12 @@ function startIntroSequence() {
         velocities[iz] = Math.sin(angle) * Math.cos(elevation) * speed * 0.3;
     }
 
-    // After particles settle into text, transition to 'text' phase
     setTimeout(() => {
         if (state.phase === 'intro') {
             state.phase = 'text';
         }
     }, NEURAL_CONFIG.timing.textRevealDuration);
 
-    // After holding text, scatter to idle
     setTimeout(() => {
         if (state.phase === 'text') {
             const scatterCoords = generateScatter(particleCount);
@@ -498,9 +449,8 @@ function startIntroSequence() {
     }, NEURAL_CONFIG.timing.textRevealDuration + 3500);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+
 // MOUSE INTERACTION
-// ═══════════════════════════════════════════════════════════════════════════
 
 let mouseVector = new THREE.Vector3();
 let raycaster = new THREE.Raycaster();
@@ -521,9 +471,7 @@ document.addEventListener('mouseleave', () => {
     state.isMouseActive = false;
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
 // MAIN ANIMATION LOOP
-// ═══════════════════════════════════════════════════════════════════════════
 
 function animate() {
     requestAnimationFrame(animate);
@@ -533,12 +481,9 @@ function animate() {
     const isChat = (window.AXIOM?.state?.appMode === 'CHAT') || (window.appMode === 'CHAT');
     const isBusy = (window.AXIOM?.state?.isProcessing === true) || (window.isProcessing === true);
 
-    // Update shader time uniform
     primaryMaterial.uniforms.uTime.value = state.time;
 
-    // ─────────────────────────────────────────────────────────────────────
     // OPACITY & SIZE based on mode
-    // ─────────────────────────────────────────────────────────────────────
 
     let targetOpacity, bloomTargetOpacity;
 
@@ -557,13 +502,11 @@ function animate() {
         bloomTargetOpacity = 0.07;
     }
 
-    // Smooth lerp opacity (shader handles per-particle alpha)
     primaryMaterial.opacity += (targetOpacity - primaryMaterial.opacity) * 0.05;
     bloomMaterial.opacity += (bloomTargetOpacity - bloomMaterial.opacity) * 0.05;
 
-    // ─────────────────────────────────────────────────────────────────────
+    
     // COLOR ANIMATION — violet ↔ cyan flow
-    // ─────────────────────────────────────────────────────────────────────
 
     const colorTime = state.time * 0.3;
     const hue1 = 0.75 + Math.sin(colorTime) * 0.08;         // Violet range
@@ -585,18 +528,15 @@ function animate() {
     }
     geometry.attributes.color.needsUpdate = true;
 
-    // ─────────────────────────────────────────────────────────────────────
     // PARTICLE PHYSICS
-    // ─────────────────────────────────────────────────────────────────────
 
-    // Adaptive physics: softer during intro for dramatic convergence
     const returnSpeed = state.phase === 'intro' ? 0.025 : NEURAL_CONFIG.physics.returnSpeed;
     const damping = state.phase === 'intro' ? 0.935 : 0.95;
     const mouseInfluence = NEURAL_CONFIG.physics.mouseInfluence;
     const mouseStrength = NEURAL_CONFIG.physics.mouseStrength;
     const drift = NEURAL_CONFIG.physics.drift;
 
-    // Processing wave effect
+    //Processing wave effect
     const waveTime = state.time * 3;
     const processingIntensity = uiState.processingIntensity;
 
@@ -613,12 +553,10 @@ function animate() {
         const ty = targetPositions[iy];
         const tz = targetPositions[iz];
 
-        // Spring force toward target
         let fx = (tx - x) * returnSpeed;
         let fy = (ty - y) * returnSpeed;
         let fz = (tz - z) * returnSpeed;
 
-        // Mouse interaction — repulsion + inner attraction vortex
         if (state.isMouseActive && state.phase !== 'intro') {
             const dx = x - mouseVector.x;
             const dy = y - mouseVector.y;
@@ -629,11 +567,9 @@ function animate() {
                 const normalDy = dy / dist;
 
                 if (dist < 20) {
-                    // Inner zone: gentle attraction (vortex)
                     const attract = (1 - dist / 20) * 0.02;
                     fx -= normalDx * attract * 50;
                     fy -= normalDy * attract * 50;
-                    // Add tangential force for swirl
                     fx += normalDy * attract * 15;
                     fy -= normalDx * attract * 15;
                 } else {
@@ -687,9 +623,7 @@ function animate() {
 
     geometry.attributes.position.needsUpdate = true;
 
-    // ─────────────────────────────────────────────────────────────────────
     // AMBIENT PARTICLES
-    // ─────────────────────────────────────────────────────────────────────
 
     for (let i = 0; i < ambientCount; i++) {
         ambientPositions[i * 3] += ambientVelocities[i * 3];
@@ -704,9 +638,7 @@ function animate() {
     }
     ambientGeometry.attributes.position.needsUpdate = true;
 
-    // ─────────────────────────────────────────────────────────────────────
     // CONNECTION LINES — pulsing opacity
-    // ─────────────────────────────────────────────────────────────────────
 
     state.connectionTimer += 0.016;
     if (state.connectionTimer > 0.5 && state.phase !== 'intro') {
@@ -717,9 +649,7 @@ function animate() {
     // Pulse connection opacity
     connectionMaterial.opacity = 0.08 + Math.sin(state.time * 1.5) * 0.04;
 
-    // ─────────────────────────────────────────────────────────────────────
     // CAMERA MOVEMENT
-    // ─────────────────────────────────────────────────────────────────────
 
     const camX = Math.sin(state.time * 0.2) * 20 + (isChat ? 30 : 0);
     const camY = Math.cos(state.time * 0.15) * 10;
@@ -730,9 +660,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // EASING FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
 
 function easeOutCubic(t) {
     return 1 - Math.pow(1 - t, 3);
@@ -742,9 +670,7 @@ function easeInOutCubic(t) {
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API
-// ═══════════════════════════════════════════════════════════════════════════
 
 window.neuralCanvas = {
     reset() {
@@ -806,7 +732,6 @@ window.neuralCanvas = {
             velocities[i * 3 + 1] += Math.sin(angle) * force * 0.12;
         }
 
-        // Flash bright
         for (let i = 0; i < particleCount; i++) {
             alphas[i] = 1.0;
         }
@@ -844,9 +769,7 @@ window.neuralCanvas = {
     }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // EVENT LISTENERS
-// ═══════════════════════════════════════════════════════════════════════════
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
